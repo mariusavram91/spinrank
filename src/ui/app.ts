@@ -3,6 +3,7 @@ import type {
   ApiActionMap,
   AppSession,
   BootstrapUserData,
+  CreateMatchPayload,
   GetMatchesData,
   LeaderboardEntry,
   MatchRecord,
@@ -26,6 +27,7 @@ interface DashboardState {
   loading: boolean;
   error: string;
   leaderboard: LeaderboardEntry[];
+  players: LeaderboardEntry[];
   leaderboardUpdatedAt: string;
   segmentMode: SegmentMode;
   selectedSeasonId: string;
@@ -35,6 +37,10 @@ interface DashboardState {
   matches: MatchRecord[];
   matchesCursor: string | null;
   matchesLoading: boolean;
+  matchSubmitting: boolean;
+  matchFormError: string;
+  matchFormMessage: string;
+  pendingCreateRequestId: string;
 }
 
 const formatDateTime = (value: string): string =>
@@ -47,8 +53,6 @@ const formatDate = (value: string): string =>
   new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
   }).format(new Date(value));
-
-const formatExpiry = (expiresAt: string): string => formatDateTime(expiresAt);
 
 const buildSessionFromBootstrap = (data: BootstrapUserData): AppSession => ({
   sessionToken: data.sessionToken,
@@ -74,6 +78,21 @@ const renderStreak = (streak: number): string => {
 const renderMatchScore = (match: MatchRecord): string =>
   match.score.map((game) => `${game.teamA}-${game.teamB}`).join(" • ");
 
+const toLocalDateTimeValue = (value: string): string => {
+  const date = new Date(value);
+  const parts = [
+    date.getFullYear().toString().padStart(4, "0"),
+    (date.getMonth() + 1).toString().padStart(2, "0"),
+    date.getDate().toString().padStart(2, "0"),
+  ];
+  const time = [
+    date.getHours().toString().padStart(2, "0"),
+    date.getMinutes().toString().padStart(2, "0"),
+  ];
+
+  return `${parts.join("-")}T${time.join(":")}`;
+};
+
 export const buildApp = (): HTMLElement => {
   const container = document.createElement("main");
   container.className = "shell";
@@ -82,32 +101,12 @@ export const buildApp = (): HTMLElement => {
   card.className = "panel";
 
   const header = document.createElement("header");
-  header.className = "hero";
+  header.className = "topbar";
 
-  const eyebrow = document.createElement("p");
-  eyebrow.className = "eyebrow";
-  eyebrow.textContent = `Milestone 2 read flows • ${env.appEnv}`;
-
-  const title = document.createElement("h1");
-  title.textContent = env.appName;
-
-  const description = document.createElement("p");
-  description.className = "lede";
-  description.textContent =
-    "Browse the global ladder, switch into season or tournament segments, and page through recent matches without leaving the authenticated shell.";
-
-  const authCard = document.createElement("section");
-  authCard.className = "auth-card";
-
-  const statusLabel = document.createElement("p");
-  statusLabel.className = "status-label";
-  statusLabel.textContent = "Session state";
-
-  const statusMessage = document.createElement("p");
-  statusMessage.className = "status-message";
-
-  const detailMessage = document.createElement("p");
-  detailMessage.className = "detail-message";
+  const brandMark = document.createElement("img");
+  brandMark.className = "brand-mark";
+  brandMark.src = `${import.meta.env.BASE_URL}assets/logo.png`;
+  brandMark.alt = "SpinRank logo";
 
   const providerStack = document.createElement("div");
   providerStack.className = "provider-stack";
@@ -191,6 +190,82 @@ export const buildApp = (): HTMLElement => {
   const matchesPanel = document.createElement("section");
   matchesPanel.className = "content-card";
 
+  const composerPanel = document.createElement("section");
+  composerPanel.className = "content-card composer-card";
+
+  const composerTop = document.createElement("div");
+  composerTop.className = "card-header";
+
+  const composerHeading = document.createElement("div");
+
+  const composerTitle = document.createElement("h3");
+  composerTitle.className = "card-title";
+  composerTitle.textContent = "Create match";
+
+  const composerMeta = document.createElement("p");
+  composerMeta.className = "card-meta";
+  composerMeta.textContent = "Milestone 3 write flow with backend validation";
+
+  const composerStatus = document.createElement("p");
+  composerStatus.className = "form-status";
+
+  const matchForm = document.createElement("form");
+  matchForm.className = "match-form";
+
+  const matchTypeSelect = document.createElement("select");
+  matchTypeSelect.className = "select-input";
+
+  const formatTypeSelect = document.createElement("select");
+  formatTypeSelect.className = "select-input";
+
+  const pointsToWinSelect = document.createElement("select");
+  pointsToWinSelect.className = "select-input";
+
+  const playedAtInput = document.createElement("input");
+  playedAtInput.className = "text-input";
+  playedAtInput.type = "datetime-local";
+
+  const formSeasonSelect = document.createElement("select");
+  formSeasonSelect.className = "select-input";
+
+  const formTournamentSelect = document.createElement("select");
+  formTournamentSelect.className = "select-input";
+
+  const teamA1Select = document.createElement("select");
+  teamA1Select.className = "select-input";
+  const teamA2Select = document.createElement("select");
+  teamA2Select.className = "select-input";
+  const teamB1Select = document.createElement("select");
+  teamB1Select.className = "select-input";
+  const teamB2Select = document.createElement("select");
+  teamB2Select.className = "select-input";
+
+  const winnerTeamSelect = document.createElement("select");
+  winnerTeamSelect.className = "select-input";
+
+  const scoreGrid = document.createElement("div");
+  scoreGrid.className = "score-grid";
+
+  const scoreInputs = Array.from({ length: 3 }, () => ({
+    teamA: Object.assign(document.createElement("input"), {
+      className: "text-input",
+      type: "number",
+      min: "0",
+      step: "1",
+    }),
+    teamB: Object.assign(document.createElement("input"), {
+      className: "text-input",
+      type: "number",
+      min: "0",
+      step: "1",
+    }),
+  }));
+
+  const submitMatchButton = document.createElement("button");
+  submitMatchButton.type = "submit";
+  submitMatchButton.className = "primary-button";
+  submitMatchButton.textContent = "Create match";
+
   const matchesTop = document.createElement("div");
   matchesTop.className = "card-header";
 
@@ -212,12 +287,6 @@ export const buildApp = (): HTMLElement => {
   loadMoreButton.className = "secondary-button";
   loadMoreButton.textContent = "Load more";
 
-  const configList = document.createElement("dl");
-  configList.className = "config-list";
-
-  const checklist = document.createElement("ul");
-  checklist.className = "checklist";
-
   const state: { current: ViewState } = {
     current: (() => {
       const existing = loadSession();
@@ -233,6 +302,7 @@ export const buildApp = (): HTMLElement => {
     loading: false,
     error: "",
     leaderboard: [],
+    players: [],
     leaderboardUpdatedAt: "",
     segmentMode: "global",
     selectedSeasonId: "",
@@ -242,26 +312,21 @@ export const buildApp = (): HTMLElement => {
     matches: [],
     matchesCursor: null,
     matchesLoading: false,
+    matchSubmitting: false,
+    matchFormError: "",
+    matchFormMessage: "",
+    pendingCreateRequestId: "",
   };
 
   const syncAuthState = (): void => {
-    statusMessage.textContent = state.current.message;
-    statusMessage.dataset.status = state.current.status;
-
     if (isAuthedState(state.current)) {
-      detailMessage.textContent = `${state.current.session.user.displayName} • Session expires ${formatExpiry(
-        state.current.session.expiresAt,
-      )}`;
-      providerStack.replaceChildren(refreshButton, logoutButton);
+      providerStack.replaceChildren(logoutButton);
       dashboard.hidden = false;
-      welcomeTitle.textContent = `${state.current.session.user.displayName}'s dashboard`;
-      welcomeText.textContent = `Signed in with ${state.current.session.user.provider}. Read flows stay behind the app session issued by the backend.`;
+      welcomeTitle.textContent = "Dashboard";
+      welcomeText.textContent = "";
       return;
     }
 
-    detailMessage.textContent = env.backendUrl
-      ? `Backend: ${env.backendUrl}`
-      : "Backend: VITE_API_BASE_URL is not set";
     providerStack.replaceChildren(googleSlot);
     dashboard.hidden = true;
   };
@@ -281,8 +346,8 @@ export const buildApp = (): HTMLElement => {
     dashboardStatus.textContent = dashboardState.error
       ? dashboardState.error
       : dashboardState.loading
-        ? "Refreshing leaderboard and matches..."
-        : "Read models loaded from the Apps Script backend.";
+        ? "Refreshing..."
+        : "";
     dashboardStatus.dataset.status = dashboardState.error ? "error" : "ready";
 
     [globalButton, seasonButton, tournamentButton].forEach((button) => {
@@ -305,6 +370,9 @@ export const buildApp = (): HTMLElement => {
     refreshButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     loadMoreButton.disabled = dashboardState.matchesLoading;
     loadMoreButton.hidden = !dashboardState.matchesCursor;
+    submitMatchButton.disabled = dashboardState.matchSubmitting || dashboardState.loading;
+    composerStatus.textContent = dashboardState.matchFormError || dashboardState.matchFormMessage;
+    composerStatus.dataset.status = dashboardState.matchFormError ? "error" : "ready";
 
     if (dashboardState.leaderboard.length === 0) {
       const empty = document.createElement("p");
@@ -385,6 +453,33 @@ export const buildApp = (): HTMLElement => {
     }
   };
 
+  const replaceOptions = (
+    select: HTMLSelectElement,
+    options: Array<{ value: string; label: string }>,
+    selectedValue: string,
+    emptyLabel: string,
+  ): void => {
+    const nextOptions =
+      options.length > 0
+        ? options
+        : [
+            {
+              value: "",
+              label: emptyLabel,
+            },
+          ];
+
+    select.replaceChildren(
+      ...nextOptions.map((option) => {
+        const node = document.createElement("option");
+        node.value = option.value;
+        node.textContent = option.label;
+        node.selected = option.value === selectedValue;
+        return node;
+      }),
+    );
+  };
+
   const setIdleState = (): void => {
     state.current = hasBackendConfig
       ? { status: "idle", message: "Sign in with Google to open the leaderboard." }
@@ -398,12 +493,13 @@ export const buildApp = (): HTMLElement => {
   const runAuthedAction = async <TAction extends ApiAction>(
     action: TAction,
     payload: ApiActionMap[TAction]["payload"],
+    requestId?: string,
   ): Promise<ApiActionMap[TAction]["data"]> => {
     if (!isAuthedState(state.current)) {
       throw new Error("You must be signed in.");
     }
 
-    const response = await postAction(action, payload, state.current.session.sessionToken);
+    const response = await postAction(action, payload, state.current.session.sessionToken, requestId);
     if (!response.ok || !response.data) {
       if (response.error?.code === "UNAUTHORIZED") {
         clearSession();
@@ -453,6 +549,132 @@ export const buildApp = (): HTMLElement => {
     }
 
     tournamentSelect.replaceChildren(...options);
+  };
+
+  const populateMatchFormOptions = (): void => {
+    replaceOptions(
+      matchTypeSelect,
+      [
+        { value: "singles", label: "Singles" },
+        { value: "doubles", label: "Doubles" },
+      ],
+      matchTypeSelect.value || "singles",
+      "No match type",
+    );
+
+    replaceOptions(
+      formatTypeSelect,
+      [
+        { value: "single_game", label: "Single game" },
+        { value: "best_of_3", label: "Best of 3" },
+      ],
+      formatTypeSelect.value || "single_game",
+      "No format",
+    );
+
+    replaceOptions(
+      pointsToWinSelect,
+      [
+        { value: "11", label: "11 points" },
+        { value: "21", label: "21 points" },
+      ],
+      pointsToWinSelect.value || "11",
+      "No points",
+    );
+
+    replaceOptions(
+      winnerTeamSelect,
+      [
+        { value: "A", label: "Team A" },
+        { value: "B", label: "Team B" },
+      ],
+      winnerTeamSelect.value || "A",
+      "No winner",
+    );
+
+    const playerOptions = dashboardState.players.map((player) => ({
+      value: player.userId,
+      label: `${player.displayName} (${player.elo})`,
+    }));
+    [teamA1Select, teamA2Select, teamB1Select, teamB2Select].forEach((select, index) => {
+      replaceOptions(select, playerOptions, select.value, `Player ${index + 1} unavailable`);
+    });
+
+    replaceOptions(
+      formSeasonSelect,
+      [
+        { value: "", label: "No season" },
+        ...dashboardState.seasons.map((season) => ({
+          value: season.id,
+          label: season.name,
+        })),
+      ],
+      formSeasonSelect.value || dashboardState.selectedSeasonId,
+      "No season",
+    );
+
+    const filteredTournaments = dashboardState.tournaments.filter((tournament) => {
+      return !formSeasonSelect.value || tournament.seasonId === formSeasonSelect.value;
+    });
+
+    replaceOptions(
+      formTournamentSelect,
+      [
+        { value: "", label: "No tournament" },
+        ...filteredTournaments.map((tournament) => ({
+          value: tournament.id,
+          label: tournament.name,
+        })),
+      ],
+      formTournamentSelect.value,
+      "No tournament",
+    );
+
+    const isDoubles = matchTypeSelect.value === "doubles";
+    teamA2Select.hidden = !isDoubles;
+    teamB2Select.hidden = !isDoubles;
+
+    const visibleGames = formatTypeSelect.value === "best_of_3" ? 3 : 1;
+    scoreInputs.forEach((game, index) => {
+      const row = scoreGrid.children[index] as HTMLElement | undefined;
+      if (row) {
+        row.hidden = index >= visibleGames;
+      }
+    });
+  };
+
+  const collectMatchPayload = (): CreateMatchPayload => {
+    const playerIdsA = [teamA1Select.value];
+    const playerIdsB = [teamB1Select.value];
+
+    if (matchTypeSelect.value === "doubles") {
+      playerIdsA.push(teamA2Select.value);
+      playerIdsB.push(teamB2Select.value);
+    }
+
+    const visibleGames = formatTypeSelect.value === "best_of_3" ? 3 : 1;
+    const score = scoreInputs
+      .slice(0, visibleGames)
+      .filter((game) => game.teamA.value !== "" && game.teamB.value !== "")
+      .map((game) => ({
+        teamA: Number(game.teamA.value),
+        teamB: Number(game.teamB.value),
+      }));
+
+    const playedAt = playedAtInput.value ? new Date(playedAtInput.value).toISOString() : "";
+
+    return {
+      matchType: matchTypeSelect.value as CreateMatchPayload["matchType"],
+      formatType: formatTypeSelect.value as CreateMatchPayload["formatType"],
+      pointsToWin: Number(pointsToWinSelect.value) as 11 | 21,
+      teamAPlayerIds: playerIdsA,
+      teamBPlayerIds: playerIdsB,
+      score,
+      winnerTeam: winnerTeamSelect.value as CreateMatchPayload["winnerTeam"],
+      playedAt,
+      seasonId: formSeasonSelect.value || null,
+      tournamentId: formTournamentSelect.value || null,
+    };
   };
 
   const loadLeaderboard = async (): Promise<void> => {
@@ -512,6 +734,7 @@ export const buildApp = (): HTMLElement => {
         dashboardState.selectedSeasonId || seasonsData.seasons.find((season) => season.isActive)?.id || seasonsData.seasons[0]?.id || "";
       dashboardState.selectedTournamentId =
         dashboardState.selectedTournamentId || tournamentsData.tournaments[0]?.id || "";
+      dashboardState.players = globalData.leaderboard;
       dashboardState.leaderboard = globalData.leaderboard;
       dashboardState.leaderboardUpdatedAt = globalData.updatedAt;
       dashboardState.matches = matchesData.matches;
@@ -519,6 +742,11 @@ export const buildApp = (): HTMLElement => {
 
       populateSeasonOptions();
       populateTournamentOptions();
+      populateMatchFormOptions();
+
+      if (dashboardState.segmentMode !== "global") {
+        await loadLeaderboard();
+      }
     } catch (error) {
       dashboardState.error = error instanceof Error ? error.message : "Failed to load dashboard data.";
     } finally {
@@ -562,6 +790,44 @@ export const buildApp = (): HTMLElement => {
       dashboardState.error = error instanceof Error ? error.message : "Failed to load leaderboard.";
     } finally {
       dashboardState.loading = false;
+      syncDashboardState();
+    }
+  };
+
+  const submitMatch = async (): Promise<void> => {
+    dashboardState.matchSubmitting = true;
+    dashboardState.matchFormError = "";
+    dashboardState.matchFormMessage = "";
+    if (!dashboardState.pendingCreateRequestId) {
+      dashboardState.pendingCreateRequestId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `match_${Date.now()}`;
+    }
+    syncDashboardState();
+
+    try {
+      const payload = collectMatchPayload();
+      const data = await runAuthedAction(
+        "createMatch",
+        payload,
+        dashboardState.pendingCreateRequestId,
+      );
+      dashboardState.matchFormMessage = `Match created for ${formatDateTime(data.match.playedAt)}.`;
+      dashboardState.pendingCreateRequestId = "";
+      scoreInputs.forEach((game, index) => {
+        if (index > 0) {
+          game.teamA.value = "";
+          game.teamB.value = "";
+        }
+      });
+      playedAtInput.value = toLocalDateTimeValue(new Date().toISOString());
+      await loadDashboard();
+    } catch (error) {
+      dashboardState.matchFormError =
+        error instanceof Error ? error.message : "Failed to create match.";
+    } finally {
+      dashboardState.matchSubmitting = false;
       syncDashboardState();
     }
   };
@@ -644,6 +910,18 @@ export const buildApp = (): HTMLElement => {
     void loadMoreMatches();
   });
 
+  [matchTypeSelect, formatTypeSelect, formSeasonSelect].forEach((input) => {
+    input.addEventListener("change", () => {
+      populateMatchFormOptions();
+      syncDashboardState();
+    });
+  });
+
+  matchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void submitMatch();
+  });
+
   const sessionTicker = window.setInterval(() => {
     if (!isAuthedState(state.current)) {
       return;
@@ -663,29 +941,6 @@ export const buildApp = (): HTMLElement => {
     window.clearInterval(sessionTicker);
   });
 
-  [
-    "Google Sign-In still opens the authenticated shell",
-    "Global leaderboard is sorted from the users sheet",
-    "Season and tournament leaderboards come from elo_segments",
-    "Match history loads in pages of 10 with stable cursors",
-    "All read actions require the backend-issued app session",
-  ].forEach((item) => {
-    const row = document.createElement("li");
-    row.textContent = item;
-    checklist.append(row);
-  });
-
-  [
-    ["Backend", env.backendUrl || "Not configured"],
-    ["Google Client ID", env.googleClientId || "Not configured"],
-  ].forEach(([term, detail]) => {
-    const dt = document.createElement("dt");
-    dt.textContent = term;
-    const dd = document.createElement("dd");
-    dd.textContent = detail;
-    configList.append(dt, dd);
-  });
-
   leaderboardHeading.append(leaderboardTitle, leaderboardMeta);
   segmentToggle.append(globalButton, seasonButton, tournamentButton);
   leaderboardTop.append(leaderboardHeading, segmentToggle);
@@ -695,18 +950,66 @@ export const buildApp = (): HTMLElement => {
   matchesTop.append(matchesHeading);
   matchesPanel.append(matchesTop, matchesList, loadMoreButton);
 
+  composerHeading.append(composerTitle, composerMeta);
+  composerTop.append(composerHeading);
+
+  const buildField = (labelText: string, input: HTMLElement): HTMLLabelElement => {
+    const label = document.createElement("label");
+    label.className = "form-field";
+    const copy = document.createElement("span");
+    copy.className = "field-label";
+    copy.textContent = labelText;
+    label.append(copy, input);
+    return label;
+  };
+
+  const teamGrid = document.createElement("div");
+  teamGrid.className = "team-grid";
+  teamGrid.append(
+    buildField("Team A player 1", teamA1Select),
+    buildField("Team A player 2", teamA2Select),
+    buildField("Team B player 1", teamB1Select),
+    buildField("Team B player 2", teamB2Select),
+  );
+
+  scoreInputs.forEach((game, index) => {
+    const row = document.createElement("div");
+    row.className = "score-row";
+    row.append(
+      buildField(`Game ${index + 1} team A`, game.teamA),
+      buildField(`Game ${index + 1} team B`, game.teamB),
+    );
+    scoreGrid.append(row);
+  });
+
+  matchForm.append(
+    buildField("Match type", matchTypeSelect),
+    buildField("Format", formatTypeSelect),
+    buildField("Points to win", pointsToWinSelect),
+    buildField("Played at", playedAtInput),
+    buildField("Season", formSeasonSelect),
+    buildField("Tournament", formTournamentSelect),
+    teamGrid,
+    buildField("Winner", winnerTeamSelect),
+    scoreGrid,
+    submitMatchButton,
+  );
+
+  composerPanel.append(composerTop, composerStatus, matchForm);
+
   welcomeBlock.append(welcomeTitle, welcomeText);
-  actionsBar.append(refreshButton, logoutButton);
+  actionsBar.append(refreshButton);
   dashboardHeader.append(welcomeBlock, actionsBar);
   viewGrid.append(leaderboardPanel, matchesPanel);
-  dashboard.append(dashboardHeader, dashboardStatus, viewGrid);
+  dashboard.append(dashboardHeader, dashboardStatus, composerPanel, viewGrid);
 
-  authCard.append(statusLabel, statusMessage, detailMessage, providerStack);
-  header.append(eyebrow, title, description);
-  card.append(header, authCard, dashboard, configList, checklist);
+  header.append(brandMark, providerStack);
+  card.append(header, dashboard);
   container.append(card);
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());
+  playedAtInput.value = toLocalDateTimeValue(new Date().toISOString());
+  populateMatchFormOptions();
 
   if (hasBackendConfig && isProviderConfigured()) {
     void renderGoogleButton(googleSlot, handleBootstrap).catch((error: unknown) => {

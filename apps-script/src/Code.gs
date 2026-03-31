@@ -5,6 +5,7 @@ var MATCHES_SHEET_NAME = "matches";
 var SEASONS_SHEET_NAME = "seasons";
 var TOURNAMENTS_SHEET_NAME = "tournaments";
 var ELO_SEGMENTS_SHEET_NAME = "elo_segments";
+var AUDIT_LOG_SHEET_NAME = "audit_log";
 
 var USERS_HEADERS = [
   "id",
@@ -74,6 +75,15 @@ var ELO_SEGMENTS_HEADERS = [
   "updated_at",
 ];
 
+var AUDIT_LOG_HEADERS = [
+  "id",
+  "action",
+  "actor_user_id",
+  "target_id",
+  "payload_json",
+  "created_at",
+];
+
 function doGet() {
   return jsonResponse_(successResponse_("get-health", buildHealthData_()));
 }
@@ -102,6 +112,10 @@ function doPost(e) {
 
     if (request.action === "getMatches") {
       return jsonResponse_(handleGetMatches_(request));
+    }
+
+    if (request.action === "createMatch") {
+      return jsonResponse_(handleCreateMatch_(request));
     }
 
     if (request.action === "getSeasons") {
@@ -244,6 +258,39 @@ function handleGetTournaments_(request) {
   return successResponse_(request.requestId, {
     tournaments: tournaments,
   });
+}
+
+function handleCreateMatch_(request) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    var existingResult = getExistingCreateMatchResult_(request.requestId);
+    if (existingResult) {
+      return successResponse_(request.requestId, existingResult);
+    }
+
+    var payload = validateCreateMatchPayload_(request.payload || {});
+    var context = buildCreateMatchContext_(payload, request.sessionUser, request.requestId);
+    persistCreateMatch_(context);
+    appendAuditLog_(
+      "createMatch",
+      request.sessionUser.id,
+      context.match.id,
+      {
+        requestId: request.requestId,
+        payloadHash: sha256Hex_(JSON.stringify(request.payload || {})),
+        matchId: context.match.id,
+      },
+      context.nowIso
+    );
+
+    return successResponse_(request.requestId, {
+      match: context.match,
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function verifyGoogleIdToken_(idToken, nonce) {
@@ -581,6 +628,629 @@ function getUserById_(userId) {
     }
   }
 
+  return null;
+}
+
+function validateCreateMatchPayload_(payload) {
+  var matchType = payload.matchType;
+  var formatType = payload.formatType;
+  var pointsToWin = Number(payload.pointsToWin);
+  var teamAPlayerIds = normalizePlayerIds_(payload.teamAPlayerIds);
+  var teamBPlayerIds = normalizePlayerIds_(payload.teamBPlayerIds);
+  var score = normalizeScore_(payload.score);
+  var winnerTeam = payload.winnerTeam;
+  var playedAt = String(payload.playedAt || "");
+  var seasonId = payload.seasonId ? String(payload.seasonId) : null;
+  var tournamentId = payload.tournamentId ? String(payload.tournamentId) : null;
+
+  if (matchType !== "singles" && matchType !== "doubles") {
+    throw validationError_("createMatch requires matchType to be singles or doubles.");
+  }
+
+  if (formatType !== "single_game" && formatType !== "best_of_3") {
+    throw validationError_("createMatch requires formatType to be single_game or best_of_3.");
+  }
+
+  if (pointsToWin !== 11 && pointsToWin !== 21) {
+    throw validationError_("createMatch pointsToWin must be 11 or 21.");
+  }
+
+  if (winnerTeam !== "A" && winnerTeam !== "B") {
+    throw validationError_("createMatch winnerTeam must be A or B.");
+  }
+
+  if (!playedAt || isNaN(Date.parse(playedAt))) {
+    throw validationError_("createMatch playedAt must be a valid ISO-8601 timestamp.");
+  }
+
+  var expectedTeamSize = matchType === "singles" ? 1 : 2;
+  if (teamAPlayerIds.length !== expectedTeamSize || teamBPlayerIds.length !== expectedTeamSize) {
+    throw validationError_("Team sizes do not match the selected match type.");
+  }
+
+  var seenPlayers = {};
+  var index;
+  for (index = 0; index < teamAPlayerIds.length; index += 1) {
+    seenPlayers[teamAPlayerIds[index]] = true;
+  }
+  for (index = 0; index < teamBPlayerIds.length; index += 1) {
+    if (seenPlayers[teamBPlayerIds[index]]) {
+      throw validationError_("A player cannot appear on both teams.");
+    }
+  }
+
+  validateMatchScore_(formatType, pointsToWin, score, winnerTeam);
+
+  return {
+    matchType: matchType,
+    formatType: formatType,
+    pointsToWin: pointsToWin,
+    teamAPlayerIds: teamAPlayerIds,
+    teamBPlayerIds: teamBPlayerIds,
+    score: score,
+    winnerTeam: winnerTeam,
+    playedAt: playedAt,
+    seasonId: seasonId,
+    tournamentId: tournamentId,
+  };
+}
+
+function normalizePlayerIds_(value) {
+  if (Object.prototype.toString.call(value) !== "[object Array]") {
+    throw validationError_("Player team lists must be arrays.");
+  }
+
+  var normalized = [];
+  var seen = {};
+  for (var index = 0; index < value.length; index += 1) {
+    var playerId = String(value[index] || "").trim();
+    if (!playerId) {
+      throw validationError_("Player IDs cannot be empty.");
+    }
+    if (seen[playerId]) {
+      throw validationError_("A team cannot contain the same player twice.");
+    }
+    seen[playerId] = true;
+    normalized.push(playerId);
+  }
+  return normalized;
+}
+
+function normalizeScore_(value) {
+  if (Object.prototype.toString.call(value) !== "[object Array]" || !value.length) {
+    throw validationError_("Score must include at least one game.");
+  }
+
+  return value.map(function (game) {
+    if (!game || typeof game !== "object") {
+      throw validationError_("Each score entry must be an object.");
+    }
+
+    var teamA = Number(game.teamA);
+    var teamB = Number(game.teamB);
+    if (
+      !isFinite(teamA) ||
+      !isFinite(teamB) ||
+      teamA < 0 ||
+      teamB < 0 ||
+      Math.floor(teamA) !== teamA ||
+      Math.floor(teamB) !== teamB
+    ) {
+      throw validationError_("Game scores must be non-negative integers.");
+    }
+
+    return {
+      teamA: teamA,
+      teamB: teamB,
+    };
+  });
+}
+
+function validateMatchScore_(formatType, pointsToWin, score, winnerTeam) {
+  var requiredWins = formatType === "single_game" ? 1 : 2;
+  var maxGames = formatType === "single_game" ? 1 : 3;
+
+  if (score.length < requiredWins || score.length > maxGames) {
+    throw validationError_("Score length does not match the selected format.");
+  }
+
+  var teamAWins = 0;
+  var teamBWins = 0;
+
+  for (var index = 0; index < score.length; index += 1) {
+    var game = score[index];
+    var hasWinner = game.teamA >= pointsToWin || game.teamB >= pointsToWin;
+    if (!hasWinner || game.teamA === game.teamB) {
+      throw validationError_("Each game must have exactly one team reach the target score.");
+    }
+
+    if (game.teamA > pointsToWin || game.teamB > pointsToWin) {
+      throw validationError_("Overtime scoring is not supported in the MVP.");
+    }
+
+    if (game.teamA >= pointsToWin && game.teamB >= pointsToWin) {
+      throw validationError_("Only one team can reach the target score in a game.");
+    }
+
+    if (game.teamA > game.teamB) {
+      teamAWins += 1;
+    } else {
+      teamBWins += 1;
+    }
+
+    if (index < score.length - 1 && (teamAWins === requiredWins || teamBWins === requiredWins)) {
+      throw validationError_("Score includes games after the match winner was already decided.");
+    }
+  }
+
+  var actualWinner = teamAWins > teamBWins ? "A" : "B";
+  if (
+    teamAWins !== requiredWins &&
+    teamBWins !== requiredWins &&
+    score.length !== maxGames
+  ) {
+    throw validationError_("Best-of-3 scores must produce a series winner.");
+  }
+
+  if ((actualWinner === "A" ? teamAWins : teamBWins) < requiredWins) {
+    throw validationError_("Series winner does not match the required number of games.");
+  }
+
+  if (actualWinner !== winnerTeam) {
+    throw validationError_("winnerTeam does not match the submitted score.");
+  }
+}
+
+function buildCreateMatchContext_(payload, sessionUser, requestId) {
+  var nowIso = new Date().toISOString();
+  var usersById = getUserMapById_();
+  var seasonsById = indexById_(getSeasonRecords_());
+  var tournamentsById = indexById_(getTournamentRecords_());
+  var latestActiveMatch = getLatestActiveMatch_();
+  var segmentStates = {};
+  var globalDelta = computeEloDeltaForTeams_(
+    payload.teamAPlayerIds,
+    payload.teamBPlayerIds,
+    usersById,
+    payload.winnerTeam
+  );
+  var segmentDelta = {};
+  var participants = payload.teamAPlayerIds.concat(payload.teamBPlayerIds);
+  var matchId = Utilities.getUuid();
+
+  validatePlayersExist_(participants, usersById);
+  validateSegmentSelection_(payload.seasonId, payload.tournamentId, seasonsById, tournamentsById);
+
+  if (latestActiveMatch && String(payload.playedAt).localeCompare(String(latestActiveMatch.playedAt)) < 0) {
+    throw validationError_("createMatch is append-only; playedAt cannot be earlier than the latest active match.");
+  }
+
+  applyDeltaToUsers_(
+    payload.teamAPlayerIds,
+    payload.teamBPlayerIds,
+    usersById,
+    globalDelta,
+    nowIso,
+    payload.winnerTeam
+  );
+
+  if (payload.seasonId) {
+    segmentStates.season = getSegmentStateMap_("season", payload.seasonId, participants);
+    segmentDelta[payload.seasonId] = computeEloDeltaForTeams_(
+      payload.teamAPlayerIds,
+      payload.teamBPlayerIds,
+      segmentStates.season,
+      payload.winnerTeam
+    );
+    applyDeltaToSegmentState_(
+      payload.teamAPlayerIds,
+      payload.teamBPlayerIds,
+      segmentStates.season,
+      segmentDelta[payload.seasonId],
+      nowIso,
+      payload.winnerTeam
+    );
+  }
+
+  if (payload.tournamentId) {
+    segmentStates.tournament = getSegmentStateMap_("tournament", payload.tournamentId, participants);
+    segmentDelta[payload.tournamentId] = computeEloDeltaForTeams_(
+      payload.teamAPlayerIds,
+      payload.teamBPlayerIds,
+      segmentStates.tournament,
+      payload.winnerTeam
+    );
+    applyDeltaToSegmentState_(
+      payload.teamAPlayerIds,
+      payload.teamBPlayerIds,
+      segmentStates.tournament,
+      segmentDelta[payload.tournamentId],
+      nowIso,
+      payload.winnerTeam
+    );
+  }
+
+  return {
+    nowIso: nowIso,
+    requestId: requestId,
+    usersById: usersById,
+    segmentStates: segmentStates,
+    match: {
+      id: matchId,
+      matchType: payload.matchType,
+      formatType: payload.formatType,
+      pointsToWin: payload.pointsToWin,
+      teamAPlayerIds: payload.teamAPlayerIds,
+      teamBPlayerIds: payload.teamBPlayerIds,
+      score: payload.score,
+      winnerTeam: payload.winnerTeam,
+      playedAt: payload.playedAt,
+      seasonId: payload.seasonId,
+      tournamentId: payload.tournamentId,
+      createdByUserId: sessionUser.id,
+      status: "active",
+      createdAt: nowIso,
+    },
+    globalDelta: globalDelta,
+    segmentDelta: segmentDelta,
+  };
+}
+
+function indexById_(records) {
+  var result = {};
+  for (var index = 0; index < records.length; index += 1) {
+    result[records[index].id] = records[index];
+  }
+  return result;
+}
+
+function validatePlayersExist_(playerIds, usersById) {
+  for (var index = 0; index < playerIds.length; index += 1) {
+    if (!usersById[playerIds[index]]) {
+      throw validationError_("Unknown player ID: " + playerIds[index]);
+    }
+  }
+}
+
+function validateSegmentSelection_(seasonId, tournamentId, seasonsById, tournamentsById) {
+  if (seasonId && !seasonsById[seasonId]) {
+    throw validationError_("Unknown season ID.");
+  }
+
+  if (tournamentId) {
+    var tournament = tournamentsById[tournamentId];
+    if (!tournament) {
+      throw validationError_("Unknown tournament ID.");
+    }
+
+    if (seasonId && tournament.seasonId && tournament.seasonId !== seasonId) {
+      throw validationError_("Selected tournament does not belong to the selected season.");
+    }
+  }
+}
+
+function getLatestActiveMatch_() {
+  var matches = getMatchRecords_().filter(function (match) {
+    return match.status === "active";
+  });
+  return matches.length ? matches[0] : null;
+}
+
+function getSegmentStateMap_(segmentType, segmentId, participantIds) {
+  var sheet = getOrCreateSheet_(ELO_SEGMENTS_SHEET_NAME, ELO_SEGMENTS_HEADERS);
+  var rows = getSheetData_(sheet, ELO_SEGMENTS_HEADERS.length);
+  var state = {};
+  var nowIso = new Date().toISOString();
+  var index;
+
+  for (index = 0; index < rows.length; index += 1) {
+    if (rows[index][1] !== segmentType || rows[index][2] !== segmentId) {
+      continue;
+    }
+
+    state[rows[index][3]] = {
+      id: rows[index][0],
+      segmentType: rows[index][1],
+      segmentId: rows[index][2],
+      userId: rows[index][3],
+      elo: Number(rows[index][4] || 1200),
+      matchesPlayed: Number(rows[index][5] || 0),
+      wins: Number(rows[index][6] || 0),
+      losses: Number(rows[index][7] || 0),
+      streak: Number(rows[index][8] || 0),
+      updatedAt: rows[index][9] || nowIso,
+    };
+  }
+
+  for (index = 0; index < participantIds.length; index += 1) {
+    if (!state[participantIds[index]]) {
+      state[participantIds[index]] = {
+        id: Utilities.getUuid(),
+        segmentType: segmentType,
+        segmentId: segmentId,
+        userId: participantIds[index],
+        elo: 1200,
+        matchesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        updatedAt: nowIso,
+      };
+    }
+  }
+
+  return state;
+}
+
+function computeEloDeltaForTeams_(teamAPlayerIds, teamBPlayerIds, ratingMap, winnerTeam) {
+  var teamARating = computeAverageRating_(teamAPlayerIds, ratingMap);
+  var teamBRating = computeAverageRating_(teamBPlayerIds, ratingMap);
+  var expectedA = 1 / (1 + Math.pow(10, (teamBRating - teamARating) / 400));
+  var teamAK = computeTeamKFactor_(teamAPlayerIds, ratingMap);
+  var teamBK = computeTeamKFactor_(teamBPlayerIds, ratingMap);
+  var actualA = winnerTeam === "A" ? 1 : 0;
+  var rawTeamDeltaA = ((teamAK + teamBK) / 2) * (actualA - expectedA);
+  var teamDeltaA = Math.round(rawTeamDeltaA);
+  var teamDeltaB = -teamDeltaA;
+
+  return distributeTeamDelta_(teamAPlayerIds, teamBPlayerIds, teamDeltaA, teamDeltaB);
+}
+
+function computeAverageRating_(playerIds, ratingMap) {
+  var total = 0;
+  for (var index = 0; index < playerIds.length; index += 1) {
+    total += Number(ratingMap[playerIds[index]].elo || ratingMap[playerIds[index]].globalElo || 1200);
+  }
+  return total / playerIds.length;
+}
+
+function computeTeamKFactor_(playerIds, ratingMap) {
+  var total = 0;
+  for (var index = 0; index < playerIds.length; index += 1) {
+    var state = ratingMap[playerIds[index]];
+    var matchesPlayed =
+      state.matchesPlayed !== undefined
+        ? Number(state.matchesPlayed || 0)
+        : Number((state.wins || 0) + (state.losses || 0));
+    total += matchesPlayed < 30 ? 40 : 24;
+  }
+  return total / playerIds.length;
+}
+
+function distributeTeamDelta_(teamAPlayerIds, teamBPlayerIds, teamDeltaA, teamDeltaB) {
+  var result = {};
+  distributeDeltaAcrossPlayers_(teamAPlayerIds, teamDeltaA, result);
+  distributeDeltaAcrossPlayers_(teamBPlayerIds, teamDeltaB, result);
+  return result;
+}
+
+function distributeDeltaAcrossPlayers_(playerIds, totalDelta, result) {
+  var baseDelta = totalDelta >= 0 ? Math.floor(totalDelta / playerIds.length) : Math.ceil(totalDelta / playerIds.length);
+  var remainder = totalDelta - baseDelta * playerIds.length;
+  for (var index = 0; index < playerIds.length; index += 1) {
+    var adjustment = 0;
+    if (remainder > 0 && index < remainder) {
+      adjustment = 1;
+    }
+    if (remainder < 0 && index < Math.abs(remainder)) {
+      adjustment = -1;
+    }
+    result[playerIds[index]] = baseDelta + adjustment;
+  }
+}
+
+function applyDeltaToUsers_(teamAPlayerIds, teamBPlayerIds, usersById, deltaMap, nowIso, winnerTeam) {
+  applyDeltaToPlayerState_(
+    teamAPlayerIds,
+    teamBPlayerIds,
+    usersById,
+    deltaMap,
+    nowIso,
+    false,
+    winnerTeam
+  );
+}
+
+function applyDeltaToSegmentState_(
+  teamAPlayerIds,
+  teamBPlayerIds,
+  segmentState,
+  deltaMap,
+  nowIso,
+  winnerTeam
+) {
+  applyDeltaToPlayerState_(
+    teamAPlayerIds,
+    teamBPlayerIds,
+    segmentState,
+    deltaMap,
+    nowIso,
+    true,
+    winnerTeam
+  );
+}
+
+function applyDeltaToPlayerState_(
+  teamAPlayerIds,
+  teamBPlayerIds,
+  stateMap,
+  deltaMap,
+  nowIso,
+  isSegment,
+  winnerTeam
+) {
+  updateTeamState_(teamAPlayerIds, stateMap, deltaMap, nowIso, isSegment, winnerTeam === "A");
+  updateTeamState_(teamBPlayerIds, stateMap, deltaMap, nowIso, isSegment, winnerTeam === "B");
+}
+
+function updateTeamState_(teamPlayerIds, stateMap, deltaMap, nowIso, isSegment, isWinner) {
+  for (var index = 0; index < teamPlayerIds.length; index += 1) {
+    var state = stateMap[teamPlayerIds[index]];
+    var currentElo = Number(isSegment ? state.elo : state.globalElo);
+    var nextElo = currentElo + Number(deltaMap[teamPlayerIds[index]] || 0);
+    var wins = Number(state.wins || 0);
+    var losses = Number(state.losses || 0);
+    var streak = Number(state.streak || 0);
+
+    if (isWinner) {
+      wins += 1;
+      streak = streak >= 0 ? streak + 1 : 1;
+    } else {
+      losses += 1;
+      streak = streak <= 0 ? streak - 1 : -1;
+    }
+
+    if (isSegment) {
+      state.elo = nextElo;
+      state.matchesPlayed = Number(state.matchesPlayed || 0) + 1;
+      state.updatedAt = nowIso;
+    } else {
+      state.globalElo = nextElo;
+      state.updatedAt = nowIso;
+    }
+
+    state.wins = wins;
+    state.losses = losses;
+    state.streak = streak;
+  }
+}
+
+function persistCreateMatch_(context) {
+  var usersSheet = getOrCreateSheet_(USERS_SHEET_NAME, USERS_HEADERS);
+  var userRows = getSheetData_(usersSheet, USERS_HEADERS.length);
+  var userRowIndexById = {};
+  var index;
+
+  for (index = 0; index < userRows.length; index += 1) {
+    userRowIndexById[userRows[index][0]] = index + 2;
+  }
+
+  var userIds = Object.keys(context.usersById);
+  for (index = 0; index < userIds.length; index += 1) {
+    var userId = userIds[index];
+    if (userRowIndexById[userId]) {
+      usersSheet
+        .getRange(userRowIndexById[userId], 1, 1, USERS_HEADERS.length)
+        .setValues([userToRow_(context.usersById[userId])]);
+    }
+  }
+
+  persistSegmentState_(context.segmentStates.season);
+  persistSegmentState_(context.segmentStates.tournament);
+
+  var matchesSheet = getOrCreateSheet_(MATCHES_SHEET_NAME, MATCHES_HEADERS);
+  matchesSheet.appendRow(matchToRow_(context.match, context.globalDelta, context.segmentDelta));
+}
+
+function persistSegmentState_(segmentState) {
+  if (!segmentState) {
+    return;
+  }
+
+  var sheet = getOrCreateSheet_(ELO_SEGMENTS_SHEET_NAME, ELO_SEGMENTS_HEADERS);
+  var rows = getSheetData_(sheet, ELO_SEGMENTS_HEADERS.length);
+  var rowIndexByKey = {};
+  var stateKeys = Object.keys(segmentState);
+  var index;
+
+  for (index = 0; index < rows.length; index += 1) {
+    rowIndexByKey[rows[index][1] + "::" + rows[index][2] + "::" + rows[index][3]] = index + 2;
+  }
+
+  for (index = 0; index < stateKeys.length; index += 1) {
+    var key = stateKeys[index];
+    var record = segmentState[key];
+    var rowKey = record.segmentType + "::" + record.segmentId + "::" + record.userId;
+    var row = segmentStateToRow_(record);
+    if (rowIndexByKey[rowKey]) {
+      sheet.getRange(rowIndexByKey[rowKey], 1, 1, ELO_SEGMENTS_HEADERS.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+    }
+  }
+}
+
+function matchToRow_(match, globalDelta, segmentDelta) {
+  return [
+    match.id,
+    match.matchType,
+    match.formatType,
+    match.pointsToWin,
+    JSON.stringify(match.teamAPlayerIds),
+    JSON.stringify(match.teamBPlayerIds),
+    JSON.stringify(match.score),
+    match.winnerTeam,
+    JSON.stringify(globalDelta),
+    JSON.stringify(segmentDelta),
+    match.playedAt,
+    match.seasonId || "",
+    match.tournamentId || "",
+    match.createdByUserId,
+    match.status,
+    "",
+    "",
+    "",
+    match.createdAt,
+  ];
+}
+
+function segmentStateToRow_(record) {
+  return [
+    record.id,
+    record.segmentType,
+    record.segmentId,
+    record.userId,
+    record.elo,
+    record.matchesPlayed,
+    record.wins,
+    record.losses,
+    record.streak,
+    record.updatedAt,
+  ];
+}
+
+function appendAuditLog_(action, actorUserId, targetId, payload, createdAt) {
+  var sheet = getOrCreateSheet_(AUDIT_LOG_SHEET_NAME, AUDIT_LOG_HEADERS);
+  sheet.appendRow([
+    Utilities.getUuid(),
+    action,
+    actorUserId,
+    targetId,
+    JSON.stringify(payload),
+    createdAt || new Date().toISOString(),
+  ]);
+}
+
+function getExistingCreateMatchResult_(requestId) {
+  var sheet = getOrCreateSheet_(AUDIT_LOG_SHEET_NAME, AUDIT_LOG_HEADERS);
+  var rows = getSheetData_(sheet, AUDIT_LOG_HEADERS.length);
+
+  for (var index = rows.length - 1; index >= 0; index -= 1) {
+    if (rows[index][1] !== "createMatch") {
+      continue;
+    }
+
+    var payload = JSON.parse(rows[index][4] || "{}");
+    if (payload.requestId !== requestId) {
+      continue;
+    }
+
+    var match = getMatchById_(payload.matchId);
+    if (match) {
+      return { match: match };
+    }
+  }
+
+  return null;
+}
+
+function getMatchById_(matchId) {
+  var matches = getMatchRecords_();
+  for (var index = 0; index < matches.length; index += 1) {
+    if (matches[index].id === matchId) {
+      return matches[index];
+    }
+  }
   return null;
 }
 

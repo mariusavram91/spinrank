@@ -13,6 +13,7 @@ export const postAction = async <TAction extends ApiAction>(
   action: TAction,
   payload: ApiActionMap[TAction]["payload"],
   sessionToken?: string,
+  requestId = createRequestId(),
 ): Promise<ApiResponse<ApiActionMap[TAction]["data"]>> => {
   if (!env.backendUrl) {
     throw new Error("VITE_API_BASE_URL is not configured.");
@@ -21,7 +22,7 @@ export const postAction = async <TAction extends ApiAction>(
   const requestBody: ApiEnvelope<TAction, ApiActionMap[TAction]["payload"]> = {
     action,
     payload,
-    requestId: createRequestId(),
+    requestId,
     ...(sessionToken ? { sessionToken } : {}),
   };
 
