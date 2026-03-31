@@ -1,0 +1,154 @@
+:root {
+  color-scheme: light;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 500;
+  background:
+    radial-gradient(circle at top, rgba(244, 190, 120, 0.45), transparent 32%),
+    linear-gradient(180deg, #f7f1e8 0%, #efe6d6 100%);
+  color: #1f2430;
+  --panel: rgba(255, 252, 246, 0.92);
+  --panel-border: rgba(82, 61, 36, 0.12);
+  --text-muted: #635646;
+  --accent: #bf5b04;
+  --accent-strong: #8e4200;
+  --accent-soft: rgba(191, 91, 4, 0.14);
+  --error: #9f2d1f;
+  --success: #0d6b46;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+code {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.panel {
+  width: min(100%, 720px);
+  padding: 28px;
+  border: 1px solid var(--panel-border);
+  border-radius: 28px;
+  background: var(--panel);
+  box-shadow: 0 30px 70px rgba(64, 38, 14, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.eyebrow,
+.status-label {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height: 0.95;
+}
+
+.lede {
+  margin: 16px 0 0;
+  max-width: 52ch;
+  color: var(--text-muted);
+}
+
+.status-card {
+  margin-top: 24px;
+  padding: 18px;
+  border-radius: 20px;
+  background: white;
+  border: 1px solid rgba(82, 61, 36, 0.08);
+}
+
+.status-message {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.status-message[data-status="success"] {
+  color: var(--success);
+}
+
+.status-message[data-status="error"] {
+  color: var(--error);
+}
+
+.endpoint {
+  display: block;
+  margin-top: 12px;
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
+  border-radius: 14px;
+  background: #f8f1e6;
+  color: #5a431d;
+}
+
+button {
+  margin-top: 16px;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease;
+}
+
+button:hover:enabled {
+  transform: translateY(-1px);
+  background: var(--accent-strong);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  background: #b9aa97;
+}
+
+.checklist {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.checklist li {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 16px;
+  }
+
+  .panel {
+    padding: 22px;
+    border-radius: 24px;
+  }
+}
