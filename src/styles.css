@@ -4,15 +4,17 @@
   line-height: 1.5;
   font-weight: 500;
   background:
-    radial-gradient(circle at top, rgba(244, 190, 120, 0.45), transparent 32%),
-    linear-gradient(180deg, #f7f1e8 0%, #efe6d6 100%);
-  color: #1f2430;
-  --panel: rgba(255, 252, 246, 0.92);
+    radial-gradient(circle at top left, rgba(255, 190, 92, 0.5), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(116, 161, 221, 0.25), transparent 26%),
+    linear-gradient(180deg, #f7f1e8 0%, #ece3d5 100%);
+  color: #1d2432;
+  --panel: rgba(255, 252, 246, 0.9);
   --panel-border: rgba(82, 61, 36, 0.12);
   --text-muted: #635646;
   --accent: #bf5b04;
   --accent-strong: #8e4200;
-  --accent-soft: rgba(191, 91, 4, 0.14);
+  --accent-soft: rgba(191, 91, 4, 0.11);
+  --line: rgba(82, 61, 36, 0.12);
   --error: #9f2d1f;
   --success: #0d6b46;
 }
@@ -74,12 +76,13 @@ h1 {
   color: var(--text-muted);
 }
 
-.status-card {
+.auth-card {
   margin-top: 24px;
   padding: 18px;
   border-radius: 20px;
   background: white;
   border: 1px solid rgba(82, 61, 36, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .status-message {
@@ -95,18 +98,32 @@ h1 {
   color: var(--error);
 }
 
-.endpoint {
-  display: block;
-  margin-top: 12px;
+.detail-message {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+}
+
+.provider-stack {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.google-slot {
+  min-height: 44px;
+}
+
+.provider-disabled {
+  display: grid;
+  place-items: center;
   padding: 12px 14px;
-  overflow-wrap: anywhere;
-  border-radius: 14px;
-  background: #f8f1e6;
-  color: #5a431d;
+  border-radius: 999px;
+  border: 1px dashed var(--line);
+  color: var(--text-muted);
+  background: #faf4eb;
 }
 
 button {
-  margin-top: 16px;
   border: 0;
   border-radius: 999px;
   padding: 12px 18px;
@@ -126,6 +143,37 @@ button:hover:enabled {
 button:disabled {
   cursor: not-allowed;
   background: #b9aa97;
+}
+
+.secondary-button {
+  width: 100%;
+}
+
+.secondary-button {
+  background: #efe4d2;
+  color: #4f3c22;
+}
+
+.secondary-button:hover:enabled {
+  background: #e3d3bc;
+}
+
+.config-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) 1fr;
+  gap: 8px 14px;
+  margin: 20px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.config-list dt {
+  color: var(--text-muted);
+}
+
+.config-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .checklist {
@@ -150,5 +198,9 @@ button:disabled {
   .panel {
     padding: 22px;
     border-radius: 24px;
+  }
+
+  .config-list {
+    grid-template-columns: 1fr;
   }
 }

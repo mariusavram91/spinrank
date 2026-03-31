@@ -59,18 +59,32 @@ export interface HealthData {
 export interface BootstrapUserPayload {
   provider: AuthProvider;
   idToken: string;
+  nonce: string;
+  profile?: {
+    displayName?: string | null;
+    email?: string | null;
+    avatarUrl?: string | null;
+  };
+}
+
+export interface AppUser {
+  id: string;
+  provider: AuthProvider;
+  displayName: string;
+  email: string | null;
+  avatarUrl: string | null;
 }
 
 export interface BootstrapUserData {
   sessionToken: string;
   expiresAt: string;
-  user: {
-    id: string;
-    provider: AuthProvider;
-    displayName: string;
-    email: string | null;
-    avatarUrl: string | null;
-  };
+  user: AppUser;
+}
+
+export interface AppSession {
+  sessionToken: string;
+  expiresAt: string;
+  user: AppUser;
 }
 
 export interface LeaderboardEntry {
