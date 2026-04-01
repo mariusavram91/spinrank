@@ -5,6 +5,7 @@ export const apiActions = [
   "getSegmentLeaderboard",
   "getMatches",
   "createMatch",
+  "createSeason",
   "createTournament",
   "deactivateMatch",
   "getSeasons",
@@ -185,12 +186,27 @@ export interface SeasonRecord {
   endDate: string;
   isActive: boolean;
   baseEloMode: "carry_over" | "reset_1200";
+  participantIds: string[];
 }
 
 export interface GetSeasonsPayload {}
 
 export interface GetSeasonsData {
   seasons: SeasonRecord[];
+}
+
+export interface CreateSeasonPayload {
+  seasonId?: string | null;
+  name: string;
+  startDate: string;
+  endDate?: string | null;
+  isActive: boolean;
+  baseEloMode: "carry_over" | "reset_1200";
+  participantIds: string[];
+}
+
+export interface CreateSeasonData {
+  season: SeasonRecord;
 }
 
 export interface TournamentRecord {
@@ -268,6 +284,10 @@ export interface ApiActionMap {
   createMatch: {
     payload: CreateMatchPayload;
     data: CreateMatchData;
+  };
+  createSeason: {
+    payload: CreateSeasonPayload;
+    data: CreateSeasonData;
   };
   createTournament: {
     payload: CreateTournamentPayload;

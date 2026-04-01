@@ -52,6 +52,8 @@ var SEASONS_HEADERS = [
   "end_date",
   "is_active",
   "base_elo_mode",
+  "participant_ids_json",
+  "created_by_user_id",
   "created_at",
 ];
 
@@ -60,6 +62,7 @@ var TOURNAMENTS_HEADERS = [
   "name",
   "date",
   "season_id",
+  "created_by_user_id",
   "created_at",
 ];
 
@@ -127,6 +130,10 @@ function doPost(e) {
 
     if (request.action === "createMatch") {
       return jsonResponse_(handleCreateMatch_(request));
+    }
+
+    if (request.action === "createSeason") {
+      return jsonResponse_(handleCreateSeason_(request));
     }
 
     if (request.action === "createTournament") {
@@ -214,6 +221,8 @@ function handleGetSegmentLeaderboard_(request) {
     );
   }
 
+  requireSegmentAccess_(segmentType, segmentId, request.sessionUser.id);
+
   var leaderboard = buildSegmentLeaderboard_(segmentType, segmentId);
   return successResponse_(request.requestId, {
     segmentType: segmentType,
@@ -236,7 +245,7 @@ function handleGetMatches_(request) {
     );
   }
 
-  var sortedMatches = getMatchRecords_();
+  var sortedMatches = getVisibleMatchRecords_(request.sessionUser.id);
   var startIndex = 0;
 
   if (cursor) {
@@ -259,14 +268,14 @@ function handleGetMatches_(request) {
 
 function handleGetSeasons_(request) {
   return successResponse_(request.requestId, {
-    seasons: getSeasonRecords_(),
+    seasons: getVisibleSeasonRecords_(request.sessionUser.id),
   });
 }
 
 function handleGetTournaments_(request) {
   var payload = request.payload || {};
   var seasonId = payload.seasonId || "";
-  var tournaments = getTournamentRecords_();
+  var tournaments = getVisibleTournamentRecords_(request.sessionUser.id);
 
   if (seasonId) {
     tournaments = tournaments.filter(function (record) {
@@ -294,7 +303,7 @@ function handleGetTournamentBracket_(request) {
   var tournament = getTournamentById_(tournamentId);
   var plan = getTournamentPlanByTournamentId_(tournamentId);
 
-  if (!tournament || !plan) {
+  if (!tournament || !plan || !canAccessTournament_(tournament, plan, request.sessionUser.id)) {
     return errorResponse_(request.requestId, "NOT_FOUND", "Tournament bracket was not found.");
   }
 
@@ -345,12 +354,39 @@ function handleCreateMatch_(request) {
   }
 }
 
+function handleCreateSeason_(request) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    var payload = validateCreateSeasonPayload_(request.payload || {}, request.sessionUser.id);
+    var season = persistSeason_(payload, request.sessionUser.id);
+
+    appendAuditLog_(
+      "createSeason",
+      request.sessionUser.id,
+      season.id,
+      {
+        requestId: request.requestId,
+        payloadHash: sha256Hex_(JSON.stringify(request.payload || {})),
+        seasonId: season.id,
+      }
+    );
+
+    return successResponse_(request.requestId, {
+      season: season,
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function handleCreateTournament_(request) {
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
 
   try {
-    var payload = validateCreateTournamentPayload_(request.payload || {});
+    var payload = validateCreateTournamentPayload_(request.payload || {}, request.sessionUser.id);
     var tournament = persistTournamentPlan_(payload, request.sessionUser.id);
 
     appendAuditLog_(
@@ -624,10 +660,53 @@ function getMatchRecords_() {
   return matches;
 }
 
+function getVisibleMatchRecords_(userId) {
+  var visibleSeasonIds = indexVisibleIds_(getVisibleSeasonRecords_(userId));
+  var visibleTournamentIds = indexVisibleIds_(getVisibleTournamentRecords_(userId));
+
+  return getMatchRecords_().filter(function (match) {
+    if (!match.seasonId && !match.tournamentId) {
+      return true;
+    }
+
+    if (match.tournamentId) {
+      return !!visibleTournamentIds[match.tournamentId];
+    }
+
+    if (match.seasonId) {
+      return !!visibleSeasonIds[match.seasonId];
+    }
+
+    return false;
+  });
+}
+
 function getSeasonRecords_() {
   var sheet = getOrCreateSheet_(SEASONS_SHEET_NAME, SEASONS_HEADERS);
   var rows = getSheetData_(sheet, SEASONS_HEADERS.length);
   var seasons = rows.map(function (row) {
+    var participantIds = [];
+    var createdByUserId = null;
+    var createdAt = "";
+    var participantIdsRaw = row[6];
+    var createdByRaw = row[7];
+    var createdAtRaw = row[8];
+    var hasNewPrivacyColumns =
+      typeof participantIdsRaw === "string" &&
+      participantIdsRaw &&
+      participantIdsRaw.charAt(0) === "[";
+
+    if (hasNewPrivacyColumns) {
+      participantIds = parseJsonArray_(participantIdsRaw);
+      createdByUserId = createdByRaw || null;
+      createdAt = createdAtRaw || "";
+    } else {
+      // Legacy rows used column 7 for created_at before privacy fields existed.
+      participantIds = [];
+      createdByUserId = null;
+      createdAt = participantIdsRaw || "";
+    }
+
     return {
       id: row[0],
       name: row[1],
@@ -635,6 +714,9 @@ function getSeasonRecords_() {
       endDate: row[3],
       isActive: row[4] === true || String(row[4]).toLowerCase() === "true",
       baseEloMode: row[5] || "carry_over",
+      participantIds: participantIds,
+      createdByUserId: createdByUserId,
+      createdAt: createdAt,
     };
   });
 
@@ -642,6 +724,12 @@ function getSeasonRecords_() {
     return String(right.startDate).localeCompare(String(left.startDate));
   });
   return seasons;
+}
+
+function getVisibleSeasonRecords_(userId) {
+  return getSeasonRecords_().filter(function (season) {
+    return canAccessSeason_(season, userId);
+  });
 }
 
 function getTournamentRecords_() {
@@ -653,6 +741,7 @@ function getTournamentRecords_() {
       name: row[1],
       date: row[2],
       seasonId: row[3] || null,
+      createdByUserId: row[4] || null,
     };
   });
 
@@ -660,6 +749,13 @@ function getTournamentRecords_() {
     return String(right.date).localeCompare(String(left.date));
   });
   return tournaments;
+}
+
+function getVisibleTournamentRecords_(userId) {
+  return getTournamentRecords_().filter(function (tournament) {
+    var plan = getTournamentPlanByTournamentId_(tournament.id);
+    return canAccessTournament_(tournament, plan, userId);
+  });
 }
 
 function getUserRecords_() {
@@ -779,7 +875,60 @@ function validateCreateMatchPayload_(payload) {
   };
 }
 
-function validateCreateTournamentPayload_(payload) {
+function validateCreateSeasonPayload_(payload, sessionUserId) {
+  var seasonId = payload.seasonId ? String(payload.seasonId) : null;
+  var name = String(payload.name || "").trim();
+  var startDate = String(payload.startDate || "").trim();
+  var endDate = payload.endDate ? String(payload.endDate).trim() : "";
+  var isActive = payload.isActive === true || String(payload.isActive).toLowerCase() === "true";
+  var baseEloMode = String(payload.baseEloMode || "carry_over");
+  var participantIds = normalizePlayerIds_(payload.participantIds || []);
+
+  if (!name) {
+    throw validationError_("createSeason requires a name.");
+  }
+
+  if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || isNaN(Date.parse(startDate))) {
+    throw validationError_("createSeason startDate must be a valid YYYY-MM-DD value.");
+  }
+
+  if (endDate && (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || isNaN(Date.parse(endDate)))) {
+    throw validationError_("createSeason endDate must be a valid YYYY-MM-DD value.");
+  }
+
+  if (endDate && startDate > endDate) {
+    throw validationError_("createSeason endDate cannot be earlier than startDate.");
+  }
+
+  if (baseEloMode !== "carry_over" && baseEloMode !== "reset_1200") {
+    throw validationError_("createSeason baseEloMode must be carry_over or reset_1200.");
+  }
+
+  if (participantIds.indexOf(sessionUserId) === -1) {
+    participantIds.unshift(sessionUserId);
+  }
+
+  validatePlayersExist_(participantIds, getUserMapById_());
+
+  if (seasonId) {
+    var existingSeason = getSeasonById_(seasonId);
+    if (!existingSeason || !canAccessSeason_(existingSeason, sessionUserId)) {
+      throw validationError_("You cannot update this season.");
+    }
+  }
+
+  return {
+    seasonId: seasonId,
+    name: name,
+    startDate: startDate,
+    endDate: endDate,
+    isActive: isActive,
+    baseEloMode: baseEloMode,
+    participantIds: participantIds,
+  };
+}
+
+function validateCreateTournamentPayload_(payload, sessionUserId) {
   var tournamentId = payload.tournamentId ? String(payload.tournamentId) : null;
   var name = String(payload.name || "").trim();
   var seasonId = payload.seasonId ? String(payload.seasonId) : null;
@@ -796,6 +945,33 @@ function validateCreateTournamentPayload_(payload) {
 
   if (Object.prototype.toString.call(rounds) !== "[object Array]" || !rounds.length) {
     throw validationError_("createTournament requires at least one round.");
+  }
+
+  if (participantIds.indexOf(sessionUserId) === -1) {
+    participantIds.unshift(sessionUserId);
+  }
+
+  validatePlayersExist_(participantIds, getUserMapById_());
+
+  if (seasonId) {
+    var season = getSeasonById_(seasonId);
+    if (!season || !canAccessSeason_(season, sessionUserId)) {
+      throw validationError_("You cannot use the selected season.");
+    }
+
+    for (var participantIndex = 0; participantIndex < participantIds.length; participantIndex += 1) {
+      if (season.participantIds.indexOf(participantIds[participantIndex]) === -1) {
+        throw validationError_("Tournament participants must belong to the selected season.");
+      }
+    }
+  }
+
+  if (tournamentId) {
+    var existingTournament = getTournamentById_(tournamentId);
+    var existingPlan = getTournamentPlanByTournamentId_(tournamentId);
+    if (!existingTournament || !existingPlan || !canAccessTournament_(existingTournament, existingPlan, sessionUserId)) {
+      throw validationError_("You cannot update this tournament.");
+    }
   }
 
   return {
@@ -932,6 +1108,12 @@ function buildCreateMatchContext_(payload, sessionUser, requestId) {
 
   validatePlayersExist_(participants, usersById);
   validateSegmentSelection_(payload.seasonId, payload.tournamentId, seasonsById, tournamentsById);
+  if (payload.seasonId) {
+    requireSegmentAccess_("season", payload.seasonId, sessionUser.id);
+  }
+  if (payload.tournamentId) {
+    requireSegmentAccess_("tournament", payload.tournamentId, sessionUser.id);
+  }
   validateTournamentBracketMatch_(payload, participants);
 
   if (latestActiveMatch && String(payload.playedAt).localeCompare(String(latestActiveMatch.playedAt)) < 0) {
@@ -1074,6 +1256,14 @@ function indexById_(records) {
   return result;
 }
 
+function indexVisibleIds_(records) {
+  var result = {};
+  for (var index = 0; index < records.length; index += 1) {
+    result[records[index].id] = true;
+  }
+  return result;
+}
+
 function validatePlayersExist_(playerIds, usersById) {
   for (var index = 0; index < playerIds.length; index += 1) {
     if (!usersById[playerIds[index]]) {
@@ -1097,6 +1287,57 @@ function validateSegmentSelection_(seasonId, tournamentId, seasonsById, tourname
       throw validationError_("Selected tournament does not belong to the selected season.");
     }
   }
+}
+
+function requireSegmentAccess_(segmentType, segmentId, userId) {
+  if (segmentType === "season") {
+    var season = getSeasonById_(segmentId);
+    if (!season || !canAccessSeason_(season, userId)) {
+      throw forbiddenError_("You do not have access to this season.");
+    }
+    return;
+  }
+
+  if (segmentType === "tournament") {
+    var tournament = getTournamentById_(segmentId);
+    var plan = getTournamentPlanByTournamentId_(segmentId);
+    if (!tournament || !plan || !canAccessTournament_(tournament, plan, userId)) {
+      throw forbiddenError_("You do not have access to this tournament.");
+    }
+  }
+}
+
+function canAccessSeason_(season, userId) {
+  if (!season || !userId) {
+    return false;
+  }
+
+  if (!season.createdByUserId && (!season.participantIds || season.participantIds.length === 0)) {
+    return true;
+  }
+
+  return season.createdByUserId === userId || season.participantIds.indexOf(userId) !== -1;
+}
+
+function canAccessTournament_(tournament, plan, userId) {
+  if (!tournament || !plan || !userId) {
+    return false;
+  }
+
+  var participantIds = parseJsonArray_(plan.participantIdsJson);
+  return tournament.createdByUserId === userId || participantIds.indexOf(userId) !== -1;
+}
+
+function getSeasonById_(seasonId) {
+  var seasons = getSeasonRecords_();
+
+  for (var index = 0; index < seasons.length; index += 1) {
+    if (seasons[index].id === seasonId) {
+      return seasons[index];
+    }
+  }
+
+  return null;
 }
 
 function getTournamentById_(tournamentId) {
@@ -1354,10 +1595,12 @@ function persistTournamentPlan_(payload, createdByUserId) {
     name: payload.name,
     date: nowIso,
     seasonId: payload.seasonId || null,
+    createdByUserId: createdByUserId,
   };
 
   tournament.name = payload.name;
   tournament.seasonId = payload.seasonId || null;
+  tournament.createdByUserId = tournament.createdByUserId || createdByUserId;
   if (!existingTournament) {
     tournament.date = nowIso;
   }
@@ -1366,6 +1609,64 @@ function persistTournamentPlan_(payload, createdByUserId) {
   upsertTournamentPlanRecord_(tournament.id, payload, createdByUserId, nowIso);
 
   return tournament;
+}
+
+function persistSeason_(payload, createdByUserId) {
+  var sheet = getOrCreateSheet_(SEASONS_SHEET_NAME, SEASONS_HEADERS);
+  var rows = getSheetData_(sheet, SEASONS_HEADERS.length);
+  var nowIso = new Date().toISOString();
+  var existingSeason = payload.seasonId ? getSeasonById_(payload.seasonId) : null;
+  var season = existingSeason || {
+    id: Utilities.getUuid(),
+    name: payload.name,
+    startDate: payload.startDate,
+    endDate: payload.endDate || "",
+    isActive: payload.isActive,
+    baseEloMode: payload.baseEloMode,
+    participantIds: payload.participantIds,
+    createdByUserId: createdByUserId,
+    createdAt: nowIso,
+  };
+
+  season.name = payload.name;
+  season.startDate = payload.startDate;
+  season.endDate = payload.endDate || "";
+  season.isActive = payload.isActive;
+  season.baseEloMode = payload.baseEloMode;
+  season.participantIds = payload.participantIds;
+  season.createdByUserId = season.createdByUserId || createdByUserId;
+
+  if (payload.isActive) {
+    for (var index = 0; index < rows.length; index += 1) {
+      if (!rows[index][0]) {
+        continue;
+      }
+
+      var existingSeason = [
+        rows[index][0],
+        rows[index][1],
+        rows[index][2],
+        rows[index][3],
+        false,
+        rows[index][5] || "carry_over",
+        rows[index][6] || "[]",
+        rows[index][7] || "",
+        rows[index][8] || nowIso,
+      ];
+      sheet.getRange(index + 2, 1, 1, SEASONS_HEADERS.length).setValues([existingSeason]);
+    }
+  }
+
+  upsertSeasonRecord_(season);
+  return {
+    id: season.id,
+    name: season.name,
+    startDate: season.startDate,
+    endDate: season.endDate,
+    isActive: season.isActive,
+    baseEloMode: season.baseEloMode,
+    participantIds: season.participantIds,
+  };
 }
 
 function updateTournamentBracketMatchLink_(tournamentId, bracketMatchId, createdMatchId) {
@@ -1462,11 +1763,32 @@ function upsertTournamentRecord_(tournament, nowIso) {
     tournament.name,
     tournament.date,
     tournament.seasonId || "",
+    tournament.createdByUserId || "",
     nowIso,
   ];
 
   if (rowNumber) {
     sheet.getRange(rowNumber, 1, 1, TOURNAMENTS_HEADERS.length).setValues([row]);
+  } else {
+    sheet.appendRow(row);
+  }
+}
+
+function upsertSeasonRecord_(season) {
+  var sheet = getOrCreateSheet_(SEASONS_SHEET_NAME, SEASONS_HEADERS);
+  var rows = getSheetData_(sheet, SEASONS_HEADERS.length);
+  var rowNumber = null;
+
+  for (var index = 0; index < rows.length; index += 1) {
+    if (rows[index][0] === season.id) {
+      rowNumber = index + 2;
+      break;
+    }
+  }
+
+  var row = seasonToRow_(season);
+  if (rowNumber) {
+    sheet.getRange(rowNumber, 1, 1, SEASONS_HEADERS.length).setValues([row]);
   } else {
     sheet.appendRow(row);
   }
@@ -1557,6 +1879,20 @@ function segmentStateToRow_(record) {
     record.losses,
     record.streak,
     record.updatedAt,
+  ];
+}
+
+function seasonToRow_(season) {
+  return [
+    season.id,
+    season.name,
+    season.startDate,
+    season.endDate || "",
+    season.isActive,
+    season.baseEloMode,
+    JSON.stringify(season.participantIds || []),
+    season.createdByUserId || "",
+    season.createdAt,
   ];
 }
 
@@ -1890,6 +2226,12 @@ function errorResponse_(requestId, code, message) {
 function unauthorizedError_(message) {
   var error = new Error(message);
   error.code = "UNAUTHORIZED";
+  return error;
+}
+
+function forbiddenError_(message) {
+  var error = new Error(message);
+  error.code = "FORBIDDEN";
   return error;
 }
 

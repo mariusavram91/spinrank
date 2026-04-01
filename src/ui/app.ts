@@ -4,6 +4,7 @@ import type {
   AppSession,
   BootstrapUserData,
   CreateMatchPayload,
+  CreateSeasonPayload,
   CreateTournamentPayload,
   GetMatchesData,
   GetTournamentBracketData,
@@ -27,7 +28,7 @@ type ViewState =
 type SegmentMode = "global" | "season" | "tournament";
 
 interface DashboardState {
-  screen: "dashboard" | "createMatch" | "createTournament";
+  screen: "dashboard" | "createMatch" | "createTournament" | "createSeason";
   loading: boolean;
   error: string;
   leaderboard: LeaderboardEntry[];
@@ -45,6 +46,11 @@ interface DashboardState {
   matchSubmitting: boolean;
   matchFormError: string;
   matchFormMessage: string;
+  seasonSubmitting: boolean;
+  seasonFormError: string;
+  seasonFormMessage: string;
+  editingSeasonId: string;
+  editingSeasonParticipantIds: string[];
   pendingCreateRequestId: string;
 }
 
@@ -93,6 +99,14 @@ const formatDate = (value: string): string =>
   new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
   }).format(new Date(value));
+
+const getTodayDateValue = (): string => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const buildSessionFromBootstrap = (data: BootstrapUserData): AppSession => ({
   sessionToken: data.sessionToken,
@@ -409,6 +423,10 @@ export const buildApp = (): HTMLElement => {
   createTournamentScreen.className = "dashboard";
   createTournamentScreen.hidden = true;
 
+  const createSeasonScreen = document.createElement("section");
+  createSeasonScreen.className = "dashboard";
+  createSeasonScreen.hidden = true;
+
   const dashboardHeader = document.createElement("div");
   dashboardHeader.className = "dashboard-header";
 
@@ -443,6 +461,11 @@ export const buildApp = (): HTMLElement => {
   openCreateTournamentButton.type = "button";
   openCreateTournamentButton.className = "secondary-button";
   openCreateTournamentButton.textContent = "Tournaments";
+
+  const openCreateSeasonButton = document.createElement("button");
+  openCreateSeasonButton.type = "button";
+  openCreateSeasonButton.className = "secondary-button";
+  openCreateSeasonButton.textContent = "Create season";
 
   const dashboardStatus = document.createElement("p");
   dashboardStatus.className = "dashboard-status";
@@ -605,6 +628,9 @@ export const buildApp = (): HTMLElement => {
   const tournamentPanel = document.createElement("section");
   tournamentPanel.className = "content-card tournament-card";
 
+  const seasonPanel = document.createElement("section");
+  seasonPanel.className = "content-card composer-card";
+
   const tournamentTop = document.createElement("div");
   tournamentTop.className = "card-header";
 
@@ -622,6 +648,74 @@ export const buildApp = (): HTMLElement => {
   closeCreateTournamentButton.type = "button";
   closeCreateTournamentButton.className = "secondary-button";
   closeCreateTournamentButton.textContent = "Back";
+
+  const seasonTop = document.createElement("div");
+  seasonTop.className = "card-header";
+
+  const seasonHeading = document.createElement("div");
+
+  const seasonTitle = document.createElement("h3");
+  seasonTitle.className = "card-title";
+  seasonTitle.textContent = "Create season";
+
+  const seasonMeta = document.createElement("p");
+  seasonMeta.className = "card-meta";
+  seasonMeta.textContent = "Add a new season and make it available across matches and leaderboards.";
+
+  const closeCreateSeasonButton = document.createElement("button");
+  closeCreateSeasonButton.type = "button";
+  closeCreateSeasonButton.className = "secondary-button";
+  closeCreateSeasonButton.textContent = "Back";
+
+  const seasonStatus = document.createElement("p");
+  seasonStatus.className = "form-status";
+
+  const seasonForm = document.createElement("form");
+  seasonForm.className = "match-form";
+
+  const seasonNameInput = document.createElement("input");
+  seasonNameInput.className = "text-input";
+  seasonNameInput.placeholder = "Season name";
+
+  const loadSeasonSelect = document.createElement("select");
+  loadSeasonSelect.className = "select-input";
+
+  const loadSeasonButton = document.createElement("button");
+  loadSeasonButton.type = "button";
+  loadSeasonButton.className = "secondary-button";
+  loadSeasonButton.textContent = "Load season";
+
+  const seasonStartDateInput = document.createElement("input");
+  seasonStartDateInput.className = "text-input";
+  seasonStartDateInput.type = "date";
+  seasonStartDateInput.value = getTodayDateValue();
+
+  const seasonEndDateInput = document.createElement("input");
+  seasonEndDateInput.className = "text-input";
+  seasonEndDateInput.type = "date";
+
+  const seasonBaseEloSelect = document.createElement("select");
+  seasonBaseEloSelect.className = "select-input";
+
+  const seasonParticipantSection = document.createElement("div");
+  seasonParticipantSection.className = "form-field";
+
+  const seasonParticipantLabel = document.createElement("span");
+  seasonParticipantLabel.className = "field-label";
+  seasonParticipantLabel.textContent = "Participants";
+
+  const seasonParticipantList = document.createElement("div");
+  seasonParticipantList.className = "participant-list";
+
+  const seasonIsActiveInput = document.createElement("input");
+  seasonIsActiveInput.type = "checkbox";
+  seasonIsActiveInput.checked = true;
+  seasonIsActiveInput.className = "checkbox-input";
+
+  const submitSeasonButton = document.createElement("button");
+  submitSeasonButton.type = "submit";
+  submitSeasonButton.className = "primary-button";
+  submitSeasonButton.textContent = "Create season";
 
   const tournamentNameInput = document.createElement("input");
   tournamentNameInput.className = "text-input";
@@ -686,12 +780,17 @@ export const buildApp = (): HTMLElement => {
     tournaments: [],
   matches: [],
   matchesCursor: null,
-  matchesLoading: false,
-  matchBracketContextByMatchId: {},
-  matchSubmitting: false,
-  matchFormError: "",
-  matchFormMessage: "",
-  pendingCreateRequestId: "",
+    matchesLoading: false,
+    matchBracketContextByMatchId: {},
+    matchSubmitting: false,
+    matchFormError: "",
+    matchFormMessage: "",
+    seasonSubmitting: false,
+    seasonFormError: "",
+    seasonFormMessage: "",
+    editingSeasonId: "",
+    editingSeasonParticipantIds: [],
+    pendingCreateRequestId: "",
   };
 
   const tournamentPlannerState: TournamentPlannerState = {
@@ -721,6 +820,7 @@ export const buildApp = (): HTMLElement => {
       dashboard.hidden = dashboardState.screen !== "dashboard";
       createMatchScreen.hidden = dashboardState.screen !== "createMatch";
       createTournamentScreen.hidden = dashboardState.screen !== "createTournament";
+      createSeasonScreen.hidden = dashboardState.screen !== "createSeason";
       welcomeTitle.textContent = "Dashboard";
       welcomeText.textContent = "";
       return;
@@ -730,6 +830,7 @@ export const buildApp = (): HTMLElement => {
     dashboard.hidden = true;
     createMatchScreen.hidden = true;
     createTournamentScreen.hidden = true;
+    createSeasonScreen.hidden = true;
   };
 
   const syncDashboardState = (): void => {
@@ -769,7 +870,10 @@ export const buildApp = (): HTMLElement => {
     refreshButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     openCreateMatchButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     openCreateTournamentButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
+    openCreateSeasonButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     closeCreateMatchButton.disabled = dashboardState.matchSubmitting;
+    closeCreateSeasonButton.disabled = dashboardState.seasonSubmitting;
+    loadSeasonButton.disabled = dashboardState.loading || dashboardState.seasonSubmitting;
     suggestMatchButton.disabled = dashboardState.loading || dashboardState.matchSubmitting;
     loadTournamentButton.disabled = dashboardState.loading;
     saveTournamentButton.disabled = dashboardState.loading || tournamentPlannerState.rounds.length === 0;
@@ -782,6 +886,9 @@ export const buildApp = (): HTMLElement => {
     submitMatchButton.disabled = dashboardState.matchSubmitting || dashboardState.loading;
     composerStatus.textContent = dashboardState.matchFormError || dashboardState.matchFormMessage;
     composerStatus.dataset.status = dashboardState.matchFormError ? "error" : "ready";
+    seasonStatus.textContent = dashboardState.seasonFormError || dashboardState.seasonFormMessage;
+    seasonStatus.dataset.status = dashboardState.seasonFormError ? "error" : "ready";
+    submitSeasonButton.textContent = dashboardState.editingSeasonId ? "Save season" : "Create season";
     tournamentStatus.textContent = tournamentPlannerState.error;
     tournamentStatus.dataset.status = tournamentPlannerState.error ? "error" : "ready";
 
@@ -1029,6 +1136,60 @@ export const buildApp = (): HTMLElement => {
       tournamentPlannerState.tournamentId,
       "Saved tournaments",
     );
+  };
+
+  const populateSeasonManagerLoadOptions = (): void => {
+    replaceOptions(
+      loadSeasonSelect,
+      [
+        { value: "", label: "Saved seasons" },
+        ...dashboardState.seasons.map((season) => ({
+          value: season.id,
+          label: season.name,
+        })),
+      ],
+      dashboardState.editingSeasonId,
+      "Saved seasons",
+    );
+  };
+
+  const renderSeasonEditor = (): void => {
+    const selectedParticipants = new Set(dashboardState.editingSeasonParticipantIds);
+    const sessionUserId = isAuthedState(state.current) ? state.current.session.user.id : "";
+
+    const participantCards = dashboardState.players.map((player) => {
+      const label = document.createElement("label");
+      label.className = "participant-chip";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = selectedParticipants.has(player.userId);
+      input.disabled = player.userId === sessionUserId;
+      input.addEventListener("change", () => {
+        if (input.checked) {
+          dashboardState.editingSeasonParticipantIds = [
+            ...dashboardState.editingSeasonParticipantIds,
+            player.userId,
+          ];
+        } else {
+          dashboardState.editingSeasonParticipantIds = dashboardState.editingSeasonParticipantIds.filter(
+            (participantId) => participantId !== player.userId,
+          );
+        }
+        dashboardState.seasonFormError = "";
+        dashboardState.seasonFormMessage = "";
+        renderSeasonEditor();
+        syncDashboardState();
+      });
+
+      const text = document.createElement("span");
+      text.textContent = `${player.displayName} (${player.elo})`;
+
+      label.append(input, text);
+      return label;
+    });
+
+    seasonParticipantList.replaceChildren(...participantCards);
   };
 
   const renderTournamentPlanner = (): void => {
@@ -1393,6 +1554,16 @@ export const buildApp = (): HTMLElement => {
     };
   };
 
+  const collectSeasonPayload = (): CreateSeasonPayload => ({
+    seasonId: dashboardState.editingSeasonId || null,
+    name: seasonNameInput.value.trim(),
+    startDate: seasonStartDateInput.value,
+    endDate: seasonEndDateInput.value || null,
+    isActive: seasonIsActiveInput.checked,
+    baseEloMode: seasonBaseEloSelect.value as CreateSeasonPayload["baseEloMode"],
+    participantIds: dashboardState.editingSeasonParticipantIds,
+  });
+
   const loadLeaderboard = async (): Promise<void> => {
     if (dashboardState.segmentMode === "global") {
       const data = await runAuthedAction("getLeaderboard", {});
@@ -1497,9 +1668,11 @@ export const buildApp = (): HTMLElement => {
       dashboardState.matchBracketContextByMatchId = await loadMatchBracketContext(matchesData.matches);
 
       populateSeasonOptions();
+      populateSeasonManagerLoadOptions();
       populateTournamentOptions();
       populateTournamentPlannerLoadOptions();
       populateMatchFormOptions();
+      renderSeasonEditor();
       renderTournamentPlanner();
 
       if (dashboardState.segmentMode !== "global") {
@@ -1601,6 +1774,43 @@ export const buildApp = (): HTMLElement => {
         error instanceof Error ? error.message : "Failed to create match.";
     } finally {
       dashboardState.matchSubmitting = false;
+      syncDashboardState();
+    }
+  };
+
+  const resetSeasonForm = (): void => {
+    dashboardState.editingSeasonId = "";
+    dashboardState.editingSeasonParticipantIds = isAuthedState(state.current)
+      ? [state.current.session.user.id]
+      : [];
+    seasonNameInput.value = "";
+    seasonStartDateInput.value = getTodayDateValue();
+    seasonEndDateInput.value = "";
+    seasonBaseEloSelect.value = "carry_over";
+    seasonIsActiveInput.checked = true;
+    loadSeasonSelect.value = "";
+  };
+
+  const submitSeason = async (): Promise<void> => {
+    dashboardState.seasonSubmitting = true;
+    dashboardState.seasonFormError = "";
+    dashboardState.seasonFormMessage = "";
+    syncDashboardState();
+
+    try {
+      const payload = collectSeasonPayload();
+      const data = await runAuthedAction("createSeason", payload);
+      dashboardState.seasonFormMessage = `${dashboardState.editingSeasonId ? "Season updated" : "Season created"}: ${data.season.name}.`;
+      dashboardState.selectedSeasonId = data.season.id;
+      dashboardState.screen = "dashboard";
+      resetSeasonForm();
+      syncAuthState();
+      await loadDashboard();
+    } catch (error) {
+      dashboardState.seasonFormError =
+        error instanceof Error ? error.message : "Failed to create season.";
+    } finally {
+      dashboardState.seasonSubmitting = false;
       syncDashboardState();
     }
   };
@@ -1853,6 +2063,17 @@ export const buildApp = (): HTMLElement => {
     syncDashboardState();
   });
 
+  openCreateSeasonButton.addEventListener("click", () => {
+    dashboardState.screen = "createSeason";
+    dashboardState.seasonFormError = "";
+    dashboardState.seasonFormMessage = "";
+    resetSeasonForm();
+    populateSeasonManagerLoadOptions();
+    renderSeasonEditor();
+    syncAuthState();
+    syncDashboardState();
+  });
+
   closeCreateMatchButton.addEventListener("click", () => {
     dashboardState.screen = "dashboard";
     syncAuthState();
@@ -1860,6 +2081,12 @@ export const buildApp = (): HTMLElement => {
   });
 
   closeCreateTournamentButton.addEventListener("click", () => {
+    dashboardState.screen = "dashboard";
+    syncAuthState();
+    syncDashboardState();
+  });
+
+  closeCreateSeasonButton.addEventListener("click", () => {
     dashboardState.screen = "dashboard";
     syncAuthState();
     syncDashboardState();
@@ -1879,6 +2106,32 @@ export const buildApp = (): HTMLElement => {
 
   loadTournamentSelect.addEventListener("change", () => {
     tournamentPlannerState.tournamentId = loadTournamentSelect.value;
+  });
+
+  loadSeasonSelect.addEventListener("change", () => {
+    dashboardState.editingSeasonId = loadSeasonSelect.value;
+  });
+
+  loadSeasonButton.addEventListener("click", () => {
+    const season = dashboardState.seasons.find((entry) => entry.id === loadSeasonSelect.value);
+    if (!season) {
+      dashboardState.seasonFormError = "Select a saved season first.";
+      dashboardState.seasonFormMessage = "";
+      syncDashboardState();
+      return;
+    }
+
+    dashboardState.editingSeasonId = season.id;
+    dashboardState.editingSeasonParticipantIds = [...season.participantIds];
+    seasonNameInput.value = season.name;
+    seasonStartDateInput.value = season.startDate;
+    seasonEndDateInput.value = season.endDate || "";
+    seasonBaseEloSelect.value = season.baseEloMode;
+    seasonIsActiveInput.checked = season.isActive;
+    dashboardState.seasonFormError = "";
+    dashboardState.seasonFormMessage = "";
+    renderSeasonEditor();
+    syncDashboardState();
   });
 
   tournamentNameInput.addEventListener("input", () => {
@@ -1933,6 +2186,11 @@ export const buildApp = (): HTMLElement => {
   matchForm.addEventListener("submit", (event) => {
     event.preventDefault();
     void submitMatch();
+  });
+
+  seasonForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void submitSeason();
   });
 
   const sessionTicker = window.setInterval(() => {
@@ -2026,7 +2284,7 @@ export const buildApp = (): HTMLElement => {
   composerPanel.append(composerTop, composerStatus, matchForm);
 
   welcomeBlock.append(welcomeTitle, welcomeText);
-  actionsBar.append(refreshButton, openCreateMatchButton, openCreateTournamentButton);
+  actionsBar.append(refreshButton, openCreateMatchButton, openCreateTournamentButton, openCreateSeasonButton);
   dashboardHeader.append(welcomeBlock, actionsBar);
   viewGrid.append(leaderboardPanel, matchesPanel);
   dashboard.append(dashboardHeader, dashboardStatus, viewGrid);
@@ -2048,8 +2306,42 @@ export const buildApp = (): HTMLElement => {
   );
   createTournamentScreen.append(tournamentPanel);
 
+  replaceOptions(
+    seasonBaseEloSelect,
+    [
+      { value: "carry_over", label: "Carry over Elo" },
+      { value: "reset_1200", label: "Reset Elo to 1200" },
+    ],
+    "carry_over",
+    "Carry over Elo",
+  );
+
+  const seasonActiveField = document.createElement("label");
+  seasonActiveField.className = "checkbox-field";
+  const seasonActiveCopy = document.createElement("span");
+  seasonActiveCopy.className = "field-label";
+  seasonActiveCopy.textContent = "Make active season";
+  seasonActiveField.append(seasonIsActiveInput, seasonActiveCopy);
+  seasonParticipantSection.append(seasonParticipantLabel, seasonParticipantList);
+
+  seasonHeading.append(seasonTitle, seasonMeta);
+  seasonTop.append(seasonHeading, closeCreateSeasonButton);
+  seasonForm.append(
+    buildField("Load saved season", loadSeasonSelect),
+    loadSeasonButton,
+    buildField("Season name", seasonNameInput),
+    buildField("Start date", seasonStartDateInput),
+    buildField("End date", seasonEndDateInput),
+    buildField("Base Elo", seasonBaseEloSelect),
+    seasonParticipantSection,
+    seasonActiveField,
+    submitSeasonButton,
+  );
+  seasonPanel.append(seasonTop, seasonStatus, seasonForm);
+  createSeasonScreen.append(seasonPanel);
+
   header.append(brandMark, providerStack);
-  card.append(header, dashboard, createMatchScreen, createTournamentScreen);
+  card.append(header, dashboard, createMatchScreen, createTournamentScreen, createSeasonScreen);
   container.append(card);
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());
