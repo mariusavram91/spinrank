@@ -97,6 +97,24 @@ const renderPlayerNames = (playerIds: string[], players: LeaderboardEntry[]): st
   return playerIds.map((playerId) => playersById.get(playerId) || playerId).join(" / ");
 };
 
+const renderMatchContext = (
+  match: MatchRecord,
+  seasons: SeasonRecord[],
+  tournaments: TournamentRecord[],
+): string => {
+  const tournament = tournaments.find((entry) => entry.id === match.tournamentId);
+  if (tournament) {
+    return `Tournament: ${tournament.name}`;
+  }
+
+  const season = seasons.find((entry) => entry.id === match.seasonId);
+  if (season) {
+    return `Season: ${season.name}`;
+  }
+
+  return "Open play";
+};
+
 const toFairPlayerProfile = (player: LeaderboardEntry): FairPlayerProfile => {
   const totalMatches = player.wins + player.losses;
   return {
@@ -569,7 +587,11 @@ export const buildApp = (): HTMLElement => {
 
         const subline = document.createElement("p");
         subline.className = "match-subline";
-        subline.textContent = formatDateTime(match.playedAt);
+        subline.textContent = `${formatDateTime(match.playedAt)} • ${renderMatchContext(
+          match,
+          dashboardState.seasons,
+          dashboardState.tournaments,
+        )}`;
 
         cardNode.append(meta, subline);
         return cardNode;
@@ -1023,6 +1045,7 @@ export const buildApp = (): HTMLElement => {
         }
       });
       dashboardState.screen = "dashboard";
+      syncAuthState();
       await loadDashboard();
     } catch (error) {
       dashboardState.matchFormError =
