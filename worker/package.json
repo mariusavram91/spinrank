@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --persist-to=.wrangler/state",
+    "dev": "wrangler dev --env dev --persist-to=.wrangler/state",
     "deploy": "wrangler deploy",
-    "db:local:migrate": "wrangler d1 migrations apply spinrank-db --local --persist-to=.wrangler/state",
-    "db:local:seed": "wrangler d1 execute spinrank-db --local --persist-to=.wrangler/state --file=seed/dev_seed.sql",
-    "db:remote:migrate": "wrangler d1 migrations apply spinrank-db --remote"
+    "db:local:migrate": "wrangler d1 migrations apply DB --env dev --local --persist-to=.wrangler/state",
+    "db:local:seed": "wrangler d1 execute DB --env dev --local --persist-to=.wrangler/state --file=seed/dev_seed.sql",
+    "db:remote:migrate": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "jose": "^6.0.0",
