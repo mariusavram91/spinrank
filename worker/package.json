@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "wrangler build",
     "dev": "wrangler dev --env dev --persist-to=.wrangler/state",
     "deploy": "wrangler deploy",
     "db:local:migrate": "wrangler d1 migrations apply DB --env dev --local --persist-to=.wrangler/state",

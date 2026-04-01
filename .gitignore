@@ -12,3 +12,4 @@ coverage
 worker/.wrangler/state/
 worker/.wrangler/tmp/
 .dev.vars
+*.swp
