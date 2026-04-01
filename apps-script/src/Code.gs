@@ -1047,17 +1047,10 @@ function validateMatchScore_(formatType, pointsToWin, score, winnerTeam) {
 
   for (var index = 0; index < score.length; index += 1) {
     var game = score[index];
-    var hasWinner = game.teamA >= pointsToWin || game.teamB >= pointsToWin;
-    if (!hasWinner || game.teamA === game.teamB) {
-      throw validationError_("Each game must have exactly one team reach the target score.");
-    }
-
-    if (game.teamA > pointsToWin || game.teamB > pointsToWin) {
-      throw validationError_("Overtime scoring is not supported in the MVP.");
-    }
-
-    if (game.teamA >= pointsToWin && game.teamB >= pointsToWin) {
-      throw validationError_("Only one team can reach the target score in a game.");
+    var maxScore = Math.max(game.teamA, game.teamB);
+    var scoreGap = Math.abs(game.teamA - game.teamB);
+    if (maxScore < pointsToWin || game.teamA === game.teamB || scoreGap < 2) {
+      throw validationError_("Each game must be won by reaching the target score with at least a 2-point lead.");
     }
 
     if (game.teamA > game.teamB) {
