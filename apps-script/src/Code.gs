@@ -120,6 +120,10 @@ function doPost(e) {
       return jsonResponse_(handleGetLeaderboard_(request));
     }
 
+    if (request.action === "getUserProgress") {
+      return jsonResponse_(handleGetUserProgress_(request));
+    }
+
     if (request.action === "getSegmentLeaderboard") {
       return jsonResponse_(handleGetSegmentLeaderboard_(request));
     }
@@ -206,6 +210,11 @@ function handleGetLeaderboard_(request) {
     leaderboard: leaderboard,
     updatedAt: leaderboard.length ? leaderboard[0].updatedAt : new Date().toISOString(),
   });
+}
+
+function handleGetUserProgress_(request) {
+  var progress = buildUserProgressData_(request.sessionUser.id);
+  return successResponse_(request.requestId, progress);
 }
 
 function handleGetSegmentLeaderboard_(request) {
@@ -634,6 +643,74 @@ function buildSegmentLeaderboard_(segmentType, segmentId) {
   });
 }
 
+function buildUserProgressData_(userId) {
+  var leaderboard = buildGlobalLeaderboard_();
+  var currentEntry = null;
+
+  for (var leaderboardIndex = 0; leaderboardIndex < leaderboard.length; leaderboardIndex += 1) {
+    if (leaderboard[leaderboardIndex].userId === userId) {
+      currentEntry = leaderboard[leaderboardIndex];
+      break;
+    }
+  }
+
+  var currentElo = currentEntry ? currentEntry.elo : 1200;
+  var currentRank = currentEntry ? currentEntry.rank : null;
+  var sheet = getOrCreateSheet_(MATCHES_SHEET_NAME, MATCHES_HEADERS);
+  var rows = getSheetData_(sheet, MATCHES_HEADERS.length);
+  var matches = [];
+
+  for (var index = 0; index < rows.length; index += 1) {
+    if ((rows[index][14] || "active") !== "active") {
+      continue;
+    }
+
+    var teamAPlayerIds = parseJsonArray_(rows[index][4]);
+    var teamBPlayerIds = parseJsonArray_(rows[index][5]);
+    var participants = teamAPlayerIds.concat(teamBPlayerIds);
+    if (participants.indexOf(userId) === -1) {
+      continue;
+    }
+
+    if (!canAccessMatch_(rows[index][11] || null, rows[index][12] || null, userId)) {
+      continue;
+    }
+
+    var globalDelta = parseJsonObject_(rows[index][8]) || {};
+    matches.push({
+      playedAt: rows[index][10],
+      delta: Number(globalDelta[userId] || 0),
+    });
+  }
+
+  matches.sort(function (left, right) {
+    return String(left.playedAt).localeCompare(String(right.playedAt));
+  });
+
+  var elo = 1200;
+  var points = [];
+  for (var matchIndex = 0; matchIndex < matches.length; matchIndex += 1) {
+    elo += matches[matchIndex].delta;
+    points.push({
+      playedAt: matches[matchIndex].playedAt,
+      elo: elo,
+    });
+  }
+
+  if (!points.length) {
+    points.push({
+      playedAt: new Date().toISOString(),
+      elo: currentElo,
+    });
+  }
+
+  return {
+    currentRank: currentRank,
+    currentElo: currentElo,
+    points: points,
+  };
+}
+
 function getMatchRecords_() {
   var sheet = getOrCreateSheet_(MATCHES_SHEET_NAME, MATCHES_HEADERS);
   var rows = getSheetData_(sheet, MATCHES_HEADERS.length);
@@ -658,6 +735,24 @@ function getMatchRecords_() {
 
   matches.sort(compareMatchRowsDesc_);
   return matches;
+}
+
+function canAccessMatch_(seasonId, tournamentId, userId) {
+  if (!seasonId && !tournamentId) {
+    return true;
+  }
+
+  if (tournamentId) {
+    var tournament = getTournamentById_(tournamentId);
+    var plan = getTournamentPlanByTournamentId_(tournamentId);
+    return canAccessTournament_(tournament, plan, userId);
+  }
+
+  if (seasonId) {
+    return canAccessSeason_(getSeasonById_(seasonId), userId);
+  }
+
+  return false;
 }
 
 function getVisibleMatchRecords_(userId) {

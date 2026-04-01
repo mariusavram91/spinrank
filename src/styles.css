@@ -135,6 +135,58 @@ h1 {
   justify-content: flex-end;
 }
 
+.auth-actions {
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 10px;
+  justify-items: end;
+  align-self: center;
+}
+
+.auth-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: rgba(82, 61, 36, 0.08);
+  border: 1px solid rgba(82, 61, 36, 0.12);
+}
+
+.auth-menu-button {
+  min-width: 42px;
+  padding: 10px 12px;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.auth-menu {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: end;
+  margin-top: 2px;
+  width: 100%;
+}
+
+.create-menu {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: end;
+  margin-top: 2px;
+  width: 100%;
+  gap: 8px;
+}
+
+.create-menu-button {
+  font-size: 1.4rem;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.compact-header-button {
+  align-self: start;
+}
+
 .google-slot {
   min-height: 44px;
 }
@@ -212,7 +264,6 @@ button:disabled,
 
 .dashboard-header,
 .card-header,
-.actions-bar,
 .match-topline {
   display: flex;
   align-items: center;
@@ -226,9 +277,32 @@ button:disabled,
   gap: 6px;
 }
 
+.title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .section-title,
 .card-title {
   font-size: 1.2rem;
+}
+
+.icon-button {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.icon-button:hover:enabled {
+  background: transparent;
+  color: #2d261d;
+  transform: rotate(20deg);
 }
 
 .view-grid {
@@ -388,6 +462,47 @@ button:disabled,
   font-size: 0.92rem;
 }
 
+.progress-card {
+  display: grid;
+  gap: 12px;
+}
+
+.progress-meta {
+  margin: 0;
+  color: #2d261d;
+  font-weight: 700;
+}
+
+.progress-body {
+  display: grid;
+  gap: 10px;
+}
+
+.progress-chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.progress-axis {
+  fill: none;
+  stroke: rgba(82, 61, 36, 0.2);
+  stroke-width: 1.5;
+}
+
+.progress-axis-label {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.progress-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .tournament-winner {
   color: #0d6b46;
   font-weight: 800;
@@ -542,16 +657,6 @@ button:disabled,
     border-radius: 24px;
   }
 
-  .actions-bar {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .actions-bar button {
-    width: 100%;
-  }
-
   .leaderboard-topline {
     align-items: center;
     flex-direction: row !important;
@@ -563,21 +668,27 @@ button:disabled,
 
   .topbar {
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .provider-stack {
-    width: 100%;
-    justify-content: stretch;
+    width: auto;
+    flex: 0 0 auto;
+    justify-content: flex-end;
   }
 
-  .provider-stack > * {
-    width: 100%;
+  .google-slot {
+    width: auto;
   }
 
-  .google-slot,
-  .provider-stack button {
-    width: 100%;
+  .auth-actions {
+    align-self: start;
+  }
+
+  .compact-header-button {
+    width: auto !important;
+    padding-top: 7px;
+    padding-bottom: 7px;
   }
 
   .match-form,
@@ -622,11 +733,6 @@ button:disabled,
   .content-card {
     padding: 14px;
     border-radius: 18px;
-  }
-
-  .actions-bar {
-    grid-template-columns: 1fr;
-    gap: 10px;
   }
 
   .leaderboard-topline {

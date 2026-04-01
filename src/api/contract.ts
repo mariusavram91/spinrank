@@ -2,6 +2,7 @@ export const apiActions = [
   "health",
   "bootstrapUser",
   "getLeaderboard",
+  "getUserProgress",
   "getSegmentLeaderboard",
   "getMatches",
   "createMatch",
@@ -106,6 +107,19 @@ export interface GetLeaderboardPayload {}
 export interface GetLeaderboardData {
   leaderboard: LeaderboardEntry[];
   updatedAt: string;
+}
+
+export interface GetUserProgressPayload {}
+
+export interface UserProgressPoint {
+  playedAt: string;
+  elo: number;
+}
+
+export interface GetUserProgressData {
+  currentRank: number | null;
+  currentElo: number;
+  points: UserProgressPoint[];
 }
 
 export interface GetSegmentLeaderboardPayload {
@@ -272,6 +286,10 @@ export interface ApiActionMap {
   getLeaderboard: {
     payload: GetLeaderboardPayload;
     data: GetLeaderboardData;
+  };
+  getUserProgress: {
+    payload: GetUserProgressPayload;
+    data: GetUserProgressData;
   };
   getSegmentLeaderboard: {
     payload: GetSegmentLeaderboardPayload;

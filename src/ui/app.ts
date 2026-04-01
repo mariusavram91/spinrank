@@ -6,6 +6,7 @@ import type {
   CreateMatchPayload,
   CreateSeasonPayload,
   CreateTournamentPayload,
+  GetUserProgressData,
   GetMatchesData,
   GetTournamentBracketData,
   LeaderboardEntry,
@@ -34,6 +35,7 @@ interface DashboardState {
   leaderboard: LeaderboardEntry[];
   players: LeaderboardEntry[];
   leaderboardUpdatedAt: string;
+  userProgress: GetUserProgressData | null;
   segmentMode: SegmentMode;
   selectedSeasonId: string;
   selectedTournamentId: string;
@@ -106,6 +108,30 @@ const getTodayDateValue = (): string => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const buildProgressPath = (
+  points: Array<{ elo: number }>,
+  width: number,
+  height: number,
+  offsetX = 0,
+  offsetY = 0,
+): string => {
+  if (points.length === 0) {
+    return "";
+  }
+
+  const minElo = Math.min(...points.map((point) => point.elo));
+  const maxElo = Math.max(...points.map((point) => point.elo));
+  const range = Math.max(maxElo - minElo, 1);
+
+  return points
+    .map((point, index) => {
+      const x = (points.length === 1 ? width / 2 : (index / (points.length - 1)) * width) + offsetX;
+      const y = height - ((point.elo - minElo) / range) * height + offsetY;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
 };
 
 const buildSessionFromBootstrap = (data: BootstrapUserData): AppSession => ({
@@ -409,8 +435,33 @@ export const buildApp = (): HTMLElement => {
   const providerStack = document.createElement("div");
   providerStack.className = "provider-stack";
 
+  const authActions = document.createElement("div");
+  authActions.className = "auth-actions";
+
+  const authMenu = document.createElement("div");
+  authMenu.className = "auth-menu";
+
+  const createMenu = document.createElement("div");
+  createMenu.className = "create-menu";
+
   const googleSlot = document.createElement("div");
   googleSlot.className = "google-slot";
+
+  const authAvatar = document.createElement("img");
+  authAvatar.className = "auth-avatar";
+  authAvatar.alt = "Signed-in user avatar";
+
+  const authMenuButton = document.createElement("button");
+  authMenuButton.type = "button";
+  authMenuButton.className = "secondary-button auth-menu-button";
+  authMenuButton.textContent = "☰";
+  authMenuButton.setAttribute("aria-label", "Open account menu");
+
+  const createMenuButton = document.createElement("button");
+  createMenuButton.type = "button";
+  createMenuButton.className = "primary-button auth-menu-button create-menu-button";
+  createMenuButton.textContent = "+";
+  createMenuButton.setAttribute("aria-label", "Open create menu");
 
   const dashboard = document.createElement("section");
   dashboard.className = "dashboard";
@@ -433,14 +484,14 @@ export const buildApp = (): HTMLElement => {
   const welcomeBlock = document.createElement("div");
   welcomeBlock.className = "welcome-block";
 
+  const welcomeTitleRow = document.createElement("div");
+  welcomeTitleRow.className = "title-row";
+
   const welcomeTitle = document.createElement("h2");
   welcomeTitle.className = "section-title";
 
   const welcomeText = document.createElement("p");
   welcomeText.className = "section-copy";
-
-  const actionsBar = document.createElement("div");
-  actionsBar.className = "actions-bar";
 
   const logoutButton = document.createElement("button");
   logoutButton.type = "button";
@@ -449,8 +500,9 @@ export const buildApp = (): HTMLElement => {
 
   const refreshButton = document.createElement("button");
   refreshButton.type = "button";
-  refreshButton.className = "primary-button";
-  refreshButton.textContent = "Refresh";
+  refreshButton.className = "icon-button";
+  refreshButton.textContent = "↻";
+  refreshButton.setAttribute("aria-label", "Refresh dashboard");
 
   const openCreateMatchButton = document.createElement("button");
   openCreateMatchButton.type = "button";
@@ -472,6 +524,15 @@ export const buildApp = (): HTMLElement => {
 
   const viewGrid = document.createElement("div");
   viewGrid.className = "view-grid";
+
+  const progressPanel = document.createElement("section");
+  progressPanel.className = "content-card progress-card";
+
+  const progressMeta = document.createElement("p");
+  progressMeta.className = "progress-meta";
+
+  const progressBody = document.createElement("div");
+  progressBody.className = "progress-body";
 
   const leaderboardPanel = document.createElement("section");
   leaderboardPanel.className = "content-card";
@@ -646,7 +707,7 @@ export const buildApp = (): HTMLElement => {
 
   const closeCreateTournamentButton = document.createElement("button");
   closeCreateTournamentButton.type = "button";
-  closeCreateTournamentButton.className = "secondary-button";
+  closeCreateTournamentButton.className = "secondary-button compact-header-button";
   closeCreateTournamentButton.textContent = "Back";
 
   const seasonTop = document.createElement("div");
@@ -664,7 +725,7 @@ export const buildApp = (): HTMLElement => {
 
   const closeCreateSeasonButton = document.createElement("button");
   closeCreateSeasonButton.type = "button";
-  closeCreateSeasonButton.className = "secondary-button";
+  closeCreateSeasonButton.className = "secondary-button compact-header-button";
   closeCreateSeasonButton.textContent = "Back";
 
   const seasonStatus = document.createElement("p");
@@ -773,6 +834,7 @@ export const buildApp = (): HTMLElement => {
     leaderboard: [],
     players: [],
     leaderboardUpdatedAt: "",
+    userProgress: null,
     segmentMode: "global",
     selectedSeasonId: "",
     selectedTournamentId: "",
@@ -803,6 +865,8 @@ export const buildApp = (): HTMLElement => {
   };
 
   let activeTournamentBracketMatchId: string | null = null;
+  let authMenuOpen = false;
+  let createMenuOpen = false;
 
   const hasTournamentProgress = (): boolean =>
     tournamentPlannerState.rounds.some((round, roundIndex) =>
@@ -816,7 +880,15 @@ export const buildApp = (): HTMLElement => {
 
   const syncAuthState = (): void => {
     if (isAuthedState(state.current)) {
-      providerStack.replaceChildren(logoutButton);
+      authAvatar.src = state.current.session.user.avatarUrl || `${import.meta.env.BASE_URL}assets/logo.png`;
+      authMenu.hidden = !authMenuOpen;
+      createMenu.hidden = !createMenuOpen;
+      authMenuButton.setAttribute("aria-expanded", authMenuOpen ? "true" : "false");
+      createMenuButton.setAttribute("aria-expanded", createMenuOpen ? "true" : "false");
+      authMenu.replaceChildren(logoutButton);
+      createMenu.replaceChildren(openCreateMatchButton, openCreateTournamentButton, openCreateSeasonButton);
+      authActions.replaceChildren(createMenuButton, authAvatar, authMenuButton, createMenu, authMenu);
+      providerStack.replaceChildren(authActions);
       dashboard.hidden = dashboardState.screen !== "dashboard";
       createMatchScreen.hidden = dashboardState.screen !== "createMatch";
       createTournamentScreen.hidden = dashboardState.screen !== "createTournament";
@@ -827,6 +899,8 @@ export const buildApp = (): HTMLElement => {
     }
 
     providerStack.replaceChildren(googleSlot);
+    authMenuOpen = false;
+    createMenuOpen = false;
     dashboard.hidden = true;
     createMatchScreen.hidden = true;
     createTournamentScreen.hidden = true;
@@ -868,6 +942,7 @@ export const buildApp = (): HTMLElement => {
     seasonSelect.disabled = dashboardState.loading || dashboardState.seasons.length === 0;
     tournamentSelect.disabled = dashboardState.loading || dashboardState.tournaments.length === 0;
     refreshButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
+    createMenuButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     openCreateMatchButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     openCreateTournamentButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     openCreateSeasonButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
@@ -992,6 +1067,68 @@ export const buildApp = (): HTMLElement => {
         return cardNode;
       });
       matchesList.replaceChildren(...matchCards);
+    }
+
+    if (!dashboardState.userProgress) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "No progress yet.";
+      progressBody.replaceChildren(empty);
+      progressMeta.textContent = "";
+    } else {
+      const rankLabel =
+        dashboardState.userProgress.currentRank === null
+          ? "Unranked"
+          : `#${dashboardState.userProgress.currentRank}`;
+      progressMeta.textContent = `${rankLabel} • ${dashboardState.userProgress.currentElo} Elo`;
+
+      const svgNamespace = "http://www.w3.org/2000/svg";
+      const chart = document.createElementNS(svgNamespace, "svg");
+      chart.setAttribute("viewBox", "0 0 320 140");
+      chart.setAttribute("class", "progress-chart");
+
+      const axis = document.createElementNS(svgNamespace, "path");
+      axis.setAttribute("d", "M36 12 L36 112 L308 112");
+      axis.setAttribute("class", "progress-axis");
+
+      const path = document.createElementNS(svgNamespace, "path");
+      path.setAttribute("d", buildProgressPath(dashboardState.userProgress.points, 272, 100, 36, 12));
+      path.setAttribute("class", "progress-line");
+
+      const values = dashboardState.userProgress.points.map((point) => point.elo);
+      const minElo = Math.min(...values);
+      const maxElo = Math.max(...values);
+
+      const yTop = document.createElementNS(svgNamespace, "text");
+      yTop.setAttribute("x", "0");
+      yTop.setAttribute("y", "18");
+      yTop.setAttribute("class", "progress-axis-label");
+      yTop.textContent = `${maxElo}`;
+
+      const yBottom = document.createElementNS(svgNamespace, "text");
+      yBottom.setAttribute("x", "0");
+      yBottom.setAttribute("y", "116");
+      yBottom.setAttribute("class", "progress-axis-label");
+      yBottom.textContent = `${minElo}`;
+
+      const firstPoint = dashboardState.userProgress.points[0];
+      const lastPoint = dashboardState.userProgress.points[dashboardState.userProgress.points.length - 1];
+
+      const xLeft = document.createElementNS(svgNamespace, "text");
+      xLeft.setAttribute("x", "36");
+      xLeft.setAttribute("y", "134");
+      xLeft.setAttribute("class", "progress-axis-label");
+      xLeft.textContent = formatDate(firstPoint.playedAt);
+
+      const xRight = document.createElementNS(svgNamespace, "text");
+      xRight.setAttribute("x", "308");
+      xRight.setAttribute("y", "134");
+      xRight.setAttribute("text-anchor", "end");
+      xRight.setAttribute("class", "progress-axis-label");
+      xRight.textContent = formatDate(lastPoint.playedAt);
+
+      chart.append(axis, path, yTop, yBottom, xLeft, xRight);
+      progressBody.replaceChildren(chart);
     }
   };
 
@@ -1647,11 +1784,12 @@ export const buildApp = (): HTMLElement => {
     syncDashboardState();
 
     try {
-      const [seasonsData, tournamentsData, globalData, matchesData] = await Promise.all([
+      const [seasonsData, tournamentsData, globalData, matchesData, userProgressData] = await Promise.all([
         runAuthedAction("getSeasons", {}),
         runAuthedAction("getTournaments", {}),
         runAuthedAction("getLeaderboard", {}),
         runAuthedAction("getMatches", { limit: 4 }),
+        runAuthedAction("getUserProgress", {}),
       ]);
 
       dashboardState.seasons = seasonsData.seasons;
@@ -1663,6 +1801,7 @@ export const buildApp = (): HTMLElement => {
       dashboardState.players = globalData.leaderboard;
       dashboardState.leaderboard = globalData.leaderboard;
       dashboardState.leaderboardUpdatedAt = globalData.updatedAt;
+      dashboardState.userProgress = userProgressData;
       dashboardState.matches = matchesData.matches;
       dashboardState.matchesCursor = matchesData.nextCursor;
       dashboardState.matchBracketContextByMatchId = await loadMatchBracketContext(matchesData.matches);
@@ -2040,8 +2179,36 @@ export const buildApp = (): HTMLElement => {
   };
 
   logoutButton.addEventListener("click", () => {
+    authMenuOpen = false;
     clearSession();
     setIdleState();
+  });
+
+  authMenuButton.addEventListener("click", () => {
+    createMenuOpen = false;
+    authMenuOpen = !authMenuOpen;
+    syncAuthState();
+  });
+
+  createMenuButton.addEventListener("click", () => {
+    authMenuOpen = false;
+    createMenuOpen = !createMenuOpen;
+    syncAuthState();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!authMenuOpen && !createMenuOpen) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node) || authActions.contains(target)) {
+      return;
+    }
+
+    authMenuOpen = false;
+    createMenuOpen = false;
+    syncAuthState();
   });
 
   refreshButton.addEventListener("click", () => {
@@ -2049,12 +2216,14 @@ export const buildApp = (): HTMLElement => {
   });
 
   openCreateMatchButton.addEventListener("click", () => {
+    createMenuOpen = false;
     dashboardState.screen = "createMatch";
     syncAuthState();
     syncDashboardState();
   });
 
   openCreateTournamentButton.addEventListener("click", () => {
+    createMenuOpen = false;
     dashboardState.screen = "createTournament";
     tournamentPlannerState.error = "";
     populateTournamentPlannerLoadOptions();
@@ -2064,6 +2233,7 @@ export const buildApp = (): HTMLElement => {
   });
 
   openCreateSeasonButton.addEventListener("click", () => {
+    createMenuOpen = false;
     dashboardState.screen = "createSeason";
     dashboardState.seasonFormError = "";
     dashboardState.seasonFormMessage = "";
@@ -2220,6 +2390,7 @@ export const buildApp = (): HTMLElement => {
   matchesHeading.append(matchesTitle, matchesMeta);
   matchesTop.append(matchesHeading);
   matchesPanel.append(matchesTop, matchesList, loadMoreButton);
+  progressPanel.append(progressMeta, progressBody);
 
   composerHeading.append(composerTitle, composerMeta);
   composerTop.append(composerHeading, closeCreateMatchButton);
@@ -2283,11 +2454,11 @@ export const buildApp = (): HTMLElement => {
 
   composerPanel.append(composerTop, composerStatus, matchForm);
 
-  welcomeBlock.append(welcomeTitle, welcomeText);
-  actionsBar.append(refreshButton, openCreateMatchButton, openCreateTournamentButton, openCreateSeasonButton);
-  dashboardHeader.append(welcomeBlock, actionsBar);
+  welcomeTitleRow.append(welcomeTitle, refreshButton);
+  welcomeBlock.append(welcomeTitleRow, welcomeText);
+  dashboardHeader.append(welcomeBlock);
   viewGrid.append(leaderboardPanel, matchesPanel);
-  dashboard.append(dashboardHeader, dashboardStatus, viewGrid);
+  dashboard.append(dashboardHeader, progressPanel, dashboardStatus, viewGrid);
   createMatchScreen.append(composerPanel);
 
   tournamentHeading.append(tournamentTitle, tournamentMeta);
