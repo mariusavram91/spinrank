@@ -1,23 +1,20 @@
-export const apiActions = [
-  "health",
-  "bootstrapUser",
-  "getDashboard",
-  "getLeaderboard",
-  "getUserProgress",
-  "getSegmentLeaderboard",
-  "getMatches",
-  "createMatch",
-  "createSeason",
-  "createTournament",
-  "deactivateMatch",
-  "deactivateTournament",
-  "deactivateSeason",
-  "getSeasons",
-  "getTournaments",
-  "getTournamentBracket",
-] as const;
-
-export type ApiAction = (typeof apiActions)[number];
+export type ApiAction =
+  | "health"
+  | "bootstrapUser"
+  | "getDashboard"
+  | "getLeaderboard"
+  | "getMatches"
+  | "getSeasons"
+  | "getSegmentLeaderboard"
+  | "getTournamentBracket"
+  | "getTournaments"
+  | "getUserProgress"
+  | "createMatch"
+  | "createSeason"
+  | "createTournament"
+  | "deactivateMatch"
+  | "deactivateTournament"
+  | "deactivateSeason";
 
 export type AuthProvider = "google" | "apple";
 export type MatchType = "singles" | "doubles";
@@ -38,7 +35,7 @@ export type ErrorCode =
   | "RATE_LIMITED"
   | "INTERNAL_ERROR";
 
-export interface ApiEnvelope<TAction extends ApiAction, TPayload> {
+export interface ApiRequest<TAction extends ApiAction = ApiAction, TPayload = unknown> {
   action: TAction;
   requestId: string;
   payload: TPayload;
@@ -58,13 +55,26 @@ export interface ApiResponse<TData> {
   requestId: string;
 }
 
-export interface HealthPayload {}
+export interface Env {
+  DB: D1Database;
+  GOOGLE_CLIENT_ID: string;
+  APP_SESSION_SECRET: string;
+  APP_ORIGIN: string;
+  APP_ENV?: string;
+}
 
-export interface HealthData {
-  status: "ok";
-  environment: string;
-  timestamp: string;
-  version: string;
+export interface SessionClaims {
+  sub: string;
+  iat: number;
+  exp: number;
+}
+
+export interface AppUser {
+  id: string;
+  provider: AuthProvider;
+  displayName: string;
+  email: string | null;
+  avatarUrl: string | null;
 }
 
 export interface BootstrapUserPayload {
@@ -78,21 +88,7 @@ export interface BootstrapUserPayload {
   };
 }
 
-export interface AppUser {
-  id: string;
-  provider: AuthProvider;
-  displayName: string;
-  email: string | null;
-  avatarUrl: string | null;
-}
-
 export interface BootstrapUserData {
-  sessionToken: string;
-  expiresAt: string;
-  user: AppUser;
-}
-
-export interface AppSession {
   sessionToken: string;
   expiresAt: string;
   user: AppUser;
@@ -109,14 +105,10 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
-export interface GetLeaderboardPayload {}
-
 export interface GetLeaderboardData {
   leaderboard: LeaderboardEntry[];
   updatedAt: string;
 }
-
-export interface GetUserProgressPayload {}
 
 export interface UserProgressPoint {
   playedAt: string;
@@ -138,27 +130,9 @@ export interface GetUserProgressData {
   points: UserProgressPoint[];
 }
 
-export interface GetSegmentLeaderboardPayload {
-  segmentType: SegmentType;
-  segmentId: string;
-}
-
-export interface GetSegmentLeaderboardData {
-  segmentType: SegmentType;
-  segmentId: string;
-  leaderboard: LeaderboardEntry[];
-  updatedAt: string;
-}
-
 export interface MatchBracketContext {
   roundTitle: string;
   isFinal: boolean;
-}
-
-export interface GetMatchesPayload {
-  cursor?: string;
-  limit?: number;
-  filter?: MatchFeedFilter;
 }
 
 export interface MatchScoreGame {
@@ -184,40 +158,6 @@ export interface MatchRecord {
   bracketContext?: MatchBracketContext | null;
 }
 
-export interface GetMatchesData {
-  matches: MatchRecord[];
-  nextCursor: string | null;
-}
-
-export interface CreateMatchPayload {
-  matchType: MatchType;
-  formatType: FormatType;
-  pointsToWin: 11 | 21;
-  teamAPlayerIds: string[];
-  teamBPlayerIds: string[];
-  score: MatchScoreGame[];
-  winnerTeam: WinnerTeam;
-  playedAt: string;
-  seasonId?: string | null;
-  tournamentId?: string | null;
-  tournamentBracketMatchId?: string | null;
-}
-
-export interface CreateMatchData {
-  match: MatchRecord;
-}
-
-export interface DeactivateEntityPayload {
-  id: string;
-  reason?: string;
-}
-
-export interface DeactivateEntityData {
-  id: string;
-  status: "deleted";
-  deletedAt: string;
-}
-
 export interface SeasonRecord {
   id: string;
   name: string;
@@ -231,27 +171,6 @@ export interface SeasonRecord {
   createdAt: string;
   completedAt: string | null;
   isPublic: boolean;
-}
-
-export interface GetSeasonsPayload {}
-
-export interface GetSeasonsData {
-  seasons: SeasonRecord[];
-}
-
-export interface CreateSeasonPayload {
-  seasonId?: string | null;
-  name: string;
-  startDate: string;
-  endDate?: string | null;
-  isActive: boolean;
-  baseEloMode: "carry_over" | "reset_1200";
-  participantIds: string[];
-  isPublic?: boolean;
-}
-
-export interface CreateSeasonData {
-  season: SeasonRecord;
 }
 
 export interface TournamentRecord {
@@ -283,6 +202,50 @@ export interface TournamentBracketRound {
   matches: TournamentBracketMatch[];
 }
 
+export interface GetMatchesPayload {
+  cursor?: string;
+  limit?: number;
+  filter?: "recent" | "mine" | "all";
+}
+
+export interface GetMatchesData {
+  matches: MatchRecord[];
+  nextCursor: string | null;
+}
+
+export interface CreateMatchPayload {
+  matchType: MatchType;
+  formatType: FormatType;
+  pointsToWin: 11 | 21;
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
+  score: MatchScoreGame[];
+  winnerTeam: WinnerTeam;
+  playedAt: string;
+  seasonId?: string | null;
+  tournamentId?: string | null;
+  tournamentBracketMatchId?: string | null;
+}
+
+export interface CreateMatchData {
+  match: MatchRecord;
+}
+
+export interface CreateSeasonPayload {
+  seasonId?: string | null;
+  name: string;
+  startDate: string;
+  endDate?: string | null;
+  isActive: boolean;
+  baseEloMode: "carry_over" | "reset_1200";
+  participantIds: string[];
+  isPublic?: boolean;
+}
+
+export interface CreateSeasonData {
+  season: SeasonRecord;
+}
+
 export interface CreateTournamentPayload {
   tournamentId?: string | null;
   name: string;
@@ -295,6 +258,22 @@ export interface CreateTournamentPayload {
 export interface CreateTournamentData {
   tournament: TournamentRecord;
   rounds: TournamentBracketRound[];
+}
+
+export interface GetSegmentLeaderboardPayload {
+  segmentType: SegmentType;
+  segmentId: string;
+}
+
+export interface GetSegmentLeaderboardData {
+  segmentType: SegmentType;
+  segmentId: string;
+  leaderboard: LeaderboardEntry[];
+  updatedAt: string;
+}
+
+export interface GetSeasonsData {
+  seasons: SeasonRecord[];
 }
 
 export interface GetTournamentsPayload {
@@ -315,11 +294,6 @@ export interface GetTournamentBracketData {
   rounds: TournamentBracketRound[];
 }
 
-export interface GetDashboardPayload {
-  matchesLimit?: number;
-  matchesFilter?: MatchFeedFilter;
-}
-
 export interface GetDashboardData {
   seasons: SeasonRecord[];
   tournaments: TournamentRecord[];
@@ -331,69 +305,54 @@ export interface GetDashboardData {
   matchBracketContextByMatchId: Record<string, MatchBracketContext>;
 }
 
-export interface ApiActionMap {
-  health: {
-    payload: HealthPayload;
-    data: HealthData;
-  };
-  bootstrapUser: {
-    payload: BootstrapUserPayload;
-    data: BootstrapUserData;
-  };
-  getDashboard: {
-    payload: GetDashboardPayload;
-    data: GetDashboardData;
-  };
-  getLeaderboard: {
-    payload: GetLeaderboardPayload;
-    data: GetLeaderboardData;
-  };
-  getUserProgress: {
-    payload: GetUserProgressPayload;
-    data: GetUserProgressData;
-  };
-  getSegmentLeaderboard: {
-    payload: GetSegmentLeaderboardPayload;
-    data: GetSegmentLeaderboardData;
-  };
-  getMatches: {
-    payload: GetMatchesPayload;
-    data: GetMatchesData;
-  };
-  createMatch: {
-    payload: CreateMatchPayload;
-    data: CreateMatchData;
-  };
-  createSeason: {
-    payload: CreateSeasonPayload;
-    data: CreateSeasonData;
-  };
-  createTournament: {
-    payload: CreateTournamentPayload;
-    data: CreateTournamentData;
-  };
-  deactivateMatch: {
-    payload: DeactivateEntityPayload;
-    data: DeactivateEntityData;
-  };
-  deactivateTournament: {
-    payload: DeactivateEntityPayload;
-    data: DeactivateEntityData;
-  };
-  deactivateSeason: {
-    payload: DeactivateEntityPayload;
-    data: DeactivateEntityData;
-  };
-  getSeasons: {
-    payload: GetSeasonsPayload;
-    data: GetSeasonsData;
-  };
-  getTournaments: {
-    payload: GetTournamentsPayload;
-    data: GetTournamentsData;
-  };
-  getTournamentBracket: {
-    payload: GetTournamentBracketPayload;
-    data: GetTournamentBracketData;
-  };
+export interface DeactivateEntityPayload {
+  id: string;
+  reason?: string;
+}
+
+export interface DeactivateEntityData {
+  id: string;
+  status: "deleted";
+  deletedAt: string;
+}
+
+export interface UserRow {
+  id: string;
+  provider: AuthProvider;
+  provider_user_id: string;
+  email: string | null;
+  display_name: string;
+  avatar_url: string | null;
+  global_elo: number;
+  wins: number;
+  losses: number;
+  streak: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeasonRow {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_active: number;
+  status: SeasonStatus;
+  base_elo_mode: "carry_over" | "reset_1200";
+  participant_ids_json: string;
+  created_by_user_id: string | null;
+  created_at: string;
+  completed_at: string | null;
+  is_public: number;
+}
+
+export interface TournamentRow {
+  id: string;
+  name: string;
+  date: string;
+  status: TournamentStatus;
+  season_id: string | null;
+  created_by_user_id: string | null;
+  created_at: string;
+  completed_at: string | null;
 }

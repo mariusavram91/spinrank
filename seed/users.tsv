@@ -1,7 +1,0 @@
-id	provider	provider_user_id	email	display_name	avatar_url	global_elo	wins	losses	streak	created_at	updated_at
-user_alex	google	google-alex	alex@example.com	Alex Hart	https://example.com/alex.png	1284	9	3	4	2026-01-10T09:00:00.000Z	2026-03-20T20:05:00.000Z
-user_bea	google	google-bea	bea@example.com	Bea Imani	https://example.com/bea.png	1256	8	4	2	2026-01-10T09:05:00.000Z	2026-03-20T20:05:00.000Z
-user_cruz	google	google-cruz	cruz@example.com	Cruz Novak	https://example.com/cruz.png	1232	7	5	1	2026-01-10T09:10:00.000Z	2026-03-20T20:05:00.000Z
-user_daya	google	google-daya	daya@example.com	Daya Chen	https://example.com/daya.png	1214	6	6	-1	2026-01-10T09:15:00.000Z	2026-03-20T20:05:00.000Z
-user_eli	google	google-eli	eli@example.com	Eli Stone	https://example.com/eli.png	1198	4	8	-3	2026-01-10T09:20:00.000Z	2026-03-20T20:05:00.000Z
-user_finn	google	google-finn	finn@example.com	Finn Vale	https://example.com/finn.png	1170	3	9	-2	2026-01-10T09:25:00.000Z	2026-03-20T20:05:00.000Z

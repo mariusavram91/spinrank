@@ -6,3 +6,9 @@ coverage
 .env.local
 .env.*.local
 .clasp.json
+*.sqlite
+*.sqlite3
+*.db
+worker/.wrangler/state/
+worker/.wrangler/tmp/
+.dev.vars

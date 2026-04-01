@@ -29,7 +29,7 @@ export const postAction = async <TAction extends ApiAction>(
   const response = await fetch(env.backendUrl, {
     method: "POST",
     headers: {
-      // Apps Script web apps are easier to call from the browser without a CORS preflight.
+      // The Worker keeps accepting the raw action envelope body.
       "content-type": "text/plain;charset=utf-8",
     },
     body: JSON.stringify(requestBody),

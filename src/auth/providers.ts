@@ -136,7 +136,7 @@ export const renderGoogleButton = async (
     text: "continue_with",
     shape: "pill",
     size: "large",
-    width: Math.min(host.clientWidth || 320, 360),
+    width: 240,
     logo_alignment: "left",
   });
 };

@@ -1,0 +1,2 @@
+-- The manual verification dataset lives in seed/dev_seed.sql.
+-- Copy that file here or execute it directly when you need seeded test data.

@@ -1,0 +1,14 @@
+name = "spinrank-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spinrank-prod"
+database_id = "c679ee8a-9171-4be9-b12a-c8db73cbc38f"
+preview_database_id = "679ee8a-9171-4be9-b12a-c8db73cbc38f"
+migrations_dir = "migrations"
+
+[vars]
+APP_ENV = "prod"
+APP_ORIGIN = "http://localhost:5173"
