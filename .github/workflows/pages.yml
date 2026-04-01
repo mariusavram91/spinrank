@@ -2,7 +2,7 @@ name: Deploy Frontend
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "current"]
   pull_request:
 
 permissions:
@@ -36,7 +36,7 @@ jobs:
       - name: Build frontend
         run: npm run build
         env:
-          VITE_APP_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+          VITE_APP_ENV: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/current') && 'prod' || 'dev' }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
@@ -46,7 +46,7 @@ jobs:
           path: dist
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/current')
     needs: build
     runs-on: ubuntu-latest
     environment:
