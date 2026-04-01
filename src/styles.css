@@ -118,6 +118,11 @@ h1 {
   gap: 16px;
 }
 
+.tournament-card {
+  display: grid;
+  gap: 16px;
+}
+
 .dashboard-status[data-status="error"] {
   color: var(--error);
 }
@@ -340,6 +345,11 @@ button:disabled,
   font-size: 0.92rem;
 }
 
+.tournament-winner {
+  color: #0d6b46;
+  font-weight: 800;
+}
+
 .match-status {
   font-size: 0.92rem;
 }
@@ -399,6 +409,57 @@ button:disabled,
 
 .form-status[data-status="error"] {
   color: var(--error);
+}
+
+.participant-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.participant-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--surface-strong);
+  border: 1px solid rgba(82, 61, 36, 0.08);
+}
+
+.participant-chip input {
+  margin: 0;
+}
+
+.bracket-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.bracket-round {
+  display: grid;
+  gap: 10px;
+}
+
+.bracket-match {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface-strong);
+  border: 1px solid rgba(82, 61, 36, 0.08);
+}
+
+.bracket-action {
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  padding: 3px 8px;
+  font-size: 0.82rem;
+  line-height: 1;
+  border-radius: 10px;
 }
 
 @media (max-width: 860px) {
@@ -463,6 +524,10 @@ button:disabled,
   .match-form,
   .team-grid,
   .score-row {
+    grid-template-columns: 1fr;
+  }
+
+  .participant-list {
     grid-template-columns: 1fr;
   }
 

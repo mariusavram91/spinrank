@@ -5,9 +5,11 @@ export const apiActions = [
   "getSegmentLeaderboard",
   "getMatches",
   "createMatch",
+  "createTournament",
   "deactivateMatch",
   "getSeasons",
   "getTournaments",
+  "getTournamentBracket",
 ] as const;
 
 export type ApiAction = (typeof apiActions)[number];
@@ -160,6 +162,7 @@ export interface CreateMatchPayload {
   playedAt: string;
   seasonId?: string | null;
   tournamentId?: string | null;
+  tournamentBracketMatchId?: string | null;
 }
 
 export interface CreateMatchData {
@@ -197,12 +200,48 @@ export interface TournamentRecord {
   seasonId: string | null;
 }
 
+export interface TournamentBracketMatch {
+  id: string;
+  leftPlayerId: string | null;
+  rightPlayerId: string | null;
+  createdMatchId: string | null;
+  winnerPlayerId?: string | null;
+}
+
+export interface TournamentBracketRound {
+  title: string;
+  matches: TournamentBracketMatch[];
+}
+
+export interface CreateTournamentPayload {
+  tournamentId?: string | null;
+  name: string;
+  seasonId?: string | null;
+  participantIds: string[];
+  rounds: TournamentBracketRound[];
+}
+
+export interface CreateTournamentData {
+  tournament: TournamentRecord;
+  rounds: TournamentBracketRound[];
+}
+
 export interface GetTournamentsPayload {
   seasonId?: string;
 }
 
 export interface GetTournamentsData {
   tournaments: TournamentRecord[];
+}
+
+export interface GetTournamentBracketPayload {
+  tournamentId: string;
+}
+
+export interface GetTournamentBracketData {
+  tournament: TournamentRecord;
+  participantIds: string[];
+  rounds: TournamentBracketRound[];
 }
 
 export interface ApiActionMap {
@@ -230,6 +269,10 @@ export interface ApiActionMap {
     payload: CreateMatchPayload;
     data: CreateMatchData;
   };
+  createTournament: {
+    payload: CreateTournamentPayload;
+    data: CreateTournamentData;
+  };
   deactivateMatch: {
     payload: DeactivateMatchPayload;
     data: DeactivateMatchData;
@@ -241,5 +284,9 @@ export interface ApiActionMap {
   getTournaments: {
     payload: GetTournamentsPayload;
     data: GetTournamentsData;
+  };
+  getTournamentBracket: {
+    payload: GetTournamentBracketPayload;
+    data: GetTournamentBracketData;
   };
 }

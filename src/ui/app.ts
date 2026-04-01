@@ -4,10 +4,13 @@ import type {
   AppSession,
   BootstrapUserData,
   CreateMatchPayload,
+  CreateTournamentPayload,
   GetMatchesData,
+  GetTournamentBracketData,
   LeaderboardEntry,
   MatchRecord,
   SeasonRecord,
+  TournamentBracketRound,
   TournamentRecord,
 } from "../api/contract";
 import { postAction } from "../api/client";
@@ -24,7 +27,7 @@ type ViewState =
 type SegmentMode = "global" | "season" | "tournament";
 
 interface DashboardState {
-  screen: "dashboard" | "createMatch";
+  screen: "dashboard" | "createMatch" | "createTournament";
   loading: boolean;
   error: string;
   leaderboard: LeaderboardEntry[];
@@ -55,6 +58,28 @@ interface SuggestedMatchup {
   teamAPlayerIds: string[];
   teamBPlayerIds: string[];
   fairnessScore: number;
+}
+
+interface TournamentPlannerMatch {
+  id: string;
+  leftPlayerId: string | null;
+  rightPlayerId: string | null;
+  createdMatchId?: string | null;
+  winnerPlayerId?: string | null;
+}
+
+interface TournamentPlannerRound {
+  title: string;
+  matches: TournamentPlannerMatch[];
+}
+
+interface TournamentPlannerState {
+  name: string;
+  tournamentId: string;
+  participantIds: string[];
+  firstRoundMatches: TournamentPlannerMatch[];
+  rounds: TournamentPlannerRound[];
+  error: string;
 }
 
 const formatDateTime = (value: string): string =>
@@ -203,6 +228,131 @@ const buildFairMatchSuggestion = (
   return bestSuggestion;
 };
 
+const nextPowerOfTwo = (value: number): number => {
+  let size = 1;
+  while (size < value) {
+    size *= 2;
+  }
+  return size;
+};
+
+const buildSeedOrder = (size: number): number[] => {
+  if (size === 1) {
+    return [1];
+  }
+
+  const previous = buildSeedOrder(size / 2);
+  const result: number[] = [];
+
+  previous.forEach((seed) => {
+    result.push(seed, size + 1 - seed);
+  });
+
+  return result;
+};
+
+const getTournamentRoundTitle = (matchCount: number): string => {
+  if (matchCount === 1) {
+    return "Final";
+  }
+  if (matchCount === 2) {
+    return "Semifinals";
+  }
+  if (matchCount === 4) {
+    return "Quarterfinals";
+  }
+  return `Round of ${matchCount * 2}`;
+};
+
+const getPlayerStrengthScore = (player: LeaderboardEntry): number => {
+  const totalMatches = player.wins + player.losses;
+  const winRate = totalMatches > 0 ? player.wins / totalMatches : 0.5;
+  return player.elo + winRate * 120 + Math.min(totalMatches, 20) * 2;
+};
+
+const buildTournamentSuggestion = (
+  players: LeaderboardEntry[],
+  participantIds: string[],
+): { firstRoundMatches: TournamentPlannerMatch[]; rounds: TournamentPlannerRound[] } | null => {
+  if (participantIds.length < 2) {
+    return null;
+  }
+
+  const selectedPlayers = participantIds
+    .map((participantId) => players.find((player) => player.userId === participantId) || null)
+    .filter((player): player is LeaderboardEntry => player !== null)
+    // Stronger global players receive the top seeds and therefore any auto-advance slots.
+    .sort((left, right) => getPlayerStrengthScore(right) - getPlayerStrengthScore(left));
+
+  const bracketSize = nextPowerOfTwo(selectedPlayers.length);
+  const seedOrder = buildSeedOrder(bracketSize);
+  const slots = seedOrder.map((seed) => selectedPlayers[seed - 1]?.userId || null);
+  const firstRoundMatches: TournamentPlannerMatch[] = [];
+
+  for (let index = 0; index < slots.length; index += 2) {
+    firstRoundMatches.push({
+      id: `round_1_match_${index / 2 + 1}`,
+      leftPlayerId: slots[index] || null,
+      rightPlayerId: slots[index + 1] || null,
+    });
+  }
+
+  const rounds: TournamentPlannerRound[] = [
+    {
+      title: getTournamentRoundTitle(firstRoundMatches.length),
+      matches: firstRoundMatches,
+    },
+  ];
+
+  let currentMatchCount = firstRoundMatches.length;
+  let roundIndex = 2;
+  while (currentMatchCount > 1) {
+    const nextMatchCount = currentMatchCount / 2;
+    const matches: TournamentPlannerMatch[] = Array.from({ length: nextMatchCount }, (_, index) => ({
+      id: `round_${roundIndex}_match_${index + 1}`,
+      leftPlayerId: null,
+      rightPlayerId: null,
+    }));
+    rounds.push({
+      title: getTournamentRoundTitle(matches.length),
+      matches,
+    });
+    currentMatchCount = nextMatchCount;
+    roundIndex += 1;
+  }
+
+  return {
+    firstRoundMatches,
+    rounds,
+  };
+};
+
+const applyTournamentWinnerLocally = (
+  rounds: TournamentPlannerRound[],
+  roundIndex: number,
+  matchIndex: number,
+  winnerPlayerId: string,
+): TournamentPlannerRound[] =>
+  rounds.map((round, currentRoundIndex) => ({
+    title: round.title,
+    matches: round.matches.map((match, currentMatchIndex) => {
+      if (currentRoundIndex === roundIndex && currentMatchIndex === matchIndex) {
+        return {
+          ...match,
+          winnerPlayerId,
+        };
+      }
+
+      if (currentRoundIndex === roundIndex + 1 && currentMatchIndex === Math.floor(matchIndex / 2)) {
+        return matchIndex % 2 === 0
+          ? { ...match, leftPlayerId: winnerPlayerId }
+          : { ...match, rightPlayerId: winnerPlayerId };
+      }
+
+      return match;
+    }),
+  }));
+
 const toLocalDateTimeValue = (value: string): string => {
   const date = new Date(value);
   const parts = [
@@ -246,6 +396,10 @@ export const buildApp = (): HTMLElement => {
   createMatchScreen.className = "dashboard";
   createMatchScreen.hidden = true;
 
+  const createTournamentScreen = document.createElement("section");
+  createTournamentScreen.className = "dashboard";
+  createTournamentScreen.hidden = true;
+
   const dashboardHeader = document.createElement("div");
   dashboardHeader.className = "dashboard-header";
 
@@ -275,6 +429,11 @@ export const buildApp = (): HTMLElement => {
   openCreateMatchButton.type = "button";
   openCreateMatchButton.className = "secondary-button";
   openCreateMatchButton.textContent = "Create match";
+
+  const openCreateTournamentButton = document.createElement("button");
+  openCreateTournamentButton.type = "button";
+  openCreateTournamentButton.className = "secondary-button";
+  openCreateTournamentButton.textContent = "Tournaments";
 
   const dashboardStatus = document.createElement("p");
   dashboardStatus.className = "dashboard-status";
@@ -434,6 +593,65 @@ export const buildApp = (): HTMLElement => {
   loadMoreButton.className = "secondary-button";
   loadMoreButton.textContent = "Load more";
 
+  const tournamentPanel = document.createElement("section");
+  tournamentPanel.className = "content-card tournament-card";
+
+  const tournamentTop = document.createElement("div");
+  tournamentTop.className = "card-header";
+
+  const tournamentHeading = document.createElement("div");
+
+  const tournamentTitle = document.createElement("h3");
+  tournamentTitle.className = "card-title";
+  tournamentTitle.textContent = "Create tournament";
+
+  const tournamentMeta = document.createElement("p");
+  tournamentMeta.className = "card-meta";
+  tournamentMeta.textContent = "Select participants, then generate a fair singles bracket.";
+
+  const closeCreateTournamentButton = document.createElement("button");
+  closeCreateTournamentButton.type = "button";
+  closeCreateTournamentButton.className = "secondary-button";
+  closeCreateTournamentButton.textContent = "Back";
+
+  const tournamentNameInput = document.createElement("input");
+  tournamentNameInput.className = "text-input";
+  tournamentNameInput.placeholder = "Tournament name";
+
+  const loadTournamentSelect = document.createElement("select");
+  loadTournamentSelect.className = "select-input";
+
+  const loadTournamentButton = document.createElement("button");
+  loadTournamentButton.type = "button";
+  loadTournamentButton.className = "secondary-button";
+  loadTournamentButton.textContent = "Load tournament";
+
+  const tournamentStatus = document.createElement("p");
+  tournamentStatus.className = "form-status";
+
+  const participantSection = document.createElement("div");
+  participantSection.className = "form-field";
+
+  const participantLabel = document.createElement("span");
+  participantLabel.className = "field-label";
+  participantLabel.textContent = "Participants";
+
+  const participantList = document.createElement("div");
+  participantList.className = "participant-list";
+
+  const suggestTournamentButton = document.createElement("button");
+  suggestTournamentButton.type = "button";
+  suggestTournamentButton.className = "primary-button";
+  suggestTournamentButton.textContent = "Suggest tournament";
+
+  const saveTournamentButton = document.createElement("button");
+  saveTournamentButton.type = "button";
+  saveTournamentButton.className = "primary-button";
+  saveTournamentButton.textContent = "Save tournament";
+
+  const bracketBoard = document.createElement("div");
+  bracketBoard.className = "bracket-board";
+
   const state: { current: ViewState } = {
     current: (() => {
       const existing = loadSession();
@@ -466,11 +684,33 @@ export const buildApp = (): HTMLElement => {
     pendingCreateRequestId: "",
   };
 
+  const tournamentPlannerState: TournamentPlannerState = {
+    name: "",
+    tournamentId: "",
+    participantIds: [],
+    firstRoundMatches: [],
+    rounds: [],
+    error: "",
+  };
+
+  let activeTournamentBracketMatchId: string | null = null;
+
+  const hasTournamentProgress = (): boolean =>
+    tournamentPlannerState.rounds.some((round, roundIndex) =>
+      round.matches.some((match) => {
+        if (match.createdMatchId || match.winnerPlayerId) {
+          return true;
+        }
+        return roundIndex > 0 && Boolean(match.leftPlayerId || match.rightPlayerId);
+      }),
+    );
+
   const syncAuthState = (): void => {
     if (isAuthedState(state.current)) {
       providerStack.replaceChildren(logoutButton);
       dashboard.hidden = dashboardState.screen !== "dashboard";
       createMatchScreen.hidden = dashboardState.screen !== "createMatch";
+      createTournamentScreen.hidden = dashboardState.screen !== "createTournament";
       welcomeTitle.textContent = "Dashboard";
       welcomeText.textContent = "";
       return;
@@ -479,6 +719,7 @@ export const buildApp = (): HTMLElement => {
     providerStack.replaceChildren(googleSlot);
     dashboard.hidden = true;
     createMatchScreen.hidden = true;
+    createTournamentScreen.hidden = true;
   };
 
   const syncDashboardState = (): void => {
@@ -517,13 +758,22 @@ export const buildApp = (): HTMLElement => {
     tournamentSelect.disabled = dashboardState.loading || dashboardState.tournaments.length === 0;
     refreshButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     openCreateMatchButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
+    openCreateTournamentButton.disabled = dashboardState.loading || dashboardState.matchesLoading;
     closeCreateMatchButton.disabled = dashboardState.matchSubmitting;
     suggestMatchButton.disabled = dashboardState.loading || dashboardState.matchSubmitting;
+    loadTournamentButton.disabled = dashboardState.loading;
+    saveTournamentButton.disabled = dashboardState.loading || tournamentPlannerState.rounds.length === 0;
+    suggestTournamentButton.disabled =
+      dashboardState.loading ||
+      tournamentPlannerState.participantIds.length < 2 ||
+      hasTournamentProgress();
     loadMoreButton.disabled = dashboardState.matchesLoading;
     loadMoreButton.hidden = !dashboardState.matchesCursor;
     submitMatchButton.disabled = dashboardState.matchSubmitting || dashboardState.loading;
     composerStatus.textContent = dashboardState.matchFormError || dashboardState.matchFormMessage;
     composerStatus.dataset.status = dashboardState.matchFormError ? "error" : "ready";
+    tournamentStatus.textContent = tournamentPlannerState.error;
+    tournamentStatus.dataset.status = tournamentPlannerState.error ? "error" : "ready";
 
     if (dashboardState.leaderboard.length === 0) {
       const empty = document.createElement("p");
@@ -728,6 +978,196 @@ export const buildApp = (): HTMLElement => {
     tournamentSelect.replaceChildren(...options);
   };
 
+  const populateTournamentPlannerLoadOptions = (): void => {
+    replaceOptions(
+      loadTournamentSelect,
+      [
+        { value: "", label: "Saved tournaments" },
+        ...dashboardState.tournaments.map((tournament) => ({
+          value: tournament.id,
+          label: tournament.name,
+        })),
+      ],
+      tournamentPlannerState.tournamentId,
+      "Saved tournaments",
+    );
+  };
+
+  const renderTournamentPlanner = (): void => {
+    const selectedParticipants = new Set(tournamentPlannerState.participantIds);
+    const playerOptions = dashboardState.players;
+
+    const participantCards = playerOptions.map((player) => {
+      const label = document.createElement("label");
+      label.className = "participant-chip";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = selectedParticipants.has(player.userId);
+      input.addEventListener("change", () => {
+        if (input.checked) {
+          tournamentPlannerState.participantIds = [...tournamentPlannerState.participantIds, player.userId];
+        } else {
+          tournamentPlannerState.participantIds = tournamentPlannerState.participantIds.filter(
+            (participantId) => participantId !== player.userId,
+          );
+        }
+        tournamentPlannerState.tournamentId = "";
+        tournamentPlannerState.error = "";
+        tournamentPlannerState.rounds = [];
+        tournamentPlannerState.firstRoundMatches = [];
+        loadTournamentSelect.value = "";
+        renderTournamentPlanner();
+        syncDashboardState();
+      });
+
+      const text = document.createElement("span");
+      text.textContent = `${player.displayName} (${player.elo})`;
+
+      label.append(input, text);
+      return label;
+    });
+
+    participantList.replaceChildren(...participantCards);
+
+    if (tournamentPlannerState.rounds.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "Select at least 2 players, then generate a tournament bracket.";
+      bracketBoard.replaceChildren(empty);
+      return;
+    }
+
+    const roundColumns = tournamentPlannerState.rounds.map((round, roundIndex) => {
+      const column = document.createElement("section");
+      column.className = "bracket-round";
+
+      const title = document.createElement("h4");
+      title.className = "card-title";
+      title.textContent = round.title;
+
+      const matchNodes = round.matches.map((match, matchIndex) => {
+        const cardNode = document.createElement("article");
+        cardNode.className = "bracket-match";
+
+        if (roundIndex === 0) {
+          const usedIds = tournamentPlannerState.firstRoundMatches.flatMap((entry) => [
+            entry.leftPlayerId,
+            entry.rightPlayerId,
+          ]);
+
+          const createMatchSelect = (
+            currentValue: string | null,
+            onChange: (value: string | null) => void,
+          ): HTMLSelectElement => {
+            const select = document.createElement("select");
+            select.className = "select-input";
+
+            const options = [
+              { value: "", label: "Auto-advance" },
+              ...playerOptions
+                .filter((player) => selectedParticipants.has(player.userId))
+                .map((player) => ({
+                  value: player.userId,
+                  label: `${player.displayName} (${player.elo})`,
+                })),
+            ];
+
+            select.replaceChildren(
+              ...options.map((option) => {
+                const node = document.createElement("option");
+                node.value = option.value;
+                node.textContent = option.label;
+                node.selected = option.value === (currentValue || "");
+                node.disabled =
+                  option.value !== "" &&
+                  option.value !== (currentValue || "") &&
+                  usedIds.indexOf(option.value) !== -1;
+                return node;
+              }),
+            );
+
+            select.addEventListener("change", () => {
+              onChange(select.value || null);
+              tournamentPlannerState.error = "";
+              renderTournamentPlanner();
+              syncDashboardState();
+            });
+
+            return select;
+          };
+
+          const leftSelect = createMatchSelect(match.leftPlayerId, (value) => {
+            tournamentPlannerState.firstRoundMatches[matchIndex].leftPlayerId = value;
+          });
+          const rightSelect = createMatchSelect(match.rightPlayerId, (value) => {
+            tournamentPlannerState.firstRoundMatches[matchIndex].rightPlayerId = value;
+          });
+
+          cardNode.append(leftSelect, rightSelect);
+        } else {
+          const left = document.createElement("p");
+          left.className = "match-subline";
+          const leftText = match.leftPlayerId
+            ? renderPlayerNames([match.leftPlayerId], dashboardState.players)
+            : `Winner ${tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 1}`;
+          left.textContent =
+            round.title === "Final" && match.winnerPlayerId === match.leftPlayerId
+              ? `🏆 ${leftText}`
+              : leftText;
+          if (round.title === "Final" && match.winnerPlayerId === match.leftPlayerId) {
+            left.classList.add("tournament-winner");
+          }
+
+          const right = document.createElement("p");
+          right.className = "match-subline";
+          const rightText = match.rightPlayerId
+            ? renderPlayerNames([match.rightPlayerId], dashboardState.players)
+            : `Winner ${tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 2}`;
+          right.textContent =
+            round.title === "Final" && match.winnerPlayerId === match.rightPlayerId
+              ? `🏆 ${rightText}`
+              : rightText;
+          if (round.title === "Final" && match.winnerPlayerId === match.rightPlayerId) {
+            right.classList.add("tournament-winner");
+          }
+
+          cardNode.append(left, right);
+        }
+
+        const hasSinglePlayer = Boolean(match.leftPlayerId) !== Boolean(match.rightPlayerId);
+        if (hasSinglePlayer && roundIndex === 0) {
+          const advanceButton = document.createElement("button");
+          advanceButton.type = "button";
+          advanceButton.className = "secondary-button bracket-action";
+          advanceButton.textContent = match.winnerPlayerId ? "Advanced" : "Advance";
+          advanceButton.disabled = !!match.winnerPlayerId;
+          advanceButton.addEventListener("click", () => {
+            void advanceTournamentBye(roundIndex, matchIndex);
+          });
+          cardNode.append(advanceButton);
+        } else if (match.leftPlayerId && match.rightPlayerId) {
+          const createMatchButton = document.createElement("button");
+          createMatchButton.type = "button";
+          createMatchButton.className = "secondary-button bracket-action";
+          createMatchButton.textContent = match.createdMatchId ? "Match created" : "Create match";
+          createMatchButton.disabled = !!match.createdMatchId || !tournamentPlannerState.tournamentId;
+          createMatchButton.addEventListener("click", () => {
+            prefillMatchFromTournamentPairing(match);
+          });
+          cardNode.append(createMatchButton);
+        }
+
+        return cardNode;
+      });
+
+      column.append(title, ...matchNodes);
+      return column;
+    });
+
+    bracketBoard.replaceChildren(...roundColumns);
+  };
+
   const populateMatchFormOptions = (): void => {
     const sessionUserId = isAuthedState(state.current) ? state.current.session.user.id : "";
     const teamA1Value = teamA1Select.value || sessionUserId;
@@ -897,6 +1337,7 @@ export const buildApp = (): HTMLElement => {
       playedAt: new Date().toISOString(),
       seasonId: formSeasonSelect.value || null,
       tournamentId: formTournamentSelect.value || null,
+      tournamentBracketMatchId: activeTournamentBracketMatchId,
     };
   };
 
@@ -965,7 +1406,9 @@ export const buildApp = (): HTMLElement => {
 
       populateSeasonOptions();
       populateTournamentOptions();
+      populateTournamentPlannerLoadOptions();
       populateMatchFormOptions();
+      renderTournamentPlanner();
 
       if (dashboardState.segmentMode !== "global") {
         await loadLeaderboard();
@@ -1031,6 +1474,8 @@ export const buildApp = (): HTMLElement => {
 
     try {
       const payload = collectMatchPayload();
+      const returnToTournamentId = payload.tournamentId || null;
+      const returnToTournament = Boolean(activeTournamentBracketMatchId && returnToTournamentId);
       const data = await runAuthedAction(
         "createMatch",
         payload,
@@ -1044,9 +1489,17 @@ export const buildApp = (): HTMLElement => {
           game.teamB.value = "";
         }
       });
-      dashboardState.screen = "dashboard";
+      activeTournamentBracketMatchId = null;
+      dashboardState.screen = returnToTournament ? "createTournament" : "dashboard";
       syncAuthState();
       await loadDashboard();
+      if (returnToTournamentId) {
+        tournamentPlannerState.tournamentId = returnToTournamentId;
+        loadTournamentSelect.value = returnToTournamentId;
+      }
+      if (returnToTournament) {
+        await loadTournamentBracket();
+      }
     } catch (error) {
       dashboardState.matchFormError =
         error instanceof Error ? error.message : "Failed to create match.";
@@ -1081,6 +1534,159 @@ export const buildApp = (): HTMLElement => {
     dashboardState.matchFormError = "";
     dashboardState.matchFormMessage = `Suggested matchup ready.`;
     populateMatchFormOptions();
+    syncDashboardState();
+  };
+
+  const suggestTournamentBracket = (): void => {
+    if (tournamentPlannerState.participantIds.length < 2) {
+      tournamentPlannerState.error = "Select at least 2 participants.";
+      tournamentPlannerState.rounds = [];
+      tournamentPlannerState.firstRoundMatches = [];
+      renderTournamentPlanner();
+      syncDashboardState();
+      return;
+    }
+
+    const suggestion = buildTournamentSuggestion(dashboardState.players, tournamentPlannerState.participantIds);
+    if (!suggestion) {
+      tournamentPlannerState.error = "Unable to build a bracket from the selected players.";
+      renderTournamentPlanner();
+      syncDashboardState();
+      return;
+    }
+
+    tournamentPlannerState.firstRoundMatches = suggestion.firstRoundMatches.map((match) => ({ ...match }));
+    tournamentPlannerState.rounds = suggestion.rounds.map((round, roundIndex) => ({
+      title: round.title,
+      matches:
+        roundIndex === 0
+          ? tournamentPlannerState.firstRoundMatches
+          : round.matches.map((match) => ({ ...match })),
+    }));
+    tournamentPlannerState.error = "";
+    renderTournamentPlanner();
+    syncDashboardState();
+  };
+
+  const loadTournamentBracket = async (): Promise<void> => {
+    if (!tournamentPlannerState.tournamentId) {
+      tournamentPlannerState.error = "Select a saved tournament first.";
+      renderTournamentPlanner();
+      syncDashboardState();
+      return;
+    }
+
+    try {
+      const data: GetTournamentBracketData = await runAuthedAction("getTournamentBracket", {
+        tournamentId: tournamentPlannerState.tournamentId,
+      });
+
+      tournamentPlannerState.name = data.tournament.name;
+      tournamentNameInput.value = data.tournament.name;
+      tournamentPlannerState.participantIds = data.participantIds;
+      tournamentPlannerState.rounds = data.rounds.map((round) => ({
+        title: round.title,
+        matches: round.matches.map((match) => ({
+          id: match.id,
+          leftPlayerId: match.leftPlayerId,
+          rightPlayerId: match.rightPlayerId,
+          createdMatchId: match.createdMatchId,
+          winnerPlayerId: match.winnerPlayerId,
+        })),
+      }));
+      tournamentPlannerState.firstRoundMatches = tournamentPlannerState.rounds[0]
+        ? tournamentPlannerState.rounds[0].matches
+        : [];
+      tournamentPlannerState.error = "";
+      renderTournamentPlanner();
+      syncDashboardState();
+    } catch (error) {
+      tournamentPlannerState.error =
+        error instanceof Error ? error.message : "Failed to load tournament.";
+      renderTournamentPlanner();
+      syncDashboardState();
+    }
+  };
+
+  const saveTournament = async (): Promise<void> => {
+    try {
+      const payload: CreateTournamentPayload = {
+        tournamentId: tournamentPlannerState.tournamentId || null,
+        name: tournamentNameInput.value.trim() || "New tournament",
+        seasonId: null,
+        participantIds: tournamentPlannerState.participantIds,
+        rounds: tournamentPlannerState.rounds as TournamentBracketRound[],
+      };
+      const data = await runAuthedAction("createTournament", payload);
+      tournamentPlannerState.tournamentId = data.tournament.id;
+      tournamentPlannerState.name = data.tournament.name;
+      dashboardState.matchFormMessage = "";
+      tournamentPlannerState.error = "";
+      await loadDashboard();
+      populateTournamentPlannerLoadOptions();
+      loadTournamentSelect.value = data.tournament.id;
+      renderTournamentPlanner();
+      syncDashboardState();
+    } catch (error) {
+      tournamentPlannerState.error =
+        error instanceof Error ? error.message : "Failed to save tournament.";
+      renderTournamentPlanner();
+      syncDashboardState();
+    }
+  };
+
+  const advanceTournamentBye = async (roundIndex: number, matchIndex: number): Promise<void> => {
+    const match = tournamentPlannerState.rounds[roundIndex]?.matches[matchIndex];
+    if (!match) {
+      return;
+    }
+
+    const winnerPlayerId = match.leftPlayerId || match.rightPlayerId;
+    if (!winnerPlayerId || match.winnerPlayerId) {
+      return;
+    }
+
+    tournamentPlannerState.rounds = applyTournamentWinnerLocally(
+      tournamentPlannerState.rounds,
+      roundIndex,
+      matchIndex,
+      winnerPlayerId,
+    );
+    tournamentPlannerState.firstRoundMatches = tournamentPlannerState.rounds[0]
+      ? tournamentPlannerState.rounds[0].matches
+      : [];
+    tournamentPlannerState.error = "";
+    renderTournamentPlanner();
+    syncDashboardState();
+
+    if (tournamentPlannerState.tournamentId) {
+      await saveTournament();
+    }
+  };
+
+  const prefillMatchFromTournamentPairing = (match: TournamentPlannerMatch): void => {
+    const tournament = dashboardState.tournaments.find(
+      (entry) => entry.id === tournamentPlannerState.tournamentId,
+    );
+
+    matchTypeSelect.value = "singles";
+    formatTypeSelect.value = "single_game";
+    pointsToWinSelect.value = "11";
+    teamA1Select.value = match.leftPlayerId || "";
+    teamA2Select.value = "";
+    teamB1Select.value = match.rightPlayerId || "";
+    teamB2Select.value = "";
+    formSeasonSelect.value = tournament?.seasonId || "";
+    formTournamentSelect.value = tournamentPlannerState.tournamentId || "";
+    winnerTeamSelect.value = "A";
+    scoreInputs.forEach((game) => {
+      game.teamA.value = "";
+      game.teamB.value = "";
+    });
+    activeTournamentBracketMatchId = match.id;
+    dashboardState.screen = "createMatch";
+    populateMatchFormOptions();
+    syncAuthState();
     syncDashboardState();
   };
 
@@ -1142,7 +1748,22 @@ export const buildApp = (): HTMLElement => {
     syncDashboardState();
   });
 
+  openCreateTournamentButton.addEventListener("click", () => {
+    dashboardState.screen = "createTournament";
+    tournamentPlannerState.error = "";
+    populateTournamentPlannerLoadOptions();
+    renderTournamentPlanner();
+    syncAuthState();
+    syncDashboardState();
+  });
+
   closeCreateMatchButton.addEventListener("click", () => {
+    dashboardState.screen = "dashboard";
+    syncAuthState();
+    syncDashboardState();
+  });
+
+  closeCreateTournamentButton.addEventListener("click", () => {
     dashboardState.screen = "dashboard";
     syncAuthState();
     syncDashboardState();
@@ -1150,6 +1771,26 @@ export const buildApp = (): HTMLElement => {
 
   suggestMatchButton.addEventListener("click", () => {
     applyFairMatchSuggestion();
+  });
+
+  suggestTournamentButton.addEventListener("click", () => {
+    suggestTournamentBracket();
+  });
+
+  loadTournamentButton.addEventListener("click", () => {
+    void loadTournamentBracket();
+  });
+
+  loadTournamentSelect.addEventListener("change", () => {
+    tournamentPlannerState.tournamentId = loadTournamentSelect.value;
+  });
+
+  tournamentNameInput.addEventListener("input", () => {
+    tournamentPlannerState.name = tournamentNameInput.value;
+  });
+
+  saveTournamentButton.addEventListener("click", () => {
+    void saveTournament();
   });
 
   globalButton.addEventListener("click", () => {
@@ -1289,18 +1930,35 @@ export const buildApp = (): HTMLElement => {
   composerPanel.append(composerTop, composerStatus, matchForm);
 
   welcomeBlock.append(welcomeTitle, welcomeText);
-  actionsBar.append(refreshButton, openCreateMatchButton);
+  actionsBar.append(refreshButton, openCreateMatchButton, openCreateTournamentButton);
   dashboardHeader.append(welcomeBlock, actionsBar);
   viewGrid.append(leaderboardPanel, matchesPanel);
   dashboard.append(dashboardHeader, dashboardStatus, viewGrid);
   createMatchScreen.append(composerPanel);
 
+  tournamentHeading.append(tournamentTitle, tournamentMeta);
+  tournamentTop.append(tournamentHeading, closeCreateTournamentButton);
+  participantSection.append(participantLabel, participantList);
+  tournamentPanel.append(
+    tournamentTop,
+    buildField("Load saved tournament", loadTournamentSelect),
+    loadTournamentButton,
+    buildField("Tournament name", tournamentNameInput),
+    participantSection,
+    tournamentStatus,
+    suggestTournamentButton,
+    saveTournamentButton,
+    bracketBoard,
+  );
+  createTournamentScreen.append(tournamentPanel);
+
   header.append(brandMark, providerStack);
-  card.append(header, dashboard, createMatchScreen);
+  card.append(header, dashboard, createMatchScreen, createTournamentScreen);
   container.append(card);
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());
   populateMatchFormOptions();
+  renderTournamentPlanner();
 
   if (hasBackendConfig && isProviderConfigured()) {
     void renderGoogleButton(googleSlot, handleBootstrap).catch((error: unknown) => {
