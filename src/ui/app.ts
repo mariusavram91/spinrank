@@ -41,6 +41,7 @@ interface DashboardState {
   matches: MatchRecord[];
   matchesCursor: string | null;
   matchesLoading: boolean;
+  matchBracketContextByMatchId: Record<string, { roundTitle: string; isFinal: boolean }>;
   matchSubmitting: boolean;
   matchFormError: string;
   matchFormMessage: string;
@@ -122,14 +123,22 @@ const renderPlayerNames = (playerIds: string[], players: LeaderboardEntry[]): st
   return playerIds.map((playerId) => playersById.get(playerId) || playerId).join(" / ");
 };
 
+const findPlayer = (
+  playerId: string | null,
+  players: LeaderboardEntry[],
+): LeaderboardEntry | null => players.find((player) => player.userId === playerId) || null;
+
 const renderMatchContext = (
   match: MatchRecord,
   seasons: SeasonRecord[],
   tournaments: TournamentRecord[],
+  bracketContext: { roundTitle: string; isFinal: boolean } | null,
 ): string => {
   const tournament = tournaments.find((entry) => entry.id === match.tournamentId);
   if (tournament) {
-    return `Tournament: ${tournament.name}`;
+    const roundLabel = bracketContext?.roundTitle ? ` • ${bracketContext.roundTitle}` : "";
+    const trophyLabel = bracketContext?.isFinal ? "🏆 " : "";
+    return `${trophyLabel}Tournament: ${tournament.name}${roundLabel}`;
   }
 
   const season = seasons.find((entry) => entry.id === match.seasonId);
@@ -675,13 +684,14 @@ export const buildApp = (): HTMLElement => {
     selectedTournamentId: "",
     seasons: [],
     tournaments: [],
-    matches: [],
-    matchesCursor: null,
-    matchesLoading: false,
-    matchSubmitting: false,
-    matchFormError: "",
-    matchFormMessage: "",
-    pendingCreateRequestId: "",
+  matches: [],
+  matchesCursor: null,
+  matchesLoading: false,
+  matchBracketContextByMatchId: {},
+  matchSubmitting: false,
+  matchFormError: "",
+  matchFormMessage: "",
+  pendingCreateRequestId: "",
   };
 
   const tournamentPlannerState: TournamentPlannerState = {
@@ -790,9 +800,29 @@ export const buildApp = (): HTMLElement => {
         if (entry.rank <= 3) {
           row.dataset.rankTier = String(entry.rank);
         }
-        row.textContent = `#${entry.rank} ${entry.displayName} ${entry.wins}-${entry.losses} ${renderStreak(
-          entry.streak,
-        )} (${entry.elo} Elo)`;
+
+        const avatar = document.createElement("img");
+        avatar.className = "player-avatar";
+        avatar.src = entry.avatarUrl || `${import.meta.env.BASE_URL}assets/logo.png`;
+        avatar.alt = `${entry.displayName} avatar`;
+
+        const summary = document.createElement("span");
+        summary.className = "leaderboard-summary";
+
+        const identity = document.createElement("span");
+        identity.className = "leaderboard-identity";
+        identity.textContent = `#${entry.rank} ${entry.displayName}`;
+
+        const stats = document.createElement("span");
+        stats.className = "leaderboard-stats";
+        stats.textContent = ` ${entry.wins}-${entry.losses} ${renderStreak(entry.streak)} `;
+
+        const elo = document.createElement("span");
+        elo.className = "leaderboard-elo";
+        elo.textContent = `(${entry.elo} Elo)`;
+
+        summary.append(identity, stats, elo);
+        row.append(avatar, summary);
         return row;
       });
       leaderboardList.replaceChildren(...rows);
@@ -833,7 +863,14 @@ export const buildApp = (): HTMLElement => {
         score.className = "match-score";
         score.textContent = ` • ${renderMatchScore(match)}`;
 
-        meta.append(teamA, vs, teamB, score);
+        const bracketContext = dashboardState.matchBracketContextByMatchId[match.id] || null;
+        const roundTag = document.createElement("span");
+        roundTag.className = "match-round";
+        if (bracketContext) {
+          roundTag.textContent = ` • ${bracketContext.isFinal ? "🏆 " : ""}${bracketContext.roundTitle}`;
+        }
+
+        meta.append(teamA, vs, teamB, score, roundTag);
 
         const subline = document.createElement("p");
         subline.className = "match-subline";
@@ -841,6 +878,7 @@ export const buildApp = (): HTMLElement => {
           match,
           dashboardState.seasons,
           dashboardState.tournaments,
+          null,
         )}`;
 
         cardNode.append(meta, subline);
@@ -1111,26 +1149,40 @@ export const buildApp = (): HTMLElement => {
           const leftText = match.leftPlayerId
             ? renderPlayerNames([match.leftPlayerId], dashboardState.players)
             : `Winner ${tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 1}`;
-          left.textContent =
+          const leftPlayer = findPlayer(match.leftPlayerId, dashboardState.players);
+          const leftAvatar = document.createElement("img");
+          leftAvatar.className = "player-avatar player-avatar-small";
+          leftAvatar.src = leftPlayer?.avatarUrl || `${import.meta.env.BASE_URL}assets/logo.png`;
+          leftAvatar.alt = leftText;
+          const leftLabel = document.createElement("span");
+          leftLabel.textContent =
             round.title === "Final" && match.winnerPlayerId === match.leftPlayerId
               ? `🏆 ${leftText}`
               : leftText;
           if (round.title === "Final" && match.winnerPlayerId === match.leftPlayerId) {
             left.classList.add("tournament-winner");
           }
+          left.append(leftAvatar, leftLabel);
 
           const right = document.createElement("p");
           right.className = "match-subline";
           const rightText = match.rightPlayerId
             ? renderPlayerNames([match.rightPlayerId], dashboardState.players)
             : `Winner ${tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 2}`;
-          right.textContent =
+          const rightPlayer = findPlayer(match.rightPlayerId, dashboardState.players);
+          const rightAvatar = document.createElement("img");
+          rightAvatar.className = "player-avatar player-avatar-small";
+          rightAvatar.src = rightPlayer?.avatarUrl || `${import.meta.env.BASE_URL}assets/logo.png`;
+          rightAvatar.alt = rightText;
+          const rightLabel = document.createElement("span");
+          rightLabel.textContent =
             round.title === "Final" && match.winnerPlayerId === match.rightPlayerId
               ? `🏆 ${rightText}`
               : rightText;
           if (round.title === "Final" && match.winnerPlayerId === match.rightPlayerId) {
             right.classList.add("tournament-winner");
           }
+          right.append(rightAvatar, rightLabel);
 
           cardNode.append(left, right);
         }
@@ -1379,6 +1431,45 @@ export const buildApp = (): HTMLElement => {
     dashboardState.leaderboardUpdatedAt = data.updatedAt;
   };
 
+  const loadMatchBracketContext = async (
+    matches: MatchRecord[],
+  ): Promise<Record<string, { roundTitle: string; isFinal: boolean }>> => {
+    const tournamentIds = Array.from(
+      new Set(matches.map((match) => match.tournamentId).filter((tournamentId): tournamentId is string => Boolean(tournamentId))),
+    );
+
+    if (tournamentIds.length === 0) {
+      return {};
+    }
+
+    const contexts = await Promise.allSettled(
+      tournamentIds.map(async (tournamentId) => {
+        const data: GetTournamentBracketData = await runAuthedAction("getTournamentBracket", {
+          tournamentId,
+        });
+
+        return data.rounds.reduce<Record<string, { roundTitle: string; isFinal: boolean }>>((accumulator, round) => {
+          round.matches.forEach((roundMatch) => {
+            if (roundMatch.createdMatchId) {
+              accumulator[roundMatch.createdMatchId] = {
+                roundTitle: round.title,
+                isFinal: round.title === "Final",
+              };
+            }
+          });
+          return accumulator;
+        }, {});
+      }),
+    );
+
+    return contexts.reduce<Record<string, { roundTitle: string; isFinal: boolean }>>((accumulator, context) => {
+      if (context.status === "fulfilled") {
+        return { ...accumulator, ...context.value };
+      }
+      return accumulator;
+    }, {});
+  };
+
   const loadDashboard = async (): Promise<void> => {
     dashboardState.loading = true;
     dashboardState.error = "";
@@ -1403,6 +1494,7 @@ export const buildApp = (): HTMLElement => {
       dashboardState.leaderboardUpdatedAt = globalData.updatedAt;
       dashboardState.matches = matchesData.matches;
       dashboardState.matchesCursor = matchesData.nextCursor;
+      dashboardState.matchBracketContextByMatchId = await loadMatchBracketContext(matchesData.matches);
 
       populateSeasonOptions();
       populateTournamentOptions();
@@ -1436,6 +1528,10 @@ export const buildApp = (): HTMLElement => {
       });
       dashboardState.matches = [...dashboardState.matches, ...data.matches];
       dashboardState.matchesCursor = data.nextCursor;
+      dashboardState.matchBracketContextByMatchId = {
+        ...dashboardState.matchBracketContextByMatchId,
+        ...(await loadMatchBracketContext(data.matches)),
+      };
     } catch (error) {
       dashboardState.error = error instanceof Error ? error.message : "Failed to load more matches.";
     } finally {
