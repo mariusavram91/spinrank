@@ -12,6 +12,14 @@ const normalizeOrigin = (value?: string | null): string | undefined => {
   }
 };
 
+const SECURITY_HEADERS: Record<string, string> = {
+  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "interest-cohort=()",
+  "content-security-policy": "default-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests;",
+};
+
 export function getCorsOrigin(env: Env, requestOrigin?: string | null): string {
   const normalizedAppOrigin = normalizeOrigin(env.APP_ORIGIN);
   if (normalizedAppOrigin) {
@@ -45,18 +53,35 @@ export function errorResponse(
 
 export function cors(env: Env, requestOrigin?: string | null): HeadersInit {
   return {
+    ...SECURITY_HEADERS,
     "access-control-allow-origin": getCorsOrigin(env, requestOrigin),
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type,authorization",
   };
 }
 
-export function json(env: Env, body: unknown, status = 200, requestOrigin?: string | null): Response {
+export function json(
+  env: Env,
+  body: unknown,
+  status = 200,
+  requestOrigin?: string | null,
+  extraHeaders?: HeadersInit,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      "content-type": "application/json",
+      ...SECURITY_HEADERS,
       ...cors(env, requestOrigin),
+      "content-type": "application/json",
+      ...extraHeaders,
     },
+  });
+}
+
+export function applySecurityHeaders(target: Headers): void {
+  Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+    if (!target.has(key)) {
+      target.set(key, value);
+    }
   });
 }

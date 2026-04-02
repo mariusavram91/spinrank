@@ -1,20 +1,23 @@
-export type ApiAction =
-  | "health"
-  | "bootstrapUser"
-  | "getDashboard"
-  | "getLeaderboard"
-  | "getMatches"
-  | "getSeasons"
-  | "getSegmentLeaderboard"
-  | "getTournamentBracket"
-  | "getTournaments"
-  | "getUserProgress"
-  | "createMatch"
-  | "createSeason"
-  | "createTournament"
-  | "deactivateMatch"
-  | "deactivateTournament"
-  | "deactivateSeason";
+export const apiActionNames = [
+  "health",
+  "bootstrapUser",
+  "getDashboard",
+  "getLeaderboard",
+  "getMatches",
+  "getSeasons",
+  "getSegmentLeaderboard",
+  "getTournamentBracket",
+  "getTournaments",
+  "getUserProgress",
+  "createMatch",
+  "createSeason",
+  "createTournament",
+  "deactivateMatch",
+  "deactivateTournament",
+  "deactivateSeason",
+] as const;
+
+export type ApiAction = (typeof apiActionNames)[number];
 
 export type AuthProvider = "google" | "apple";
 export type MatchType = "singles" | "doubles";

@@ -15,7 +15,9 @@ import { handleGetTournamentBracket } from "./actions/getTournamentBracket";
 import { handleGetTournaments } from "./actions/getTournaments";
 import { handleGetUserProgress } from "./actions/getUserProgress";
 import { errorResponse } from "./responses";
+import { ApiRequestSchema } from "./schemas/api";
 import type { ApiAction, ApiRequest, Env } from "./types";
+import { ZodError } from "zod";
 
 export async function parseApiRequest(request: Request): Promise<ApiRequest<ApiAction>> {
   const raw = await request.text();
@@ -26,12 +28,22 @@ export async function parseApiRequest(request: Request): Promise<ApiRequest<ApiA
     throw new Error("Request body exceeds the 32KB limit.");
   }
 
-  const parsed = JSON.parse(raw) as ApiRequest<ApiAction>;
-  if (!parsed.action || !parsed.requestId) {
-    throw new Error("Request must include action and requestId.");
+  try {
+    const parsed = ApiRequestSchema.parse(JSON.parse(raw));
+    return parsed as ApiRequest<ApiAction>;
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const details = error.issues.map((issue) => {
+        const path = issue.path.length > 0 ? issue.path.join(".") : "payload";
+        return `${path}: ${issue.message}`;
+      });
+      throw new Error(`Malformed request: ${details.join("; ")}`);
+    }
+    if (error instanceof SyntaxError) {
+      throw new Error("Request body contains invalid JSON.");
+    }
+    throw error;
   }
-
-  return parsed;
 }
 
 export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: Env) {

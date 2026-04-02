@@ -3,6 +3,31 @@ import { cors, errorResponse, json } from "./responses";
 import { parseApiRequest, routeApiRequest } from "./router";
 import type { Env } from "./types";
 
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 60;
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+
+const getClientAddress = (request: Request): string =>
+  request.headers.get("cf-connecting-ip") ??
+  request.headers.get("x-forwarded-for") ??
+  request.headers.get("x-real-ip") ??
+  request.headers.get("host") ??
+  "unknown";
+
+const enforceRateLimit = (key: string): number | null => {
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    rateLimitBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return null;
+  }
+  if (bucket.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+  }
+  bucket.count += 1;
+  return null;
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const requestOrigin = request.headers.get("origin");
@@ -60,6 +85,16 @@ export default {
 
     try {
       const apiRequest = await parseApiRequest(request);
+      const retryAfterSeconds = enforceRateLimit(getClientAddress(request));
+      if (retryAfterSeconds) {
+        return json(
+          env,
+          errorResponse(apiRequest.requestId, "RATE_LIMITED", "Rate limit exceeded. Please try again later."),
+          429,
+          requestOrigin,
+          { "Retry-After": retryAfterSeconds.toString() },
+        );
+      }
       if (apiRequest.action === "health") {
         return json(
           env,

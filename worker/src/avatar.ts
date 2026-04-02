@@ -1,4 +1,4 @@
-import { getCorsOrigin } from "./responses";
+import { applySecurityHeaders, getCorsOrigin } from "./responses";
 import type { Env } from "./types";
 
 const AVATAR_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
@@ -11,6 +11,7 @@ const buildAvatarHeaders = (env: Env, contentType: string | null, requestOrigin?
   if (contentType) {
     headers.set("content-type", contentType);
   }
+  applySecurityHeaders(headers);
   return headers;
 };
 
