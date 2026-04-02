@@ -985,6 +985,7 @@ button:disabled,
 .field-label,
 .form-status {
   color: var(--text-muted);
+  margin-top: 12px;
 }
 
 .form-status[data-status="error"] {

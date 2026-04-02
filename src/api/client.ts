@@ -35,9 +35,33 @@ export const postAction = async <TAction extends ApiAction>(
     body: JSON.stringify(requestBody),
   });
 
+  const responseText = await response.text();
+  const parseEnvelope = (text: string): ApiResponse<ApiActionMap[TAction]["data"]> | null => {
+    if (!text) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as ApiResponse<ApiActionMap[TAction]["data"]>;
+    } catch {
+      return null;
+    }
+  };
+
+  const envelope = parseEnvelope(responseText);
+
   if (!response.ok) {
-    throw new Error(`Backend request failed with status ${response.status}.`);
+    const backendMessage =
+      envelope?.error?.message || envelope?.error?.code || response.statusText;
+    const errorMessage =
+      backendMessage && backendMessage !== "OK"
+        ? `${backendMessage} (status ${response.status})`
+        : `Backend request failed with status ${response.status}.`;
+    throw new Error(errorMessage);
   }
 
-  return (await response.json()) as ApiResponse<ApiActionMap[TAction]["data"]>;
+  if (!envelope) {
+    throw new Error("Backend returned an unexpected response.");
+  }
+
+  return envelope;
 };

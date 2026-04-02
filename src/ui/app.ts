@@ -369,6 +369,7 @@ const translations = {
     openCreateTournament: "Tournaments",
     openScoreCard: "Score card",
     participants: "Participants",
+    selectAllParticipants: "Select all participants",
     points11: "11 points",
     points21: "21 points",
     pointsSuffix: "points",
@@ -518,6 +519,7 @@ const translations = {
     openCreateTournament: "Turniere",
     openScoreCard: "Spielstand",
     participants: "Teilnehmende",
+    selectAllParticipants: "Alle Teilnehmende auswählen",
     points11: "11 Punkte",
     points21: "21 Punkte",
     pointsSuffix: "Punkte",
@@ -962,6 +964,13 @@ const buildSeedOrder = (size: number): number[] => {
   return result;
 };
 
+const createTournamentMatchId = (): string => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `tournament_match_${crypto.randomUUID()}`;
+  }
+  return `tournament_match_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+};
+
 const getTournamentRoundTitle = (matchCount: number): string => {
   if (matchCount === 1) {
     return "Final";
@@ -1002,7 +1011,7 @@ const buildTournamentSuggestion = (
 
   for (let index = 0; index < slots.length; index += 2) {
     firstRoundMatches.push({
-      id: `round_1_match_${index / 2 + 1}`,
+      id: createTournamentMatchId(),
       leftPlayerId: slots[index] || null,
       rightPlayerId: slots[index + 1] || null,
     });
@@ -1019,8 +1028,8 @@ const buildTournamentSuggestion = (
   let roundIndex = 2;
   while (currentMatchCount > 1) {
     const nextMatchCount = currentMatchCount / 2;
-    const matches: TournamentPlannerMatch[] = Array.from({ length: nextMatchCount }, (_, index) => ({
-      id: `round_${roundIndex}_match_${index + 1}`,
+    const matches: TournamentPlannerMatch[] = Array.from({ length: nextMatchCount }, () => ({
+      id: createTournamentMatchId(),
       leftPlayerId: null,
       rightPlayerId: null,
     }));
@@ -1890,6 +1899,16 @@ export const buildApp = (): HTMLElement => {
   const seasonParticipantList = document.createElement("div");
   seasonParticipantList.className = "participant-list";
 
+  const seasonSelectAllParticipantsField = document.createElement("label");
+  seasonSelectAllParticipantsField.className = "checkbox-field";
+  const seasonSelectAllParticipantsInput = document.createElement("input");
+  seasonSelectAllParticipantsInput.type = "checkbox";
+  seasonSelectAllParticipantsInput.className = "checkbox-input";
+  const seasonSelectAllParticipantsCopy = document.createElement("span");
+  seasonSelectAllParticipantsCopy.className = "field-label";
+  bindLocalizedText(seasonSelectAllParticipantsCopy, "selectAllParticipants");
+  seasonSelectAllParticipantsField.append(seasonSelectAllParticipantsInput, seasonSelectAllParticipantsCopy);
+
   const seasonIsActiveInput = document.createElement("input");
   seasonIsActiveInput.type = "checkbox";
   seasonIsActiveInput.checked = true;
@@ -1945,6 +1964,19 @@ export const buildApp = (): HTMLElement => {
 
   const participantList = document.createElement("div");
   participantList.className = "participant-list";
+
+  const tournamentSelectAllParticipantsField = document.createElement("label");
+  tournamentSelectAllParticipantsField.className = "checkbox-field";
+  const tournamentSelectAllParticipantsInput = document.createElement("input");
+  tournamentSelectAllParticipantsInput.type = "checkbox";
+  tournamentSelectAllParticipantsInput.className = "checkbox-input";
+  const tournamentSelectAllParticipantsCopy = document.createElement("span");
+  tournamentSelectAllParticipantsCopy.className = "field-label";
+  bindLocalizedText(tournamentSelectAllParticipantsCopy, "selectAllParticipants");
+  tournamentSelectAllParticipantsField.append(
+    tournamentSelectAllParticipantsInput,
+    tournamentSelectAllParticipantsCopy,
+  );
 
   const suggestTournamentButton = document.createElement("button");
   suggestTournamentButton.type = "button";
@@ -2367,6 +2399,44 @@ const dashboardState: DashboardState = {
     syncDashboardState();
   };
 
+  const statusHideTimers: Record<"match" | "season" | "tournament", number | null> = {
+    match: null,
+    season: null,
+    tournament: null,
+  };
+
+  const clearFormStatus = (target: "match" | "season" | "tournament"): void => {
+    if (target === "match") {
+      dashboardState.matchFormError = "";
+      dashboardState.matchFormMessage = "";
+      return;
+    }
+    if (target === "season") {
+      dashboardState.seasonFormError = "";
+      dashboardState.seasonFormMessage = "";
+      return;
+    }
+    dashboardState.tournamentFormMessage = "";
+    tournamentPlannerState.error = "";
+  };
+
+  const scheduleFormStatusHide = (target: "match" | "season" | "tournament", visible: boolean): void => {
+    if (statusHideTimers[target]) {
+      window.clearTimeout(statusHideTimers[target]!);
+      statusHideTimers[target] = null;
+    }
+
+    if (!visible) {
+      return;
+    }
+
+    statusHideTimers[target] = window.setTimeout(() => {
+      clearFormStatus(target);
+      statusHideTimers[target] = null;
+      syncDashboardState();
+    }, 5000);
+  };
+
   const syncDashboardState = (): void => {
     const activeLabel = renderLeaderboardScopeLabel(
       dashboardState.segmentMode,
@@ -2434,6 +2504,13 @@ const dashboardState: DashboardState = {
     tournamentStatus.dataset.status = tournamentPlannerState.error ? "error" : "ready";
     deleteSeasonButton.hidden = !canSoftDelete(getEditingSeason() ?? {}, getCurrentUserId(state.current));
     deleteTournamentButton.hidden = !canSoftDelete(getEditingTournament() ?? {}, getCurrentUserId(state.current));
+
+    scheduleFormStatusHide("match", Boolean(dashboardState.matchFormError || dashboardState.matchFormMessage));
+    scheduleFormStatusHide("season", Boolean(dashboardState.seasonFormError || dashboardState.seasonFormMessage));
+    scheduleFormStatusHide(
+      "tournament",
+      Boolean(tournamentPlannerState.error || dashboardState.tournamentFormMessage),
+    );
 
     const editingSeason = getEditingSeason();
     seasonLockNotice.hidden = !isLockedSeason(editingSeason);
@@ -2785,6 +2862,61 @@ const dashboardState: DashboardState = {
     syncLoadControlsVisibility();
   };
 
+  const getSelectableSeasonParticipantIds = (): string[] => {
+    const locked = isLockedSeason(getEditingSeason());
+    if (locked) {
+      return [];
+    }
+    const sessionUserId = getCurrentUserId(state.current);
+    return dashboardState.players
+      .filter((player) => player.userId !== sessionUserId)
+      .map((player) => player.userId);
+  };
+
+  const updateSeasonSelectAllState = (): void => {
+    const selectableIds = getSelectableSeasonParticipantIds();
+    const locked = isLockedSeason(getEditingSeason());
+    seasonSelectAllParticipantsInput.disabled = locked || selectableIds.length === 0;
+
+    if (selectableIds.length === 0) {
+      seasonSelectAllParticipantsInput.checked = false;
+      seasonSelectAllParticipantsInput.indeterminate = false;
+      return;
+    }
+
+    const selectedSet = new Set(dashboardState.editingSeasonParticipantIds);
+    const selectedCount = selectableIds.filter((id) => selectedSet.has(id)).length;
+    seasonSelectAllParticipantsInput.checked = selectedCount === selectableIds.length;
+    seasonSelectAllParticipantsInput.indeterminate =
+      selectedCount > 0 && selectedCount < selectableIds.length;
+  };
+
+  const getSelectableTournamentParticipantIds = (): string[] => {
+    const locked = isLockedTournament(getEditingTournament());
+    if (locked) {
+      return [];
+    }
+    return dashboardState.players.map((player) => player.userId);
+  };
+
+  const updateTournamentSelectAllState = (): void => {
+    const selectableIds = getSelectableTournamentParticipantIds();
+    const locked = isLockedTournament(getEditingTournament());
+    tournamentSelectAllParticipantsInput.disabled = locked || selectableIds.length === 0;
+
+    if (selectableIds.length === 0) {
+      tournamentSelectAllParticipantsInput.checked = false;
+      tournamentSelectAllParticipantsInput.indeterminate = false;
+      return;
+    }
+
+    const selectedSet = new Set(tournamentPlannerState.participantIds);
+    const selectedCount = selectableIds.filter((id) => selectedSet.has(id)).length;
+    tournamentSelectAllParticipantsInput.checked = selectedCount === selectableIds.length;
+    tournamentSelectAllParticipantsInput.indeterminate =
+      selectedCount > 0 && selectedCount < selectableIds.length;
+  };
+
   const renderSeasonEditor = (): void => {
     const selectedParticipants = new Set(dashboardState.editingSeasonParticipantIds);
     const sessionUserId = isAuthedState(state.current) ? state.current.session.user.id : "";
@@ -2823,6 +2955,7 @@ const dashboardState: DashboardState = {
     });
 
     seasonParticipantList.replaceChildren(...participantCards);
+    updateSeasonSelectAllState();
   };
 
   const renderTournamentPlanner = (): void => {
@@ -2870,6 +3003,7 @@ const dashboardState: DashboardState = {
       empty.className = "empty-state";
       empty.textContent = t("bracketPreviewEmpty");
       bracketBoard.replaceChildren(empty);
+      updateTournamentSelectAllState();
       return;
     }
 
@@ -2922,7 +3056,11 @@ const dashboardState: DashboardState = {
               }),
             );
 
-            select.disabled = tournamentLocked || Boolean(match.createdMatchId) || Boolean(match.locked);
+            select.disabled =
+              tournamentLocked ||
+              Boolean(match.createdMatchId) ||
+              Boolean(match.locked) ||
+              Boolean(match.winnerPlayerId);
             select.title = select.disabled ? "Locked after bracket advancement" : "";
 
             select.addEventListener("change", () => {
@@ -3029,7 +3167,51 @@ const dashboardState: DashboardState = {
     });
 
     bracketBoard.replaceChildren(...roundColumns);
+    updateTournamentSelectAllState();
   };
+
+  seasonSelectAllParticipantsInput.addEventListener("change", () => {
+    if (seasonSelectAllParticipantsInput.disabled) {
+      return;
+    }
+    const selectableIds = getSelectableSeasonParticipantIds();
+    if (seasonSelectAllParticipantsInput.checked) {
+      const nextIds = new Set(dashboardState.editingSeasonParticipantIds);
+      selectableIds.forEach((id) => nextIds.add(id));
+      dashboardState.editingSeasonParticipantIds = Array.from(nextIds);
+    } else {
+      dashboardState.editingSeasonParticipantIds = dashboardState.editingSeasonParticipantIds.filter(
+        (participantId) => !selectableIds.includes(participantId),
+      );
+    }
+    dashboardState.seasonFormError = "";
+    dashboardState.seasonFormMessage = "";
+    renderSeasonEditor();
+    syncDashboardState();
+  });
+
+  tournamentSelectAllParticipantsInput.addEventListener("change", () => {
+    if (tournamentSelectAllParticipantsInput.disabled) {
+      return;
+    }
+    const selectableIds = getSelectableTournamentParticipantIds();
+    if (tournamentSelectAllParticipantsInput.checked) {
+      const nextIds = new Set(tournamentPlannerState.participantIds);
+      selectableIds.forEach((id) => nextIds.add(id));
+      tournamentPlannerState.participantIds = Array.from(nextIds);
+    } else {
+      tournamentPlannerState.participantIds = tournamentPlannerState.participantIds.filter(
+        (participantId) => !selectableIds.includes(participantId),
+      );
+    }
+    tournamentPlannerState.tournamentId = "";
+    tournamentPlannerState.error = "";
+    tournamentPlannerState.rounds = [];
+    tournamentPlannerState.firstRoundMatches = [];
+    loadTournamentSelect.value = "";
+    renderTournamentPlanner();
+    syncDashboardState();
+  });
 
   const populateMatchFormOptions = (): void => {
     const sessionUserId = isAuthedState(state.current) ? state.current.session.user.id : "";
@@ -4246,9 +4428,12 @@ const dashboardState: DashboardState = {
   matchActions.className = "form-actions";
   matchActions.append(submitMatchButton);
 
-  matchForm.append(matchContextSection, matchRulesSection, matchPlayersSection, matchReviewSection, matchActions);
+  const matchActionsWrapper = document.createElement("div");
+  matchActionsWrapper.append(matchActions, composerStatus);
 
-  composerPanel.append(composerTop, matchQuickBar, composerStatus, matchForm);
+  matchForm.append(matchContextSection, matchRulesSection, matchPlayersSection, matchReviewSection, matchActionsWrapper);
+
+  composerPanel.append(composerTop, matchQuickBar, matchForm);
 
   welcomeTitleRow.append(welcomeTitle, refreshButton);
   welcomeBlock.append(welcomeTitleRow, welcomeText);
@@ -4259,10 +4444,16 @@ const dashboardState: DashboardState = {
 
   tournamentHeading.append(tournamentTitle, tournamentMeta);
   tournamentTop.append(tournamentHeading, closeCreateTournamentButton);
-  participantSection.append(participantLabel, participantList);
+  participantSection.append(
+    participantLabel,
+    tournamentSelectAllParticipantsField,
+    participantList,
+  );
   const tournamentActions = document.createElement("div");
   tournamentActions.className = "form-actions";
   tournamentActions.append(suggestTournamentButton, saveTournamentButton, deleteTournamentButton);
+  const tournamentActionsWrapper = document.createElement("div");
+  tournamentActionsWrapper.append(tournamentActions, tournamentStatus);
   const tournamentDetailsSection = createPanelSection(
     "tournamentDetails",
     buildField("loadSavedTournament", loadTournamentSelect),
@@ -4277,10 +4468,9 @@ const dashboardState: DashboardState = {
   tournamentPanel.append(
     tournamentTop,
     tournamentQuickBar,
-    tournamentStatus,
     tournamentDetailsSection,
     tournamentParticipantsSection,
-    tournamentActions,
+    tournamentActionsWrapper,
     tournamentBracketSection,
   );
   createTournamentScreen.append(tournamentPanel);
@@ -4308,13 +4498,19 @@ const dashboardState: DashboardState = {
   seasonPublicCopy.className = "field-label";
   bindLocalizedText(seasonPublicCopy, "seasonPublicLabel");
   seasonPublicField.append(seasonIsPublicInput, seasonPublicCopy);
-  seasonParticipantSection.append(seasonParticipantLabel, seasonParticipantList);
+  seasonParticipantSection.append(
+    seasonParticipantLabel,
+    seasonSelectAllParticipantsField,
+    seasonParticipantList,
+  );
 
   seasonHeading.append(seasonTitle, seasonMeta);
   seasonTop.append(seasonHeading, closeCreateSeasonButton);
   const seasonActions = document.createElement("div");
   seasonActions.className = "form-actions";
   seasonActions.append(submitSeasonButton, deleteSeasonButton);
+  const seasonActionsWrapper = document.createElement("div");
+  seasonActionsWrapper.append(seasonActions, seasonStatus);
 
   const seasonDetailsSection = createPanelSection(
     "seasonDetails",
@@ -4338,9 +4534,9 @@ const dashboardState: DashboardState = {
     seasonDetailsSection,
     seasonParticipantsSection,
     seasonRulesSection,
-    seasonActions,
+    seasonActionsWrapper,
   );
-  seasonPanel.append(seasonTop, seasonQuickBar, seasonStatus, seasonForm);
+  seasonPanel.append(seasonTop, seasonQuickBar, seasonForm);
   createSeasonScreen.append(seasonPanel);
 
   header.append(brandMark, providerStack);
