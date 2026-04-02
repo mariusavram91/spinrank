@@ -33,7 +33,7 @@ type ViewState =
 type SegmentMode = "global" | "season" | "tournament";
 
 interface DashboardState {
-  screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "faq";
+  screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "faq" | "privacy";
   loading: boolean;
   error: string;
   leaderboard: LeaderboardEntry[];
@@ -181,16 +181,30 @@ const faqEntries: FaqEntry[] = [
     titleDe: "Wie Elo funktioniert",
     details: [
       {
-        en: "SpinRank tracks player skill using Elo. Each recorded match recalculates both players' ratings; the winner gains points, the loser drops, and the change scales with the pre-match rating gap and the chosen format.",
-        de: "SpinRank misst die Spielstärke mit Elo. Jedes protokollierte Match aktualisiert beide Bewertungen: Der Gewinner gewinnt Punkte, der Verlierer verliert welche, und die Größenordnung hängt von der Differenz vor dem Match und dem ausgewählten Format ab.",
+        en: "Every ranked match updates both players: winners gain Elo, losers drop Elo, and the size of the change depends on how big the pre-match rating gap was and whether you played a single game or best-of-3.",
+        de: "Jedes gerankte Match verändert beide Spieler: Gewinner bekommen Punkte, Verlierer verlieren Punkte, und die Höhe der Änderung richtet sich nach dem Rating-Unterschied vor dem Spiel und dem Spielmodus.",
       },
       {
-        en: "New seasons can carry over history or reset everyone to 1200, depending on the base Elo mode you pick.",
-        de: "Neue Saisons können den bisherigen Verlauf übernehmen oder alle auf 1200 zurücksetzen, je nachdem, welche Basis-Elo-Option du auswählst.",
+        en: "SpinRank follows the classic Elo formula, applies a combined K-factor (40 until you reach 30 matches, then 24), so newer or less-active players jump faster while steady players settle, and splits the rounded change evenly across teammates.",
+        de: "SpinRank nutzt die klassische Elo-Formel und einen kombinierten K-Faktor (40 bis 30 Matches, danach 24), so dass neue oder selten aktive Spieler größere Sprünge machen, während Regelmäßige ruhiger werden, und die gerundete Änderung gleichmäßig auf beide Partner verteilt wird.",
       },
       {
-        en: "Doubles matches share Elo between partners: the combined rating of both teams is used to calculate the change, so strong duos still impact each partner’s individual rating.",
-        de: "Doppelmatches teilen die Elo zwischen Partnern: Die Kombinationswertung beider Teams bestimmt die Veränderung, sodass starke Duos dennoch jede einzelne Bewertung beeinflussen.",
+        en: "In doubles matches we average both teams’ ratings before running the math, and every player shares the same signed change so partnerships move together.",
+        de: "Bei Doppelmatches mitteln wir die Ratings beider Teams, berechnen die Änderung und teilen denselben Wert an jedes Teammitglied aus, damit Partner gleich stark nach oben oder unten gehen.",
+      },
+    ],
+  },
+  {
+    titleEn: "Soft deletes & recalculations",
+    titleDe: "Soft Deletes & Nachberechnungen",
+    details: [
+      {
+        en: "Deleted matches, tournaments, or seasons stay visible in your history but stop counting toward rankings, and the backend reruns the remaining results so leaderboards and streaks adjust to the removal.",
+        de: "Gelöschte Matches, Turniere oder Saisons bleiben im Verlauf sichtbar, zählen aber nicht mehr für Ranglisten; das System blickt die übrigen Ergebnisse nochmal durch, damit Listen und Serien sich entsprechend anpassen.",
+      },
+      {
+        en: "Because the same Elo math runs again without the deleted result, everyone in that season or tournament can drift a few points up or down depending on how that match influenced expectations.",
+        de: "Weil nach dem Entfernen eines Ergebnisses die gleiche Elo-Rechnung nochmal durchläuft, können sich alle Beteiligten in der jeweiligen Saison oder dem Turnier je nach Einfluss der entfernten Partie um ein paar Punkte nach oben oder unten bewegen.",
       },
     ],
   },
@@ -205,6 +219,10 @@ const faqEntries: FaqEntry[] = [
       {
         en: "Tournaments can be tied to a season; when linked, their matches impact both the tournament leaderboard and the parent season.",
         de: "Turniere lassen sich einer Saison zuordnen; sind sie verknüpft, beeinflussen ihre Matches sowohl das Turnier-Ranking als auch die übergeordnete Saison.",
+      },
+      {
+        en: "Within any leaderboard we sort by Elo first, then by more wins, fewer losses, and finally alphabetically so ties stay consistent.",
+        de: "In jeder Liste sortieren wir nach Elo, bei Gleichstand nach mehr Siegen, dann weniger Niederlagen und zuletzt alphabetisch, damit es immer eine klare Reihenfolge gibt.",
       },
     ],
   },
@@ -223,20 +241,6 @@ const faqEntries: FaqEntry[] = [
     ],
   },
   {
-    titleEn: "Suggest best fit",
-    titleDe: "Beste Kombination vorschlagen",
-    details: [
-      {
-        en: "The \"Suggest fair teams\" button proposes two balanced doubles or team lineups based on Elo and the players you picked.",
-        de: "Der Button \"Faire Teams vorschlagen\" schlägt zwei ausgeglichene Doppel- oder Teamaufstellungen vor, basierend auf Elo und den ausgewählten Spieler:innen.",
-      },
-      {
-        en: "\"Suggest tournament\" auto-seeds a bracket that keeps strong players apart until later rounds and calls out any byes it added.",
-        de: "\"Turnier vorschlagen\" erstellt automatisch ein Bracket, das starke Spieler:innen erst in späteren Runden zusammenführt und zeigt an, wo Freilose nötig waren.",
-      },
-    ],
-  },
-  {
     titleEn: "Seasons, tournaments & matches",
     titleDe: "Saisons, Turniere & Matches",
     details: [
@@ -247,6 +251,34 @@ const faqEntries: FaqEntry[] = [
       {
         en: "You can record matches that don't belong to any season or tournament—great for pickup games or practice—while tournaments can live inside a season without forcing every match to carry the season tag.",
         de: "Du kannst auch Matches protokollieren, die keiner Saison oder keinem Turnier angehören, etwa für spontane Spiele oder Training, und Turniere dürfen einer Saison angehören, ohne dass jede Partie automatisch den Saison-Tag braucht.",
+      },
+    ],
+  },
+  {
+    titleEn: "Season Elo modes",
+    titleDe: "Saison-Elo-Modi",
+    details: [
+      {
+        en: "Choosing ‘Carry over Elo’ keeps everyone’s current rating, streaks, and win/loss record in the new season, while ‘Reset Elo to 1200’ gives everyone a fresh 1200 rating so the leaderboard starts from scratch.",
+        de: "Mit „Carry over Elo“ übernimmt die neue Saison alle bisherigen Ratings, Serien und Siege/Niederlagen; „Reset Elo to 1200“ startet mit 1200 Punkten und behandelt die Saison wie einen sauberen Neustart.",
+      },
+      {
+        en: "Either way, every match still shows up in the global history; resetting is useful if you want a new league or throwback event without past streaks or hot runs dominating the standings.",
+        de: "Beide Modi behalten die Matches in der globalen Historie; ein Reset eignet sich, wenn du eine neue Liga oder Retro-Veranstaltung willst, ohne dass alte Serien die Tabelle dominieren.",
+      },
+    ],
+  },
+  {
+    titleEn: "Suggest helpers",
+    titleDe: "Vorschlagshelfer",
+    details: [
+      {
+        en: "“Suggest fair teams” looks at Elo plus win rate to balance you with the closest-matched opponents, then fills the match form for you so you can just confirm the score.",
+        de: "„Faire Teams vorschlagen“ verwendet Elo und Siegquote, um dich mit einem ähnlich starken Gegner zu kombinieren, und trägt die Auswahl direkt ins Match-Formular ein.",
+      },
+      {
+        en: "“Suggest tournament” seeds a bracket by ranking players with a strength score (Elo + win rate + recent activity) and separating top seeds, so the planner panels update with those placements and you can immediately generate matches.",
+        de: "„Turnier vorschlagen“ ordnet die Teilnehmenden nach einem Strength-Score (Elo + Siegquote + Aktivität), verteilt die Top-Seeds und aktualisiert das Bracket-Panel, damit du direkt Matches erzeugen kannst.",
       },
     ],
   },
@@ -392,6 +424,17 @@ const translations = {
     faqTitle: "FAQ & Help",
     faqIntro: "Answers to key questions about rankings, matches, seasons, and tournaments.",
     faqMenuLabel: "FAQ",
+    footerPrivacyLink: "Privacy policy",
+    footerFaqLink: "FAQ",
+    privacyTitle: "Privacy policy",
+    privacyIntro: "SpinRank only keeps what it needs to run the app and show your matches.",
+    privacyPara1:
+      "We store your Google profile (name, email, avatar) for login, keep session tokens so you stay signed in, and keep every match, season, or tournament you add.",
+    privacyPara2:
+      "All data lives inside Cloudflare Workers and D1; deleted matches stay marked but no longer affect rankings, and we never sell or share your info for marketing.",
+    privacyPara3Prefix:
+      "Under GDPR you can view, correct, delete, or export your data by opening an issue on ",
+    privacyPara3Link: "GitHub",
   },
   de: {
     autoAdvance: "Automatische Freigabe",
@@ -530,6 +573,17 @@ const translations = {
     faqTitle: "FAQ & Hilfe",
     faqIntro: "Antworten auf zentrale Fragen zu Ranglisten, Matches und Events.",
     faqMenuLabel: "FAQ",
+    footerPrivacyLink: "Datenschutz",
+    footerFaqLink: "FAQ",
+    privacyTitle: "Datenschutz",
+    privacyIntro: "SpinRank speichert nur das, was für den Betrieb und deine Matches nötig ist.",
+    privacyPara1:
+      "Wir speichern dein Google-Profil (Name, E-Mail, Avatar) für den Login, Session-Tokens, damit du angemeldet bleibst, sowie alle Matches, Saisons und Turniere, die du hinzufügst.",
+    privacyPara2:
+      "Alle Daten befinden sich in Cloudflare Workers und D1; gelöschte Matches bleiben markiert, zählen aber nicht mehr, und wir verkaufen oder teilen deine Daten nicht für Werbung.",
+    privacyPara3Prefix:
+      "Nach DSGVO kannst du deine Daten einsehen, korrigieren, löschen oder exportieren, indem du ein Issue im SpinRank-GitHub-Repo öffnest ",
+    privacyPara3Link: "hier",
   },
 } as const;
 
@@ -1202,44 +1256,116 @@ export const buildApp = (): HTMLElement => {
   const faqGrid = document.createElement("div");
   faqGrid.className = "faq-grid";
 
-  faqEntries.forEach((entry) => {
-    const card = document.createElement("article");
-    card.className = "faq-card";
+  const getLocalizedText = (detail: { en: string; de: string }): string =>
+    currentLanguage === "de" ? detail.de : detail.en;
 
-    const cardTitle = document.createElement("h3");
-    cardTitle.className = "card-title faq-card__title";
-    cardTitle.textContent = `${entry.titleEn} / ${entry.titleDe}`;
+  const renderFaqCards = (): void => {
+    const cards = faqEntries.map((entry) => {
+      const card = document.createElement("article");
+      card.className = "faq-card";
 
-    const cardBody = document.createElement("div");
-    cardBody.className = "faq-card__body";
+      const cardTitle = document.createElement("h3");
+      cardTitle.className = "card-title faq-card__title";
+      cardTitle.textContent = currentLanguage === "de" ? entry.titleDe : entry.titleEn;
 
-    entry.details.forEach((detail) => {
-      const detailBlock = document.createElement("div");
-      detailBlock.className = "faq-card__detail";
+      const cardBody = document.createElement("div");
+      cardBody.className = "faq-card__body";
 
-      const enParagraph = document.createElement("p");
-      enParagraph.className = "faq-card__text faq-card__text--en";
-      const enLabel = document.createElement("span");
-      enLabel.className = "faq-card__lang-tag";
-      enLabel.textContent = "EN";
-      enParagraph.append(enLabel, document.createTextNode(detail.en));
+      entry.details.forEach((detail) => {
+        const detailBlock = document.createElement("div");
+        detailBlock.className = "faq-card__detail";
 
-      const deParagraph = document.createElement("p");
-      deParagraph.className = "faq-card__text faq-card__text--de";
-      const deLabel = document.createElement("span");
-      deLabel.className = "faq-card__lang-tag";
-      deLabel.textContent = "DE";
-      deParagraph.append(deLabel, document.createTextNode(detail.de));
+        const paragraph = document.createElement("p");
+        paragraph.className = "faq-card__text";
+        paragraph.textContent = getLocalizedText(detail);
 
-      detailBlock.append(enParagraph, deParagraph);
-      cardBody.append(detailBlock);
+        detailBlock.append(paragraph);
+        cardBody.append(detailBlock);
+      });
+
+      card.append(cardTitle, cardBody);
+      return card;
     });
+    faqGrid.replaceChildren(...cards);
+  };
 
-    card.append(cardTitle, cardBody);
-    faqGrid.append(card);
-  });
+  onLanguageChange(renderFaqCards);
+  renderFaqCards();
 
   faqScreen.append(faqHeader, faqIntro, faqGrid);
+
+  const privacyScreen = document.createElement("section");
+  privacyScreen.className = "dashboard faq-screen";
+  privacyScreen.hidden = true;
+
+  const privacyHeader = document.createElement("div");
+  privacyHeader.className = "faq-screen__header";
+
+  const privacyHeading = document.createElement("h2");
+  privacyHeading.className = "section-title";
+  bindLocalizedText(privacyHeading, "privacyTitle");
+
+  const privacyBackButton = document.createElement("button");
+  privacyBackButton.type = "button";
+  privacyBackButton.className = "secondary-button faq-screen__back-button";
+  bindLocalizedText(privacyBackButton, "back");
+
+  privacyHeader.append(privacyHeading, privacyBackButton);
+
+  const privacyIntro = document.createElement("p");
+  privacyIntro.className = "section-copy";
+  bindLocalizedText(privacyIntro, "privacyIntro");
+
+  const privacyParagraphKeys = ["privacyPara1", "privacyPara2"] as const;
+  const privacyParagraphs = privacyParagraphKeys.map((key) => {
+    const paragraph = document.createElement("p");
+    paragraph.className = "section-copy";
+    bindLocalizedText(paragraph, key);
+    return paragraph;
+  });
+
+  const privacyPara3 = document.createElement("p");
+  privacyPara3.className = "section-copy";
+  const privacyPara3Text = document.createElement("span");
+  const privacyPara3Link = document.createElement("a");
+  privacyPara3Link.href = "https://github.com/mariusavram91/spinrank/issues";
+  privacyPara3Link.target = "_blank";
+  privacyPara3Link.rel = "noreferrer noopener";
+  privacyPara3.append(privacyPara3Text, privacyPara3Link);
+
+  const updatePrivacyPara3 = (): void => {
+    privacyPara3Text.textContent = t("privacyPara3Prefix");
+    privacyPara3Link.textContent = t("privacyPara3Link");
+  };
+  onLanguageChange(updatePrivacyPara3);
+  updatePrivacyPara3();
+
+  privacyScreen.append(privacyHeader, privacyIntro, ...privacyParagraphs, privacyPara3);
+
+  const footer = document.createElement("footer");
+  footer.className = "app-footer";
+
+  const footerLinks = document.createElement("div");
+  footerLinks.className = "footer-links";
+
+  const footerFaqButton = document.createElement("button");
+  footerFaqButton.type = "button";
+  footerFaqButton.className = "footer-link-button";
+
+  const footerPrivacyButton = document.createElement("button");
+  footerPrivacyButton.type = "button";
+  footerPrivacyButton.className = "footer-link-button";
+
+  footerLinks.append(footerFaqButton, footerPrivacyButton);
+  footer.append(footerLinks);
+
+  const setFooterTexts = (): void => {
+    footerFaqButton.textContent = t("footerFaqLink");
+    footerPrivacyButton.textContent = t("footerPrivacyLink");
+  };
+
+  onLanguageChange(setFooterTexts);
+  setFooterTexts();
 
   const loginView = document.createElement("section");
   loginView.className = "login-view";
@@ -1882,6 +2008,7 @@ const dashboardState: DashboardState = {
   };
 
   let screenBeforeFaq: DashboardState["screen"] = "dashboard";
+  let screenBeforePrivacy: DashboardState["screen"] = "dashboard";
 
   const tournamentPlannerState: TournamentPlannerState = {
     name: "",
@@ -2179,10 +2306,11 @@ const dashboardState: DashboardState = {
 
       dashboard.hidden = dashboardState.screen !== "dashboard";
       createMatchScreen.hidden = dashboardState.screen !== "createMatch";
-      createTournamentScreen.hidden = dashboardState.screen !== "createTournament";
-      createSeasonScreen.hidden = dashboardState.screen !== "createSeason";
-      faqScreen.hidden = dashboardState.screen !== "faq";
-      loginView.hidden = true;
+    createTournamentScreen.hidden = dashboardState.screen !== "createTournament";
+    createSeasonScreen.hidden = dashboardState.screen !== "createSeason";
+    faqScreen.hidden = dashboardState.screen !== "faq";
+    privacyScreen.hidden = dashboardState.screen !== "privacy";
+    loginView.hidden = true;
       welcomeText.textContent = "";
       scoreCardOverlay.hidden = !scoreCardVisible;
       return;
@@ -2197,8 +2325,9 @@ const dashboardState: DashboardState = {
     createMatchScreen.hidden = true;
     createTournamentScreen.hidden = true;
     createSeasonScreen.hidden = true;
-    faqScreen.hidden = true;
-    loginView.hidden = false;
+    faqScreen.hidden = dashboardState.screen !== "faq";
+    privacyScreen.hidden = dashboardState.screen !== "privacy";
+    loginView.hidden = dashboardState.screen === "faq" || dashboardState.screen === "privacy";
     hideScoreCard();
   };
 
@@ -2216,6 +2345,24 @@ const dashboardState: DashboardState = {
   const closeFaqScreen = (): void => {
     dashboardState.screen = screenBeforeFaq;
     screenBeforeFaq = "dashboard";
+    syncAuthState();
+    syncDashboardState();
+  };
+
+  const openPrivacyScreen = (): void => {
+    if (dashboardState.screen !== "privacy") {
+      screenBeforePrivacy = dashboardState.screen;
+    }
+    dashboardState.screen = "privacy";
+    authMenuOpen = false;
+    createMenuOpen = false;
+    syncAuthState();
+    syncDashboardState();
+  };
+
+  const closePrivacyScreen = (): void => {
+    dashboardState.screen = screenBeforePrivacy;
+    screenBeforePrivacy = "dashboard";
     syncAuthState();
     syncDashboardState();
   };
@@ -3721,6 +3868,14 @@ const dashboardState: DashboardState = {
     openFaqScreen();
   });
 
+  footerFaqButton.addEventListener("click", () => {
+    openFaqScreen();
+  });
+
+  footerPrivacyButton.addEventListener("click", () => {
+    openPrivacyScreen();
+  });
+
   authMenuButton.addEventListener("click", () => {
     createMenuOpen = false;
     authMenuOpen = !authMenuOpen;
@@ -3817,6 +3972,10 @@ const dashboardState: DashboardState = {
 
   faqBackButton.addEventListener("click", () => {
     closeFaqScreen();
+  });
+
+  privacyBackButton.addEventListener("click", () => {
+    closePrivacyScreen();
   });
 
   closeScoreCardButton.addEventListener("click", () => {
@@ -4185,7 +4344,17 @@ const dashboardState: DashboardState = {
   createSeasonScreen.append(seasonPanel);
 
   header.append(brandMark, providerStack);
-  card.append(header, loginView, dashboard, createMatchScreen, createTournamentScreen, createSeasonScreen, faqScreen);
+  card.append(
+    header,
+    loginView,
+    dashboard,
+    createMatchScreen,
+    createTournamentScreen,
+    createSeasonScreen,
+    faqScreen,
+    privacyScreen,
+    footer,
+  );
   container.append(card, scoreCardOverlay, loadingOverlay);
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());

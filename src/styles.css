@@ -238,6 +238,8 @@ h1 {
   line-height: 1;
   background: transparent;
   color: var(--text-muted);
+  border: none;
+  box-shadow: none;
 }
 
 .auth-menu-button:hover:enabled {
@@ -254,7 +256,7 @@ h1 {
   padding: 8px;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
   margin-top: 8px;
   min-width: 140px;
   display: grid;
@@ -524,10 +526,50 @@ button:disabled,
   background: #e3d3bc;
 }
 
+.secondary-button.auth-menu-button {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  box-shadow: none;
+}
+
+.secondary-button.auth-menu-button:hover:enabled {
+  background: transparent;
+}
+
 .dashboard {
   margin-top: 24px;
   display: grid;
   gap: 18px;
+}
+
+.app-footer {
+  background: var(--surface);
+  border-top: 1px solid var(--panel-border);
+  padding: 12px 0;
+  margin-top: 24px;
+  border-radius: 0 0 24px 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.footer-link-button {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--brand-spin);
+  cursor: pointer;
 }
 
 .dashboard-header,
