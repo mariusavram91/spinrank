@@ -11,7 +11,7 @@ migrations_dir = "migrations"
 
 [vars]
 APP_ENV = "prod"
-APP_ORIGIN = "https://mariusavram91.github.io"
+APP_ORIGIN = "https://spinrank.eu"
 
 [env.dev]
   [[env.dev.d1_databases]]
