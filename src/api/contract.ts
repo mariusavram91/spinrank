@@ -109,6 +109,20 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
+export interface SegmentMostMatchesPlayer {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+}
+
+export interface SegmentLeaderboardStats {
+  totalMatches: number;
+  mostMatchesPlayer: SegmentMostMatchesPlayer | null;
+}
+
 export interface GetLeaderboardPayload {}
 
 export interface GetLeaderboardData {
@@ -148,6 +162,7 @@ export interface GetSegmentLeaderboardData {
   segmentId: string;
   leaderboard: LeaderboardEntry[];
   updatedAt: string;
+  stats: SegmentLeaderboardStats;
 }
 
 export interface MatchBracketContext {

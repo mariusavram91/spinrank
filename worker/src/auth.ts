@@ -19,7 +19,7 @@ export async function sha256Hex(value: string): Promise<string> {
 
 export async function signSessionToken(userId: string, env: Env): Promise<{ token: string; expiresAt: string }> {
   const now = Math.floor(Date.now() / 1000);
-  const exp = now + 60 * 60;
+  const exp = now + 60 * 60 * 24;
   const token = await new SignJWT({})
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setSubject(userId)

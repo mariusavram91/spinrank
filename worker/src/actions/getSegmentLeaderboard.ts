@@ -1,6 +1,13 @@
 import { errorResponse, successResponse } from "../responses";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
-import type { ApiRequest, Env, GetSegmentLeaderboardPayload, LeaderboardEntry, UserRow } from "../types";
+import type {
+  ApiRequest,
+  Env,
+  GetSegmentLeaderboardPayload,
+  LeaderboardEntry,
+  SegmentLeaderboardStats,
+  UserRow,
+} from "../types";
 
 export async function handleGetSegmentLeaderboard(
   request: ApiRequest<"getSegmentLeaderboard", GetSegmentLeaderboardPayload>,
@@ -53,14 +60,60 @@ export async function handleGetSegmentLeaderboard(
     elo: Number(row.elo),
     wins: Number(row.wins),
     losses: Number(row.losses),
-    streak: Number(row.streak),
-    rank: index + 1,
-  }));
+      streak: Number(row.streak),
+      rank: index + 1,
+    }));
+
+  const matchesColumn = segmentType === "season" ? "season_id" : "tournament_id";
+  const matchesRow = await env.DB.prepare(
+    `
+      SELECT COUNT(*) AS total_matches
+      FROM matches
+      WHERE status = 'active' AND ${matchesColumn} = ?1
+    `,
+  )
+    .bind(segmentId)
+    .first<{ total_matches: number }>();
+
+  const topMatchesRow = await env.DB.prepare(
+    `
+      SELECT es.user_id, es.matches_played, es.wins, es.losses, u.display_name, u.avatar_url
+      FROM elo_segments es
+      JOIN users u ON u.id = es.user_id
+      WHERE es.segment_type = ?1 AND es.segment_id = ?2
+      ORDER BY es.matches_played DESC, es.wins DESC, es.losses ASC, u.display_name ASC
+      LIMIT 1
+    `,
+  )
+    .bind(segmentType, segmentId)
+    .first<{
+      user_id: string;
+      matches_played: number;
+      wins: number;
+      losses: number;
+      display_name: string;
+      avatar_url: string | null;
+    }>();
+
+  const stats: SegmentLeaderboardStats = {
+    totalMatches: Number(matchesRow?.total_matches ?? 0),
+    mostMatchesPlayer: topMatchesRow
+      ? {
+          userId: topMatchesRow.user_id,
+          displayName: topMatchesRow.display_name,
+          avatarUrl: topMatchesRow.avatar_url,
+          matchesPlayed: Number(topMatchesRow.matches_played ?? 0),
+          wins: Number(topMatchesRow.wins ?? 0),
+          losses: Number(topMatchesRow.losses ?? 0),
+        }
+      : null,
+  };
 
   return successResponse(request.requestId, {
     segmentType,
     segmentId,
     leaderboard,
     updatedAt: rows.results[0]?.updated_at ?? new Date().toISOString(),
+    stats,
   });
 }

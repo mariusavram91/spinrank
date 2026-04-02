@@ -18,6 +18,7 @@ import type {
   SeasonRecord,
   TournamentBracketRound,
   TournamentRecord,
+  SegmentLeaderboardStats,
 } from "../api/contract";
 import { postAction } from "../api/client";
 import { isProviderConfigured, renderGoogleButton } from "../auth/providers";
@@ -39,6 +40,7 @@ interface DashboardState {
   leaderboard: LeaderboardEntry[];
   players: LeaderboardEntry[];
   leaderboardUpdatedAt: string;
+  leaderboardStats: SegmentLeaderboardStats | null;
   userProgress: GetUserProgressData | null;
   segmentMode: SegmentMode;
   selectedSeasonId: string;
@@ -110,6 +112,9 @@ const formatDate = (value: string): string =>
   new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
   }).format(new Date(value));
+
+const formatCount = (value: number): string =>
+  new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Math.max(0, value));
 
 const getTodayDateValue = (): string => {
   const date = new Date();
@@ -302,6 +307,18 @@ const translations = {
     deleteMatch: "Delete match",
     deleteSeason: "Delete season",
     deleteTournament: "Delete tournament",
+    deleteModalTitleMatch: "Delete match?",
+    deleteModalTitleSeason: "Delete season?",
+    deleteModalTitleTournament: "Delete tournament?",
+    deleteModalBodyMatch:
+      "This match will be soft-deleted and Elo scores will be recalculated.",
+    deleteModalBodySeason:
+      "All linked tournaments and matches will be soft-deleted and Elo scores will be recalculated.",
+    deleteModalBodyTournament:
+      "All tournament matches will be soft-deleted and Elo scores will be recalculated.",
+    deleteModalSeasonHint: "Type the season name to confirm.",
+    deleteWarningConfirm: "Delete",
+    deleteWarningCancel: "Cancel",
     formatBestOf3: "Best of 3",
     formatSingleGame: "Single game",
     formatLabel: "Format",
@@ -364,6 +381,9 @@ const translations = {
     leaderboardWins: "Wins",
     leaderboardLosses: "Losses",
     leaderboardStreak: "Streak",
+    leaderboardMatchesLabel: "Matches played",
+    leaderboardMostGamesLabel: "Most games this season",
+    leaderboardLongestStreakLabel: "Longest win streak",
     openCreateMatch: "Create match",
     openCreateSeason: "Create season",
     openCreateTournament: "Tournaments",
@@ -378,7 +398,9 @@ const translations = {
     progressElo: "Elo",
     progressRanked: "Ranked at",
     progressUnranked: "Unranked",
-    progressWinsLosses: "Wins {wins} • Losses {losses}",
+    progressChartYAxis: "ELO",
+    progressStatsTitle: "Statistics",
+    progressMatchesLabel: "Matches",
     progressEmpty: "No progress yet.",
     resetElo: "Reset Elo to 1200",
     resetScoreCard: "Reset",
@@ -452,6 +474,18 @@ const translations = {
     deleteMatch: "Match löschen",
     deleteSeason: "Saison löschen",
     deleteTournament: "Turnier löschen",
+    deleteModalTitleMatch: "Match löschen?",
+    deleteModalTitleSeason: "Saison löschen?",
+    deleteModalTitleTournament: "Turnier löschen?",
+    deleteModalBodyMatch:
+      "Dieses Match wird soft gelöscht und die Elo-Werte werden neu berechnet.",
+    deleteModalBodySeason:
+      "Alle verknüpften Turniere und Matches werden soft gelöscht und die Elo-Werte neu berechnet.",
+    deleteModalBodyTournament:
+      "Alle Turniermatches werden soft gelöscht und die Elo-Werte neu berechnet.",
+    deleteModalSeasonHint: "Gib den Namen der Saison ein, um zu bestätigen.",
+    deleteWarningConfirm: "Löschen",
+    deleteWarningCancel: "Abbrechen",
     formatBestOf3: "Best of 3",
     formatSingleGame: "Einzelspiel",
     formatLabel: "Format",
@@ -514,6 +548,9 @@ const translations = {
     leaderboardWins: "Siege",
     leaderboardLosses: "Niederlagen",
     leaderboardStreak: "Serie",
+    leaderboardMatchesLabel: "Ausgetragene Matches",
+    leaderboardMostGamesLabel: "Die meisten Matches",
+    leaderboardLongestStreakLabel: "Längste Siegesserie",
     openCreateMatch: "Match erstellen",
     openCreateSeason: "Saison erstellen",
     openCreateTournament: "Turniere",
@@ -528,7 +565,9 @@ const translations = {
     progressElo: "Elo",
     progressRanked: "Platz",
     progressUnranked: "Nicht platziert",
-    progressWinsLosses: "Siege {wins} • Niederlagen {losses}",
+    progressChartYAxis: "ELO",
+    progressStatsTitle: "Statistiken",
+    progressMatchesLabel: "Spiele",
     progressEmpty: "Noch kein Fortschritt.",
     resetElo: "Elo auf 1200 zurücksetzen",
     resetScoreCard: "Zurücksetzen",
@@ -590,6 +629,32 @@ const translations = {
 } as const;
 
 type TextKey = keyof typeof translations["en"];
+
+type DeleteWarningContext = "match" | "season" | "tournament";
+
+interface DeleteWarningRequest {
+  context: DeleteWarningContext;
+  detail?: () => string | null;
+  confirmationValue?: string;
+}
+
+const deleteWarningCopy: Record<
+  DeleteWarningContext,
+  { titleKey: TextKey; bodyKey: TextKey }
+> = {
+  match: {
+    titleKey: "deleteModalTitleMatch",
+    bodyKey: "deleteModalBodyMatch",
+  },
+  season: {
+    titleKey: "deleteModalTitleSeason",
+    bodyKey: "deleteModalBodySeason",
+  },
+  tournament: {
+    titleKey: "deleteModalTitleTournament",
+    bodyKey: "deleteModalBodyTournament",
+  },
+};
 
 const translationObservers: Array<() => void> = [];
 const languageChangeHandlers: Array<() => void> = [];
@@ -664,12 +729,44 @@ interface ProgressGeometry {
   max: number;
 }
 
+const MAX_PROGRESS_DISPLAY_POINTS = 10;
+
+const createInitialProgressPoint = (
+  reference?: GetUserProgressData["points"][number],
+): GetUserProgressData["points"][number] => {
+  const baseTime = reference ? new Date(reference.playedAt).getTime() - 1 : Date.now();
+  return {
+    playedAt: new Date(baseTime).toISOString(),
+    elo: 1200,
+    delta: 0,
+    label: "Initial Elo",
+    rank: null,
+  };
+};
+
+const sampleProgressPoints = <T>(points: T[], maxPoints: number): T[] => {
+  if (points.length <= maxPoints || maxPoints <= 0) {
+    return [...points];
+  }
+  const clampedPoints = Math.min(points.length, Math.max(2, maxPoints));
+  const stride = (points.length - 1) / (clampedPoints - 1);
+  const sampled: T[] = [];
+  for (let i = 0; i < clampedPoints - 1; i += 1) {
+    const index = Math.floor(i * stride);
+    sampled.push(points[index]);
+  }
+  sampled.push(points[points.length - 1]);
+  return sampled;
+};
+
 const buildProgressGeometry = (
   points: Array<{ elo: number }>,
   width: number,
   height: number,
   offsetX = 0,
   offsetY = 0,
+  minOverride?: number,
+  maxOverride?: number,
 ): ProgressGeometry => {
   if (points.length === 0) {
     const centerX = width / 2 + offsetX;
@@ -682,8 +779,10 @@ const buildProgressGeometry = (
     };
   }
 
-  const minElo = Math.min(...points.map((point) => point.elo));
-  const maxElo = Math.max(...points.map((point) => point.elo));
+  const rawMin = Math.min(...points.map((point) => point.elo));
+  const rawMax = Math.max(...points.map((point) => point.elo));
+  const minElo = minOverride ?? rawMin;
+  const maxElo = maxOverride ?? rawMax;
   const range = Math.max(maxElo - minElo, 1);
 
   const coordinates = points.map((point, index) => {
@@ -732,24 +831,10 @@ const renderStreak = (streak: number): string => {
 };
 
 const renderMatchScore = (match: MatchRecord): string =>
-  match.score.map((game) => `${game.teamA}-${game.teamB}`).join(" • ");
+  match.score.map((game) => `${game.teamA} - ${game.teamB}`).join(" • ");
 
 const getBestVisibleStreak = (players: LeaderboardEntry[]): number =>
   players.reduce((max, player) => Math.max(max, player.streak), 0);
-
-const renderLeaderboardScopeLabel = (
-  scope: SegmentMode,
-  contextName?: string,
-): string => {
-  if (scope === "global") {
-    return t("scopeGlobal");
-  }
-  if (!contextName) {
-    return scope === "season" ? t("scopeSeason") : t("scopeTournament");
-  }
-  const label = scope === "season" ? t("scopeSeason") : t("scopeTournament");
-  return `${label}: ${contextName}`;
-};
 
 const canSoftDelete = (resource: { createdByUserId?: string | null }, sessionUserId: string): boolean =>
   resource.createdByUserId === sessionUserId;
@@ -804,14 +889,20 @@ const renderMatchContext = (
   seasons: SeasonRecord[],
   tournaments: TournamentRecord[],
   bracketContext: { roundTitle: string; isFinal: boolean } | null,
+  options?: { includeRound?: boolean },
 ): string => {
   const tournament = tournaments.find((entry) => entry.id === match.tournamentId);
   if (tournament) {
-    const roundLabel = bracketContext?.roundTitle ? ` • ${bracketContext.roundTitle}` : "";
+    const roundLabel =
+      options?.includeRound ?? true
+        ? bracketContext?.roundTitle
+          ? ` • ${bracketContext.roundTitle}`
+          : ""
+        : "";
     const trophyLabel = bracketContext?.isFinal ? "🏆 " : "";
-      const prefix = t("renderMatchContextTournament");
-      return `${trophyLabel}${prefix} ${tournament.name}${roundLabel}`;
-    }
+    const prefix = t("renderMatchContextTournament");
+    return `${trophyLabel}${prefix} ${tournament.name}${roundLabel}`;
+  }
 
     const season = seasons.find((entry) => entry.id === match.seasonId);
     if (season) {
@@ -1595,6 +1686,162 @@ export const buildApp = (): HTMLElement => {
   scoreCard.append(scoreCardHeader, scoreCardInstructions, scoreCardTiles, scoreCardActions);
   scoreCardOverlay.append(scoreCard);
 
+  const deleteWarningOverlay = document.createElement("div");
+  deleteWarningOverlay.className = "delete-warning-overlay";
+  deleteWarningOverlay.hidden = true;
+  deleteWarningOverlay.tabIndex = -1;
+
+  const deleteWarningModal = document.createElement("div");
+  deleteWarningModal.className = "delete-warning-modal";
+  deleteWarningModal.setAttribute("role", "alertdialog");
+  deleteWarningModal.setAttribute("aria-modal", "true");
+  deleteWarningModal.setAttribute("aria-labelledby", "delete-warning-title");
+  deleteWarningModal.setAttribute("aria-describedby", "delete-warning-description");
+
+  const deleteWarningTitle = document.createElement("h3");
+  deleteWarningTitle.className = "delete-warning__title";
+  deleteWarningTitle.id = "delete-warning-title";
+
+  const deleteWarningDescription = document.createElement("p");
+  deleteWarningDescription.className = "delete-warning__description";
+  deleteWarningDescription.id = "delete-warning-description";
+
+  const deleteWarningDetail = document.createElement("p");
+  deleteWarningDetail.className = "delete-warning__detail";
+  deleteWarningDetail.hidden = true;
+
+  const deleteWarningHint = document.createElement("p");
+  deleteWarningHint.className = "delete-warning__hint";
+  deleteWarningHint.hidden = true;
+  deleteWarningHint.id = "delete-warning-hint";
+
+  const deleteWarningHintLabel = document.createElement("span");
+  deleteWarningHintLabel.className = "delete-warning__hint-text";
+  bindLocalizedText(deleteWarningHintLabel, "deleteModalSeasonHint");
+
+  const deleteWarningHintValue = document.createElement("strong");
+  deleteWarningHintValue.className = "delete-warning__hint-value";
+
+  deleteWarningHint.append(deleteWarningHintLabel, document.createTextNode(" "), deleteWarningHintValue);
+
+  const deleteWarningInput = document.createElement("input");
+  deleteWarningInput.className = "delete-warning__input";
+  deleteWarningInput.type = "text";
+  deleteWarningInput.hidden = true;
+  deleteWarningInput.autocomplete = "off";
+  deleteWarningInput.setAttribute("aria-describedby", "delete-warning-hint");
+  bindLocalizedAttribute(deleteWarningInput, "placeholder", "seasonName");
+  bindLocalizedAttribute(deleteWarningInput, "aria-label", "seasonName");
+
+  const deleteWarningActions = document.createElement("div");
+  deleteWarningActions.className = "delete-warning__actions";
+
+  const deleteWarningCancelButton = document.createElement("button");
+  deleteWarningCancelButton.type = "button";
+  deleteWarningCancelButton.className = "secondary-button";
+  bindLocalizedText(deleteWarningCancelButton, "deleteWarningCancel");
+
+  const deleteWarningConfirmButton = document.createElement("button");
+  deleteWarningConfirmButton.type = "button";
+  deleteWarningConfirmButton.className = "secondary-button destructive-button";
+  bindLocalizedText(deleteWarningConfirmButton, "deleteWarningConfirm");
+
+  deleteWarningActions.append(deleteWarningCancelButton, deleteWarningConfirmButton);
+  deleteWarningModal.append(
+    deleteWarningTitle,
+    deleteWarningDescription,
+    deleteWarningDetail,
+    deleteWarningHint,
+    deleteWarningInput,
+    deleteWarningActions,
+  );
+  deleteWarningOverlay.append(deleteWarningModal);
+
+  let currentDeleteRequest: DeleteWarningRequest | null = null;
+  let deleteWarningResolver: ((confirmed: boolean) => void) | null = null;
+
+  const applyDeleteWarningCopy = (): void => {
+    if (!currentDeleteRequest) {
+      return;
+    }
+    const copy = deleteWarningCopy[currentDeleteRequest.context];
+    deleteWarningTitle.textContent = t(copy.titleKey);
+    deleteWarningDescription.textContent = t(copy.bodyKey);
+    const detailText = currentDeleteRequest.detail?.() ?? "";
+    deleteWarningDetail.textContent = detailText;
+    deleteWarningDetail.hidden = !detailText;
+    const showHint =
+      currentDeleteRequest.context === "season" && Boolean(currentDeleteRequest.confirmationValue);
+    deleteWarningHintValue.textContent = currentDeleteRequest.confirmationValue ?? "";
+    deleteWarningHint.hidden = !showHint;
+    deleteWarningInput.hidden = currentDeleteRequest.context !== "season";
+  };
+
+  const updateDeleteWarningConfirmState = (): void => {
+    if (!currentDeleteRequest) {
+      deleteWarningConfirmButton.disabled = false;
+      return;
+    }
+    if (currentDeleteRequest.context === "season") {
+      const confirmationTarget = currentDeleteRequest.confirmationValue ?? "";
+      deleteWarningConfirmButton.disabled =
+        confirmationTarget === "" || deleteWarningInput.value.trim() !== confirmationTarget;
+      return;
+    }
+    deleteWarningConfirmButton.disabled = false;
+  };
+
+  const closeDeleteWarning = (confirmed: boolean): void => {
+    if (!deleteWarningResolver) {
+      return;
+    }
+    const resolve = deleteWarningResolver;
+    deleteWarningResolver = null;
+    currentDeleteRequest = null;
+    deleteWarningOverlay.hidden = true;
+    deleteWarningInput.value = "";
+    deleteWarningHint.hidden = true;
+    deleteWarningDetail.hidden = true;
+    deleteWarningConfirmButton.disabled = false;
+    deleteWarningHintValue.textContent = "";
+    deleteWarningInput.hidden = true;
+    resolve(confirmed);
+  };
+
+  const promptDeleteWarning = (request: DeleteWarningRequest): Promise<boolean> => {
+    if (deleteWarningResolver) {
+      closeDeleteWarning(false);
+    }
+    currentDeleteRequest = request;
+    applyDeleteWarningCopy();
+    updateDeleteWarningConfirmState();
+    deleteWarningOverlay.hidden = false;
+    const focusTarget = request.context === "season" ? deleteWarningInput : deleteWarningConfirmButton;
+    focusTarget.focus();
+    return new Promise((resolve) => {
+      deleteWarningResolver = resolve;
+    });
+  };
+
+  deleteWarningCancelButton.addEventListener("click", () => closeDeleteWarning(false));
+  deleteWarningConfirmButton.addEventListener("click", () => closeDeleteWarning(true));
+  deleteWarningInput.addEventListener("input", updateDeleteWarningConfirmState);
+  deleteWarningOverlay.addEventListener("click", (event) => {
+    if (event.target === deleteWarningOverlay) {
+      closeDeleteWarning(false);
+    }
+  });
+  deleteWarningOverlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeDeleteWarning(false);
+    }
+  });
+  onLanguageChange(() => {
+    applyDeleteWarningCopy();
+    updateDeleteWarningConfirmState();
+  });
+
   const dashboardStatus = document.createElement("p");
   dashboardStatus.className = "dashboard-status";
 
@@ -1604,8 +1851,36 @@ export const buildApp = (): HTMLElement => {
   const progressPanel = document.createElement("section");
   progressPanel.className = "content-card progress-card";
 
-  const progressMeta = document.createElement("p");
-  progressMeta.className = "progress-meta";
+  const progressHeader = document.createElement("div");
+  progressHeader.className = "card-header progress-card__header";
+
+  const progressTitleContainer = document.createElement("div");
+
+  const progressTitle = document.createElement("h3");
+  progressTitle.className = "card-title";
+  bindLocalizedText(progressTitle, "progressStatsTitle");
+
+  const progressSubtitle = document.createElement("p");
+  progressSubtitle.className = "progress-subtitle card-meta";
+
+  const progressSubtitleRank = document.createElement("span");
+  progressSubtitleRank.className = "progress-subtitle__rank";
+
+  const progressSubtitleRankLabel = document.createElement("span");
+  progressSubtitleRankLabel.className = "progress-subtitle__rank-label";
+
+  const progressSubtitleRankValue = document.createElement("span");
+  progressSubtitleRankValue.className = "progress-subtitle__rank-value progress-badge progress-subtitle-elo progress-subtitle__rank-value--hidden";
+
+  progressSubtitleRank.append(progressSubtitleRankLabel, progressSubtitleRankValue);
+
+  const progressSubtitleElo = document.createElement("span");
+  progressSubtitleElo.className = "progress-subtitle-elo progress-badge";
+
+  progressSubtitle.append(progressSubtitleRank, progressSubtitleElo);
+
+  progressTitleContainer.append(progressTitle, progressSubtitle);
+  progressHeader.append(progressTitleContainer);
 
   const progressSummary = document.createElement("div");
   progressSummary.className = "progress-summary";
@@ -1626,9 +1901,6 @@ export const buildApp = (): HTMLElement => {
   leaderboardTitle.className = "card-title";
   bindLocalizedText(leaderboardTitle, "leaderboard");
 
-  const leaderboardMeta = document.createElement("p");
-  leaderboardMeta.className = "card-meta";
-
   const segmentToggle = document.createElement("div");
   segmentToggle.className = "segment-toggle";
 
@@ -1647,8 +1919,101 @@ export const buildApp = (): HTMLElement => {
   const seasonSelect = document.createElement("select");
   seasonSelect.className = "select-input";
 
+  const seasonStats = document.createElement("div");
+  seasonStats.className = "leaderboard-season-stats";
+  seasonStats.hidden = true;
+
+  const seasonStatsMatches = document.createElement("p");
+  seasonStatsMatches.className = "leaderboard-season-stats__matches";
+
+  const seasonStatsActive = document.createElement("p");
+  seasonStatsActive.className = "leaderboard-season-stats__active";
+
+  seasonStats.append(seasonStatsMatches, seasonStatsActive);
+
   const tournamentSelect = document.createElement("select");
   tournamentSelect.className = "select-input";
+
+  const leaderboardStatsGroup = document.createElement("div");
+  leaderboardStatsGroup.className = "leaderboard-stats-group";
+  leaderboardStatsGroup.hidden = true;
+
+  const leaderboardMatchesSummary = document.createElement("p");
+  leaderboardMatchesSummary.className = "leaderboard-matches";
+  leaderboardMatchesSummary.hidden = true;
+
+  const leaderboardMatchesSummaryLabel = document.createElement("span");
+  leaderboardMatchesSummaryLabel.className = "leaderboard-matches__label";
+  bindLocalizedText(leaderboardMatchesSummaryLabel, "leaderboardMatchesLabel");
+
+  const leaderboardMatchesSummaryValue = document.createElement("span");
+  leaderboardMatchesSummaryValue.className = "leaderboard-matches__value";
+
+  leaderboardMatchesSummary.append(leaderboardMatchesSummaryLabel, leaderboardMatchesSummaryValue);
+
+  const leaderboardStatMostActive = document.createElement("div");
+  leaderboardStatMostActive.className = "leaderboard-stat";
+  leaderboardStatMostActive.hidden = true;
+
+  const leaderboardStatMostActiveDetails = document.createElement("div");
+  leaderboardStatMostActiveDetails.className = "leaderboard-stat__details";
+
+  const leaderboardStatMostActiveLabel = document.createElement("span");
+  leaderboardStatMostActiveLabel.className = "leaderboard-stat__label";
+  bindLocalizedText(leaderboardStatMostActiveLabel, "leaderboardMostGamesLabel");
+
+  const leaderboardStatMostActiveName = document.createElement("p");
+  leaderboardStatMostActiveName.className = "leaderboard-stat__name";
+
+  const leaderboardStatMostActivePlayer = document.createElement("span");
+  leaderboardStatMostActivePlayer.className = "leaderboard-stat__player";
+
+  const leaderboardStatMostActiveMeta = document.createElement("span");
+  leaderboardStatMostActiveMeta.className = "leaderboard-stat__meta";
+
+  leaderboardStatMostActiveName.append(leaderboardStatMostActivePlayer, leaderboardStatMostActiveMeta);
+
+  leaderboardStatMostActiveDetails.append(
+    leaderboardStatMostActiveLabel,
+    leaderboardStatMostActiveName,
+  );
+  leaderboardStatMostActive.append(leaderboardStatMostActiveDetails);
+
+  const leaderboardStatLongestStreak = document.createElement("div");
+  leaderboardStatLongestStreak.className = "leaderboard-stat";
+  leaderboardStatLongestStreak.hidden = true;
+
+  const leaderboardStatLongestStreakDetails = document.createElement("div");
+  leaderboardStatLongestStreakDetails.className = "leaderboard-stat__details";
+
+  const leaderboardStatLongestStreakLabel = document.createElement("span");
+  leaderboardStatLongestStreakLabel.className = "leaderboard-stat__label";
+  bindLocalizedText(leaderboardStatLongestStreakLabel, "leaderboardLongestStreakLabel");
+
+  const leaderboardStatLongestStreakName = document.createElement("p");
+  leaderboardStatLongestStreakName.className = "leaderboard-stat__name";
+
+  const leaderboardStatLongestStreakPlayer = document.createElement("span");
+  leaderboardStatLongestStreakPlayer.className = "leaderboard-stat__player";
+
+  const leaderboardStatLongestStreakMeta = document.createElement("span");
+  leaderboardStatLongestStreakMeta.className = "leaderboard-stat__meta";
+
+  leaderboardStatLongestStreakName.append(leaderboardStatLongestStreakPlayer, leaderboardStatLongestStreakMeta);
+
+  leaderboardStatLongestStreakDetails.append(
+    leaderboardStatLongestStreakLabel,
+    leaderboardStatLongestStreakName,
+  );
+  leaderboardStatLongestStreak.append(leaderboardStatLongestStreakDetails);
+
+  leaderboardStatsGroup.append(
+    leaderboardMatchesSummary,
+    leaderboardStatMostActive,
+    leaderboardStatLongestStreak,
+  );
+
+  const leaderboardAvatarFallback = `${import.meta.env.BASE_URL}assets/logo.png`;
 
   const leaderboardList = document.createElement("div");
   leaderboardList.className = "leaderboard-list";
@@ -1693,7 +2058,7 @@ export const buildApp = (): HTMLElement => {
 
   const suggestMatchButton = document.createElement("button");
   suggestMatchButton.type = "button";
-  suggestMatchButton.className = "secondary-button";
+  suggestMatchButton.className = "primary-button";
   bindLocalizedText(suggestMatchButton, "suggestFairTeams");
 
   const matchForm = document.createElement("form");
@@ -1757,7 +2122,29 @@ export const buildApp = (): HTMLElement => {
       min: "0",
       step: "1",
     }),
+    teamALabel: document.createElement("span"),
+    teamBLabel: document.createElement("span"),
   }));
+
+  const updateScoreLabelsAndPlaceholders = (teamALabel: string, teamBLabel: string): void => {
+    const aLabel = teamALabel || t("teamALabel");
+    const bLabel = teamBLabel || t("teamBLabel");
+    scoreInputs.forEach((game) => {
+      game.teamALabel.textContent = aLabel;
+      game.teamBLabel.textContent = bLabel;
+      game.teamA.placeholder = "0";
+      game.teamB.placeholder = "0";
+    });
+  };
+
+  const resetScoreInputs = (): void => {
+    scoreInputs.forEach((game) => {
+      game.teamA.value = "";
+      game.teamB.value = "";
+    });
+  };
+
+  updateScoreLabelsAndPlaceholders(t("teamALabel"), t("teamBLabel"));
 
   const submitMatchButton = document.createElement("button");
   submitMatchButton.type = "submit";
@@ -1765,7 +2152,7 @@ export const buildApp = (): HTMLElement => {
   bindLocalizedText(submitMatchButton, "createMatch");
 
   const matchesTop = document.createElement("div");
-  matchesTop.className = "card-header";
+  matchesTop.className = "card-header match-topline";
 
   const matchesHeading = document.createElement("div");
 
@@ -1779,6 +2166,10 @@ export const buildApp = (): HTMLElement => {
 
   const matchFilterToggle = document.createElement("div");
   matchFilterToggle.className = "segment-toggle match-filter-toggle";
+
+  const matchFiltersRow = document.createElement("div");
+  matchFiltersRow.className = "match-filter-row";
+  matchFiltersRow.append(matchFilterToggle);
 
   const createMatchFilterButton = (filter: MatchFeedFilter): HTMLButtonElement => {
     const button = document.createElement("button");
@@ -2015,6 +2406,7 @@ const dashboardState: DashboardState = {
   leaderboard: [],
   players: [],
   leaderboardUpdatedAt: "",
+  leaderboardStats: null,
   userProgress: null,
   segmentMode: "global",
   selectedSeasonId: "",
@@ -2151,6 +2543,7 @@ const dashboardState: DashboardState = {
       renderPlayerNames(teamAPlayerIds, dashboardState.players) || t("teamALabel");
     const teamBLabel =
       renderPlayerNames(teamBPlayerIds, dashboardState.players) || t("teamBLabel");
+    updateScoreLabelsAndPlaceholders(teamALabel, teamBLabel);
     const season = dashboardState.seasons.find((entry) => entry.id === formSeasonSelect.value);
     const tournament = dashboardState.tournaments.find((entry) => entry.id === formTournamentSelect.value);
     const derivedWinner = deriveMatchWinnerFromInputs();
@@ -2244,7 +2637,7 @@ const dashboardState: DashboardState = {
       }
 
       const avatar = document.createElement("img");
-      avatar.className = "player-avatar";
+      avatar.className = "player-avatar player-avatar-small leaderboard-row__avatar";
       setAvatarImage(
         avatar,
         entry.userId,
@@ -2253,18 +2646,32 @@ const dashboardState: DashboardState = {
         `${entry.displayName} avatar`,
       );
 
-      const summary = document.createElement("span");
+      const summary = document.createElement("div");
       summary.className = "leaderboard-summary";
+
+      const identityLine = document.createElement("div");
+      identityLine.className = "leaderboard-row__identity-line";
 
       const identity = document.createElement("span");
       identity.className = "leaderboard-identity";
       identity.textContent = `#${entry.rank} ${entry.displayName}`;
 
-      const stats = document.createElement("span");
-      stats.className = "leaderboard-stats";
-      stats.textContent = `${t("leaderboardWins")} ${entry.wins} • ${t("leaderboardLosses")} ${entry.losses} • ${t(
-        "leaderboardStreak",
-      )} ${renderStreak(entry.streak)}`;
+      identityLine.append(avatar, identity);
+
+      if (entry.userId === currentUserId) {
+        const youChip = document.createElement("span");
+        youChip.className = "leaderboard-you-chip";
+        youChip.textContent = "You";
+        identityLine.append(youChip);
+      }
+
+      const record = document.createElement("span");
+      record.className = "leaderboard-row__record";
+      record.textContent = `${t("leaderboardWins")} ${entry.wins} • ${t("leaderboardLosses")} ${entry.losses}`;
+
+      const streak = document.createElement("span");
+      streak.className = "leaderboard-row__streak";
+      streak.textContent = `${t("leaderboardStreak")} ${renderStreak(entry.streak)}`;
 
       if (entry.streak > 0 && entry.streak === bestVisibleStreak) {
         const fire = document.createElement("span");
@@ -2272,22 +2679,20 @@ const dashboardState: DashboardState = {
         fire.textContent = "🔥";
         fire.setAttribute("aria-label", `Best streak: ${entry.streak}`);
         fire.title = `Best streak: ${entry.streak}`;
-        stats.append(" ", fire);
+        streak.append(" ", fire);
       }
 
       const elo = document.createElement("span");
       elo.className = "leaderboard-elo";
       elo.textContent = `(${entry.elo} Elo)`;
 
-      if (entry.userId === currentUserId) {
-        const youChip = document.createElement("span");
-        youChip.className = "leaderboard-you-chip";
-        youChip.textContent = "You";
-        summary.append(identity, youChip, stats, elo);
-      } else {
-        summary.append(identity, stats, elo);
-      }
-      row.append(avatar, summary);
+      const metaRow = document.createElement("div");
+      metaRow.className = "leaderboard-row__meta-row";
+      metaRow.append(record, streak, elo);
+
+      summary.append(identityLine, metaRow);
+
+      row.append(summary);
       return row;
     });
     leaderboardList.replaceChildren(...rows);
@@ -2438,17 +2843,6 @@ const dashboardState: DashboardState = {
   };
 
   const syncDashboardState = (): void => {
-    const activeLabel = renderLeaderboardScopeLabel(
-      dashboardState.segmentMode,
-      dashboardState.segmentMode === "season"
-        ? seasonSelect.selectedOptions[0]?.textContent || undefined
-        : dashboardState.segmentMode === "tournament"
-          ? tournamentSelect.selectedOptions[0]?.textContent || undefined
-          : undefined,
-    );
-
-    leaderboardMeta.textContent = activeLabel;
-
     dashboardStatus.textContent = dashboardState.error
       ? dashboardState.error
       : dashboardState.loading
@@ -2526,6 +2920,44 @@ const dashboardState: DashboardState = {
 
     renderLeaderboardList();
 
+    const leaderboardStats = dashboardState.leaderboardStats;
+    const busiestPlayer = leaderboardStats?.mostMatchesPlayer ?? null;
+    const longestStreakPlayer = dashboardState.leaderboard.reduce<LeaderboardEntry | null>((best, entry) => {
+      if (entry.streak > 0 && (!best || entry.streak > best.streak)) {
+        return entry;
+      }
+      return best;
+    }, null);
+
+    const showStats =
+      Boolean(leaderboardStats?.totalMatches) || Boolean(busiestPlayer) || Boolean(longestStreakPlayer);
+    leaderboardStatsGroup.hidden = !showStats;
+
+    if (leaderboardStats?.totalMatches !== undefined) {
+      leaderboardMatchesSummaryValue.textContent = formatCount(leaderboardStats.totalMatches);
+      leaderboardMatchesSummary.hidden = false;
+    } else {
+      leaderboardMatchesSummary.hidden = true;
+    }
+
+    if (busiestPlayer && busiestPlayer.matchesPlayed > 0) {
+      leaderboardStatMostActivePlayer.textContent = busiestPlayer.displayName;
+      leaderboardStatMostActiveMeta.textContent = ` • 🔥 ${formatCount(busiestPlayer.matchesPlayed)} ${t(
+        "progressMatchesLabel",
+      )}`;
+      leaderboardStatMostActive.hidden = false;
+    } else {
+      leaderboardStatMostActive.hidden = true;
+    }
+
+    if (longestStreakPlayer) {
+      leaderboardStatLongestStreakPlayer.textContent = longestStreakPlayer.displayName;
+      leaderboardStatLongestStreakMeta.textContent = ` • 🏆 ${longestStreakPlayer.streak} ${t("leaderboardWins")} streak`;
+      leaderboardStatLongestStreak.hidden = false;
+    } else {
+      leaderboardStatLongestStreak.hidden = true;
+    }
+
     matchesMeta.textContent = dashboardState.matchesLoading ? t("loadingMatches") : "";
 
     if (dashboardState.matches.length === 0) {
@@ -2540,46 +2972,87 @@ const dashboardState: DashboardState = {
         const cardNode = document.createElement("article");
         cardNode.className = "match-row";
 
-        const meta = document.createElement("p");
+        const meta = document.createElement("div");
         meta.className = "match-meta";
 
-        const teamA = document.createElement("span");
-        teamA.textContent = renderPlayerNames(match.teamAPlayerIds, dashboardState.players);
-        if (match.winnerTeam === "A") {
-          teamA.className = "winner-name";
-        }
+        const header = document.createElement("div");
+        header.className = "match-row__header";
 
-        const vs = document.createElement("span");
-        vs.className = "match-separator";
-        vs.textContent = " vs ";
+        const detailLine = document.createElement("div");
+        detailLine.className = "match-row__detail-line";
 
-        const teamB = document.createElement("span");
-        teamB.textContent = renderPlayerNames(match.teamBPlayerIds, dashboardState.players);
-        if (match.winnerTeam === "B") {
-          teamB.className = "winner-name";
-        }
+        const createTeamBlock = (labelText: string, winner: boolean): HTMLDivElement => {
+          const block = document.createElement("div");
+          block.className = [
+            "match-row__team",
+            winner ? "match-row__team--winner" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
 
-        const score = document.createElement("span");
-        score.className = "match-score";
-        score.textContent = ` • ${renderMatchScore(match)}`;
+          const teamName = document.createElement("span");
+          teamName.className = "match-row__team-name";
+          teamName.textContent = labelText;
 
-        const bracketContext = dashboardState.matchBracketContextByMatchId[match.id] || null;
-        const roundTag = document.createElement("span");
-        roundTag.className = "match-round";
-        if (bracketContext) {
-          roundTag.textContent = ` • ${bracketContext.isFinal ? "🏆 " : ""}${bracketContext.roundTitle}`;
-        }
+          block.append(teamName);
+          return block;
+        };
 
-        meta.append(teamA, vs, teamB, score, roundTag);
+        const teamALabel =
+          renderPlayerNames(match.teamAPlayerIds, dashboardState.players) || t("teamALabel");
+        const teamBLabel =
+          renderPlayerNames(match.teamBPlayerIds, dashboardState.players) || t("teamBLabel");
 
-        const subline = document.createElement("p");
-        subline.className = "match-subline";
-        subline.textContent = `${formatDateTime(match.playedAt)} • ${renderMatchContext(
+        const scoreBadge = document.createElement("div");
+        scoreBadge.className = "match-row__score-badge";
+        scoreBadge.textContent = renderMatchScore(match);
+
+        const teamARow = document.createElement("div");
+        teamARow.className = "match-row__team-row match-row__team-row--left";
+        teamARow.append(createTeamBlock(teamALabel, match.winnerTeam === "A"));
+
+        const scoreRow = document.createElement("div");
+        scoreRow.className = "match-row__score-row";
+        scoreRow.append(scoreBadge);
+
+        const teamBRow = document.createElement("div");
+        teamBRow.className = "match-row__team-row match-row__team-row--right";
+        teamBRow.append(createTeamBlock(teamBLabel, match.winnerTeam === "B"));
+
+        header.append(teamARow, scoreRow, teamBRow);
+
+        const matchTypeLabel = document.createElement("span");
+        matchTypeLabel.className = "match-type";
+        matchTypeLabel.textContent =
+          match.matchType === "singles" ? t("matchSummarySingles") : t("matchSummaryDoubles");
+
+        const contextLabel = document.createElement("span");
+        contextLabel.className = "match-context";
+        contextLabel.textContent = renderMatchContext(
           match,
           dashboardState.seasons,
           dashboardState.tournaments,
           match.bracketContext || null,
-        )}`;
+          { includeRound: false },
+        );
+
+        detailLine.append(matchTypeLabel, contextLabel);
+
+        const bracketContext = dashboardState.matchBracketContextByMatchId[match.id] || null;
+        if (bracketContext?.roundTitle) {
+          const roundTag = document.createElement("span");
+          roundTag.className = "match-round";
+          roundTag.textContent = `${bracketContext.isFinal ? "🏆 " : ""}${bracketContext.roundTitle}`;
+          detailLine.append(roundTag);
+        }
+
+        meta.append(header, detailLine);
+
+        const footer = document.createElement("div");
+        footer.className = "match-meta__footer";
+        const footerText = document.createElement("span");
+        footerText.textContent = formatDateTime(match.playedAt);
+        footer.append(footerText);
 
         if (canSoftDelete(match, getCurrentUserId(state.current))) {
           const deleteMatchButton = document.createElement("button");
@@ -2594,7 +3067,7 @@ const dashboardState: DashboardState = {
           cardNode.append(deleteMatchButton);
         }
 
-        cardNode.append(meta, subline);
+        cardNode.append(meta, footer);
         return cardNode;
       });
       matchesList.replaceChildren(...matchCards);
@@ -2603,32 +3076,60 @@ const dashboardState: DashboardState = {
     if (!dashboardState.userProgress) {
       progressSummary.hidden = true;
       progressSummary.replaceChildren();
-      progressMeta.textContent = "";
+      progressSubtitleRankLabel.textContent = "";
+      progressSubtitleRankValue.textContent = "";
+      progressSubtitleRankValue.classList.add("progress-subtitle__rank-value--hidden");
+      progressSubtitleElo.textContent = "";
       const empty = document.createElement("p");
       empty.className = "empty-state";
       empty.textContent = t("progressEmpty");
       progressBody.replaceChildren(empty);
     } else {
       const progress = dashboardState.userProgress;
-      const rankLabel =
-        progress.currentRank === null
-          ? t("progressUnranked")
-          : `${t("progressRanked")} #${progress.currentRank}`;
-      progressMeta.textContent = rankLabel;
+
+      const totalMatches = progress.wins + progress.losses;
+
+      const rankLabelText =
+        progress.currentRank === null ? t("progressUnranked") : t("progressRanked");
       progressSummary.hidden = false;
       progressSummary.replaceChildren(
-        createProgressSummaryItem(`${t("progressElo")} ${progress.currentElo}`),
         createProgressSummaryItem(`${t("progressBestElo")}: ${progress.bestElo}`),
         createProgressSummaryItem(`${t("progressBestStreak")}: ${progress.bestStreak}`),
-        createProgressSummaryItem(
-          t("progressWinsLosses")
-            .replace("{wins}", String(progress.wins))
-            .replace("{losses}", String(progress.losses)),
-        ),
       );
+      progressSubtitleRankLabel.textContent = rankLabelText;
+      if (progress.currentRank !== null) {
+        progressSubtitleRankValue.textContent = `#${progress.currentRank}`;
+        progressSubtitleRankValue.classList.remove("progress-subtitle__rank-value--hidden");
+      } else {
+        progressSubtitleRankValue.textContent = "";
+        progressSubtitleRankValue.classList.add("progress-subtitle__rank-value--hidden");
+      }
+      progressSubtitleElo.textContent = `${t("progressElo")} ${progress.currentElo}`;
 
       const svgNamespace = "http://www.w3.org/2000/svg";
-      const geometry = buildProgressGeometry(progress.points, 272, 100, 36, 12);
+      const initialPoint = createInitialProgressPoint(progress.points[0]);
+      const basePoints = [initialPoint, ...progress.points];
+      const displayPoints = sampleProgressPoints(basePoints, MAX_PROGRESS_DISPLAY_POINTS);
+
+      const eloValues =
+        progress.points.length > 0 ? progress.points.map((point) => point.elo) : [progress.currentElo];
+      const actualMin = Math.min(...eloValues);
+      const actualMax = Math.max(...eloValues);
+      const axisHalfRange = Math.max(
+        Math.max(Math.abs(actualMax - 1200), Math.abs(actualMin - 1200)),
+        40,
+      );
+      const axisMin = 1200 - axisHalfRange;
+      const axisMax = 1200 + axisHalfRange;
+      const geometry = buildProgressGeometry(
+        displayPoints,
+        272,
+        100,
+        36,
+        12,
+        axisMin,
+        axisMax,
+      );
       const chart = document.createElementNS(svgNamespace, "svg");
       chart.setAttribute("viewBox", "0 0 320 140");
       chart.setAttribute("class", "progress-chart");
@@ -2636,6 +3137,30 @@ const dashboardState: DashboardState = {
       const axis = document.createElementNS(svgNamespace, "path");
       axis.setAttribute("d", "M36 12 L36 112 L308 112");
       axis.setAttribute("class", "progress-axis");
+
+      const baselineY = 12 + 100 / 2;
+
+      const yAxisLabel = document.createElementNS(svgNamespace, "text");
+      yAxisLabel.setAttribute("x", "16");
+      yAxisLabel.setAttribute("y", "70");
+      yAxisLabel.setAttribute("text-anchor", "middle");
+      yAxisLabel.setAttribute("transform", "rotate(-90 16 70)");
+      yAxisLabel.setAttribute("class", "progress-axis-label progress-axis-label--y");
+      yAxisLabel.textContent = t("progressChartYAxis");
+
+      const baselineLine = document.createElementNS(svgNamespace, "line");
+      baselineLine.setAttribute("x1", "36");
+      baselineLine.setAttribute("x2", "308");
+      baselineLine.setAttribute("y1", baselineY.toFixed(1));
+      baselineLine.setAttribute("y2", baselineY.toFixed(1));
+      baselineLine.setAttribute("class", "progress-baseline");
+
+      const baselineLabel = document.createElementNS(svgNamespace, "text");
+      baselineLabel.setAttribute("x", "308");
+      baselineLabel.setAttribute("y", (baselineY - 4).toFixed(1));
+      baselineLabel.setAttribute("text-anchor", "end");
+      baselineLabel.setAttribute("class", "progress-baseline-label");
+      baselineLabel.textContent = "1200";
 
       const path = document.createElementNS(svgNamespace, "path");
       path.setAttribute("d", geometry.path);
@@ -2645,13 +3170,13 @@ const dashboardState: DashboardState = {
       yTop.setAttribute("x", "0");
       yTop.setAttribute("y", "18");
       yTop.setAttribute("class", "progress-axis-label");
-      yTop.textContent = `${Math.round(geometry.max)}`;
+      yTop.textContent = `${Math.round(axisMax)}`;
 
       const yBottom = document.createElementNS(svgNamespace, "text");
       yBottom.setAttribute("x", "0");
       yBottom.setAttribute("y", "116");
       yBottom.setAttribute("class", "progress-axis-label");
-      yBottom.textContent = `${Math.round(geometry.min)}`;
+      yBottom.textContent = `${Math.round(axisMin)}`;
 
       const pointsLayer = document.createElementNS(svgNamespace, "g");
       pointsLayer.setAttribute("class", "progress-points");
@@ -2661,12 +3186,13 @@ const dashboardState: DashboardState = {
         circle.setAttribute("cy", coord.y.toFixed(1));
         circle.setAttribute("r", "5");
         circle.setAttribute("class", "progress-point");
-        circle.setAttribute("title", formatProgressPointTooltip(progress.points[index]));
+        const sourcePoint = displayPoints[index];
+        circle.setAttribute("title", formatProgressPointTooltip(sourcePoint));
         pointsLayer.append(circle);
       });
 
-      const firstPoint = progress.points[0];
-      const lastPoint = progress.points[progress.points.length - 1];
+      const firstPoint = displayPoints[0];
+      const lastPoint = displayPoints[displayPoints.length - 1];
 
       const xLeft = document.createElementNS(svgNamespace, "text");
       xLeft.setAttribute("x", "36");
@@ -2681,8 +3207,115 @@ const dashboardState: DashboardState = {
       xRight.setAttribute("class", "progress-axis-label");
       xRight.textContent = formatDate(lastPoint.playedAt);
 
-      chart.append(axis, path, pointsLayer, yTop, yBottom, xLeft, xRight);
-      progressBody.replaceChildren(chart);
+      chart.append(axis, yAxisLabel, baselineLine, baselineLabel, path, pointsLayer, yTop, yBottom, xLeft, xRight);
+
+      const progressLayout = document.createElement("div");
+      progressLayout.className = "progress-layout";
+
+      const chartPanel = document.createElement("div");
+      chartPanel.className = "progress-chart-panel";
+
+      const chartWrapper = document.createElement("div");
+      chartWrapper.className = "progress-chart-wrapper";
+      chartWrapper.append(chart);
+
+      chartPanel.append(chartWrapper);
+
+      const donutPanel = document.createElement("div");
+      donutPanel.className = "progress-donut-panel";
+
+      const donutSize = 96;
+      const donutRadius = 36;
+      const donutCircumference = 2 * Math.PI * donutRadius;
+      const winsRatio = totalMatches === 0 ? 0 : progress.wins / totalMatches;
+      const successColor = winsRatio < 0.45 ? "#d63c2c" : "var(--brand-rank)";
+
+      const donutSvg = document.createElementNS(svgNamespace, "svg");
+      donutSvg.setAttribute("viewBox", `0 0 ${donutSize} ${donutSize}`);
+      donutSvg.setAttribute("class", "progress-donut-ring");
+
+      const donutBg = document.createElementNS(svgNamespace, "circle");
+      donutBg.setAttribute("cx", String(donutSize / 2));
+      donutBg.setAttribute("cy", String(donutSize / 2));
+      donutBg.setAttribute("r", String(donutRadius));
+      donutBg.setAttribute("class", "progress-donut-ring-bg");
+
+      const winsArc = document.createElementNS(svgNamespace, "circle");
+      winsArc.setAttribute("cx", String(donutSize / 2));
+      winsArc.setAttribute("cy", String(donutSize / 2));
+      winsArc.setAttribute("r", String(donutRadius));
+      winsArc.setAttribute("class", "progress-donut-ring-wins");
+      winsArc.style.stroke = successColor;
+      winsArc.setAttribute("stroke-dasharray", `${donutCircumference} ${donutCircumference}`);
+      winsArc.setAttribute("stroke-dashoffset", (donutCircumference * (1 - winsRatio)).toFixed(2));
+      winsArc.setAttribute("transform", `rotate(-90 ${donutSize / 2} ${donutSize / 2})`);
+
+      donutSvg.append(donutBg, winsArc);
+
+      const successPercent = Math.round(winsRatio * 100);
+      const donutSvgWrapper = document.createElement("div");
+      donutSvgWrapper.className = "progress-donut-svg";
+      const successLabel = document.createElement("span");
+      successLabel.className = "progress-donut-success";
+      successLabel.textContent = `${successPercent}%`;
+      successLabel.style.color = successColor;
+      donutSvgWrapper.append(donutSvg, successLabel);
+
+      const createStatRow = (
+        label: string,
+        value: string,
+        indicatorModifier?: string,
+      ): HTMLDivElement => {
+        const row = document.createElement("div");
+        row.className = "progress-donut-stat-row";
+
+        const labelWrapper = document.createElement("div");
+        labelWrapper.className = "progress-donut-stat-row-label";
+
+        const indicator = document.createElement("span");
+        indicator.className = "progress-donut-legend-indicator";
+        if (indicatorModifier) {
+          indicator.classList.add(indicatorModifier);
+        } else {
+          indicator.classList.add("progress-donut-legend-indicator--empty");
+        }
+        labelWrapper.append(indicator);
+
+        const labelNode = document.createElement("span");
+        labelNode.textContent = label;
+        labelWrapper.append(labelNode);
+
+        const valueNode = document.createElement("span");
+        valueNode.className = "progress-donut-stat-row-value";
+        valueNode.textContent = value;
+
+        row.append(labelWrapper, valueNode);
+        return row;
+      };
+
+      const statsColumn = document.createElement("div");
+      statsColumn.className = "progress-donut-stats";
+      statsColumn.append(
+        createStatRow(t("progressMatchesLabel"), String(totalMatches)),
+        createStatRow(
+          t("leaderboardWins"),
+          String(progress.wins),
+          "progress-donut-legend-indicator--wins",
+        ),
+        createStatRow(
+          t("leaderboardLosses"),
+          String(progress.losses),
+          "progress-donut-legend-indicator--losses",
+        ),
+      );
+
+      const donutRow = document.createElement("div");
+      donutRow.className = "progress-donut-row";
+      donutRow.append(donutSvgWrapper, statsColumn);
+
+      donutPanel.append(donutRow);
+      progressLayout.append(chartPanel, donutPanel);
+      progressBody.replaceChildren(progressLayout);
     }
 
     renderSeasonDraftSummary();
@@ -3439,6 +4072,7 @@ const dashboardState: DashboardState = {
       const data = await runAuthedAction("getLeaderboard", {});
       dashboardState.leaderboard = data.leaderboard;
       dashboardState.leaderboardUpdatedAt = data.updatedAt;
+      dashboardState.leaderboardStats = null;
       markLeaderboardDirty();
       return;
     }
@@ -3447,6 +4081,7 @@ const dashboardState: DashboardState = {
       if (!dashboardState.selectedSeasonId) {
       dashboardState.leaderboard = [];
       dashboardState.leaderboardUpdatedAt = "";
+      dashboardState.leaderboardStats = null;
       markLeaderboardDirty();
       return;
       }
@@ -3457,6 +4092,7 @@ const dashboardState: DashboardState = {
       });
       dashboardState.leaderboard = data.leaderboard;
       dashboardState.leaderboardUpdatedAt = data.updatedAt;
+      dashboardState.leaderboardStats = data.stats;
       markLeaderboardDirty();
       return;
     }
@@ -3464,6 +4100,7 @@ const dashboardState: DashboardState = {
     if (!dashboardState.selectedTournamentId) {
       dashboardState.leaderboard = [];
       dashboardState.leaderboardUpdatedAt = "";
+      dashboardState.leaderboardStats = null;
       markLeaderboardDirty();
       return;
     }
@@ -3474,6 +4111,7 @@ const dashboardState: DashboardState = {
     });
     dashboardState.leaderboard = data.leaderboard;
     dashboardState.leaderboardUpdatedAt = data.updatedAt;
+    dashboardState.leaderboardStats = data.stats;
     markLeaderboardDirty();
   };
 
@@ -3621,12 +4259,7 @@ const dashboardState: DashboardState = {
       );
       dashboardState.matchFormMessage = `Match created for ${formatDateTime(data.match.playedAt)}.`;
       dashboardState.pendingCreateRequestId = "";
-      scoreInputs.forEach((game, index) => {
-        if (index > 0) {
-          game.teamA.value = "";
-          game.teamB.value = "";
-        }
-      });
+      resetScoreInputs();
       activeTournamentBracketMatchId = null;
       dashboardState.screen = returnToTournament ? "createTournament" : "dashboard";
       syncAuthState();
@@ -3851,7 +4484,22 @@ const dashboardState: DashboardState = {
   };
 
   const deleteMatch = async (match: MatchRecord): Promise<void> => {
-    const confirmed = window.confirm("Delete this match? Elo scores and streaks will be recalculated.");
+    const confirmed = await promptDeleteWarning({
+      context: "match",
+      detail: () => {
+        const contextLabel = renderMatchContext(
+          match,
+          dashboardState.seasons,
+          dashboardState.tournaments,
+          dashboardState.matchBracketContextByMatchId[match.id] ?? null,
+        );
+        const playedAtLabel = formatDateTime(match.playedAt);
+        const scoreLabel = match.score.length > 0 ? renderMatchScore(match) : "";
+        const detailParts = [scoreLabel, contextLabel, playedAtLabel].filter(Boolean);
+        return detailParts.join(" • ");
+      },
+    });
+
     if (!confirmed) {
       return;
     }
@@ -3880,9 +4528,15 @@ const dashboardState: DashboardState = {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Delete this tournament? All tournament matches will be soft-deleted and Elo scores will be recalculated.",
-    );
+    const confirmed = await promptDeleteWarning({
+      context: "tournament",
+      detail: () => {
+        const dateLabel = tournament.date ? formatDate(tournament.date) : "";
+        const detailParts = [tournament.name, dateLabel].filter(Boolean);
+        return detailParts.join(" • ");
+      },
+    });
+
     if (!confirmed) {
       return;
     }
@@ -3915,10 +4569,23 @@ const dashboardState: DashboardState = {
       return;
     }
 
-    const confirmation = window.prompt(
-      `Delete this season? Type "${season.name}" to confirm. All linked tournaments and matches will be soft-deleted and Elo scores will be recalculated.`,
-    );
-    if (confirmation !== season.name) {
+    const confirmed = await promptDeleteWarning({
+      context: "season",
+      detail: () => {
+        const rangeParts: string[] = [];
+        if (season.startDate) {
+          rangeParts.push(formatDate(season.startDate));
+        }
+        if (season.endDate) {
+          rangeParts.push(formatDate(season.endDate));
+        }
+        const rangeLabel = rangeParts.join(" – ");
+        return rangeLabel ? `${season.name} • ${rangeLabel}` : season.name;
+      },
+      confirmationValue: season.name,
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -3986,10 +4653,7 @@ const dashboardState: DashboardState = {
     formSeasonSelect.value = tournament?.seasonId || "";
     formTournamentSelect.value = tournamentPlannerState.tournamentId || "";
     winnerTeamSelect.value = "A";
-    scoreInputs.forEach((game) => {
-      game.teamA.value = "";
-      game.teamB.value = "";
-    });
+    resetScoreInputs();
     activeTournamentBracketMatchId = match.id;
     dashboardState.screen = "createMatch";
     populateMatchFormOptions();
@@ -4100,6 +4764,7 @@ const dashboardState: DashboardState = {
 
   openCreateMatchButton.addEventListener("click", () => {
     createMenuOpen = false;
+    resetScoreInputs();
     dashboardState.screen = "createMatch";
     syncAuthState();
     syncDashboardState();
@@ -4335,15 +5000,21 @@ const dashboardState: DashboardState = {
     window.clearInterval(sessionTicker);
   });
 
-  leaderboardHeading.append(leaderboardTitle, leaderboardMeta);
+  leaderboardHeading.append(leaderboardTitle);
   segmentToggle.append(globalButton, seasonButton, tournamentButton);
   leaderboardTop.append(leaderboardHeading, segmentToggle);
-  leaderboardPanel.append(leaderboardTop, seasonSelect, tournamentSelect, leaderboardList);
+  leaderboardPanel.append(
+    leaderboardTop,
+    seasonSelect,
+    tournamentSelect,
+    leaderboardList,
+    leaderboardStatsGroup,
+  );
 
   matchesHeading.append(matchesTitle, matchesMeta);
-  matchesTop.append(matchesHeading, matchFilterToggle);
+  matchesTop.append(matchesHeading, matchFiltersRow);
   matchesPanel.append(matchesTop, matchesList, loadMoreButton);
-  progressPanel.append(progressMeta, progressSummary, progressBody);
+  progressPanel.append(progressHeader, progressSummary, progressBody);
 
   composerHeading.append(composerTitle, composerMeta);
   composerTop.append(composerHeading, closeCreateMatchButton);
@@ -4382,24 +5053,33 @@ const dashboardState: DashboardState = {
   );
 
   scoreInputs.forEach((game, index) => {
+    const gameBlock = document.createElement("div");
+    gameBlock.className = "score-game-block";
+
+    const gameLabel = document.createElement("span");
+    gameLabel.className = "score-game-heading";
+    gameLabel.textContent = `Game ${index + 1}`;
+
     const row = document.createElement("div");
     row.className = "score-row";
 
-    const gameLabel = document.createElement("span");
-    gameLabel.className = "score-game-label";
-    gameLabel.textContent = `Game ${index + 1}`;
-
     const separator = document.createElement("span");
     separator.className = "score-separator";
-    separator.textContent = "/";
+    separator.textContent = "-";
 
-    registerTranslation(() => {
-      game.teamA.placeholder = t("teamALabel");
-      game.teamB.placeholder = t("teamBLabel");
-    });
+    const teamACell = document.createElement("div");
+    teamACell.className = "score-input-cell score-input-cell--left";
+    game.teamALabel.className = "score-input-label";
+    teamACell.append(game.teamALabel, game.teamA);
 
-    row.append(gameLabel, game.teamA, separator, game.teamB);
-    scoreGrid.append(row);
+    const teamBCell = document.createElement("div");
+    teamBCell.className = "score-input-cell score-input-cell--right";
+    game.teamBLabel.className = "score-input-label";
+    teamBCell.append(game.teamBLabel, game.teamB);
+
+    row.append(teamACell, separator, teamBCell);
+    gameBlock.append(gameLabel, row);
+    scoreGrid.append(gameBlock);
   });
 
   scoreSection.append(scoreLabel, scoreGrid);
@@ -4429,6 +5109,7 @@ const dashboardState: DashboardState = {
   matchActions.append(submitMatchButton);
 
   const matchActionsWrapper = document.createElement("div");
+  matchActionsWrapper.className = "form-actions-wrapper";
   matchActionsWrapper.append(matchActions, composerStatus);
 
   matchForm.append(matchContextSection, matchRulesSection, matchPlayersSection, matchReviewSection, matchActionsWrapper);
@@ -4453,6 +5134,7 @@ const dashboardState: DashboardState = {
   tournamentActions.className = "form-actions";
   tournamentActions.append(suggestTournamentButton, saveTournamentButton, deleteTournamentButton);
   const tournamentActionsWrapper = document.createElement("div");
+  tournamentActionsWrapper.className = "form-actions-wrapper";
   tournamentActionsWrapper.append(tournamentActions, tournamentStatus);
   const tournamentDetailsSection = createPanelSection(
     "tournamentDetails",
@@ -4510,6 +5192,7 @@ const dashboardState: DashboardState = {
   seasonActions.className = "form-actions";
   seasonActions.append(submitSeasonButton, deleteSeasonButton);
   const seasonActionsWrapper = document.createElement("div");
+  seasonActionsWrapper.className = "form-actions-wrapper";
   seasonActionsWrapper.append(seasonActions, seasonStatus);
 
   const seasonDetailsSection = createPanelSection(
@@ -4551,7 +5234,7 @@ const dashboardState: DashboardState = {
     privacyScreen,
     footer,
   );
-  container.append(card, scoreCardOverlay, loadingOverlay);
+  container.append(card, scoreCardOverlay, deleteWarningOverlay, loadingOverlay);
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());
   populateMatchFormOptions();
