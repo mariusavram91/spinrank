@@ -1,5 +1,5 @@
 import { parseJsonArray, parseJsonObject, randomId } from "../db";
-import type { Env, TournamentBracketRound } from "../types";
+import type { Env, TournamentBracketMatch, TournamentBracketRound } from "../types";
 
 interface BracketRow {
   id: string;
@@ -236,13 +236,13 @@ export async function rebuildTournamentBracket(env: Env, tournamentId: string): 
     return;
   }
 
-  const replayable = rounds.flatMap((round) =>
+  const replayable: TournamentBracketMatch[] = rounds.flatMap((round) =>
     round.matches
       .filter((match) => match.createdMatchId || match.winnerPlayerId)
       .map((match) => ({ ...match })),
   );
 
-  const resetRounds = rounds.map((round, roundIndex) => ({
+  const resetRounds: TournamentBracketRound[] = rounds.map((round, roundIndex) => ({
     title: round.title,
     matches: round.matches.map((match) => ({
       ...match,
@@ -254,7 +254,7 @@ export async function rebuildTournamentBracket(env: Env, tournamentId: string): 
     })),
   }));
 
-  const rebuilt = replayable.reduce((current, match) => {
+  const rebuilt = replayable.reduce<TournamentBracketRound[]>((current, match) => {
     if (!match.winnerPlayerId) {
       return current;
     }

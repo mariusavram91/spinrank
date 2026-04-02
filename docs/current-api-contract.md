@@ -55,6 +55,8 @@ Phase-1 action matrix:
 | `createMatch` | yes | yes | keep |
 | `createSeason` | yes | yes | keep |
 | `createTournament` | yes | yes | keep |
+| `createSegmentShareLink` | yes | no | add |
+| `redeemSegmentShareLink` | yes | no | add |
 | `getSeasons` | yes | yes | keep |
 | `getTournaments` | yes | yes | keep |
 | `getTournamentBracket` | yes | yes | keep |
@@ -73,6 +75,8 @@ Payload summary:
 - `createMatch`: ranked match payload with optional season/tournament/bracket linkage
 - `createSeason`: season metadata, participants, ranking mode, visibility
 - `createTournament`: tournament metadata, participants, bracket rounds
+- `createSegmentShareLink`: `{ segmentType, segmentId }` (returns `shareToken`, `expiresAt`, and the redirect `url` for the frontend)
+- `redeemSegmentShareLink`: `{ shareToken }` (returns `{ segmentType, segmentId, segmentName, joined }`)
 - `getSeasons`: `{}`
 - `getTournaments`: `{ seasonId? }`
 - `getTournamentBracket`: `{ tournamentId }`

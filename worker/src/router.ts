@@ -2,6 +2,7 @@ import { requireSessionUser } from "./auth";
 import { handleBootstrapUser } from "./actions/bootstrapUser";
 import { handleCreateMatch } from "./actions/createMatch";
 import { handleCreateSeason } from "./actions/createSeason";
+import { handleCreateSegmentShareLink } from "./actions/createSegmentShareLink";
 import { handleCreateTournament } from "./actions/createTournament";
 import { handleDeactivateMatch } from "./actions/deactivateMatch";
 import { handleDeactivateSeason } from "./actions/deactivateSeason";
@@ -16,8 +17,30 @@ import { handleGetTournaments } from "./actions/getTournaments";
 import { handleGetUserProgress } from "./actions/getUserProgress";
 import { errorResponse } from "./responses";
 import { ApiRequestSchema } from "./schemas/api";
-import type { ApiAction, ApiRequest, Env } from "./types";
+import type {
+  ApiAction,
+  ApiRequest,
+  BootstrapUserPayload,
+  CreateMatchPayload,
+  CreateSeasonPayload,
+  CreateSegmentShareLinkPayload,
+  CreateTournamentPayload,
+  DeactivateEntityPayload,
+  GetMatchesPayload,
+  GetSegmentLeaderboardPayload,
+  GetTournamentBracketPayload,
+  GetTournamentsPayload,
+  MatchFeedFilter,
+  RedeemSegmentShareLinkPayload,
+  Env,
+} from "./types";
+
+type DashboardPayload = {
+  matchesLimit?: number;
+  matchesFilter?: MatchFeedFilter;
+};
 import { ZodError } from "zod";
+import { handleRedeemSegmentShareLink } from "./actions/redeemSegmentShareLink";
 
 export async function parseApiRequest(request: Request): Promise<ApiRequest<ApiAction>> {
   const raw = await request.text();
@@ -48,43 +71,90 @@ export async function parseApiRequest(request: Request): Promise<ApiRequest<ApiA
 
 export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: Env) {
   if (apiRequest.action === "bootstrapUser") {
-    return handleBootstrapUser(apiRequest, env);
+    return handleBootstrapUser(
+      apiRequest as ApiRequest<"bootstrapUser", BootstrapUserPayload>,
+      env,
+    );
   }
 
   const sessionUser = await requireSessionUser(apiRequest.requestId, apiRequest.sessionToken, env);
-  if ("ok" in sessionUser && sessionUser.ok === false) {
+  if ("ok" in sessionUser) {
     return sessionUser;
   }
 
   switch (apiRequest.action) {
     case "getDashboard":
-      return handleGetDashboard(apiRequest, sessionUser, env);
+      return handleGetDashboard(
+        apiRequest as ApiRequest<"getDashboard", DashboardPayload>,
+        sessionUser,
+        env,
+      );
     case "getLeaderboard":
-      return handleGetLeaderboard(apiRequest, sessionUser, env);
+      return handleGetLeaderboard(apiRequest as ApiRequest<"getLeaderboard">, sessionUser, env);
     case "getMatches":
-      return handleGetMatches(apiRequest, sessionUser, env);
+      return handleGetMatches(apiRequest as ApiRequest<"getMatches", GetMatchesPayload>, sessionUser, env);
     case "getSeasons":
-      return handleGetSeasons(apiRequest, sessionUser, env);
+      return handleGetSeasons(apiRequest as ApiRequest<"getSeasons">, sessionUser, env);
     case "getSegmentLeaderboard":
-      return handleGetSegmentLeaderboard(apiRequest, sessionUser, env);
+      return handleGetSegmentLeaderboard(
+        apiRequest as ApiRequest<"getSegmentLeaderboard", GetSegmentLeaderboardPayload>,
+        sessionUser,
+        env,
+      );
     case "getTournamentBracket":
-      return handleGetTournamentBracket(apiRequest, sessionUser, env);
+      return handleGetTournamentBracket(
+        apiRequest as ApiRequest<"getTournamentBracket", GetTournamentBracketPayload>,
+        sessionUser,
+        env,
+      );
     case "getTournaments":
-      return handleGetTournaments(apiRequest, sessionUser, env);
+      return handleGetTournaments(
+        apiRequest as ApiRequest<"getTournaments", GetTournamentsPayload>,
+        sessionUser,
+        env,
+      );
     case "getUserProgress":
-      return handleGetUserProgress(apiRequest, sessionUser, env);
+      return handleGetUserProgress(apiRequest as ApiRequest<"getUserProgress">, sessionUser, env);
     case "createMatch":
-      return handleCreateMatch(apiRequest, sessionUser, env);
+      return handleCreateMatch(apiRequest as ApiRequest<"createMatch", CreateMatchPayload>, sessionUser, env);
     case "createSeason":
-      return handleCreateSeason(apiRequest, sessionUser, env);
+      return handleCreateSeason(apiRequest as ApiRequest<"createSeason", CreateSeasonPayload>, sessionUser, env);
+    case "createSegmentShareLink":
+      return handleCreateSegmentShareLink(
+        apiRequest as ApiRequest<"createSegmentShareLink", CreateSegmentShareLinkPayload>,
+        sessionUser,
+        env,
+      );
     case "createTournament":
-      return handleCreateTournament(apiRequest, sessionUser, env);
+      return handleCreateTournament(
+        apiRequest as ApiRequest<"createTournament", CreateTournamentPayload>,
+        sessionUser,
+        env,
+      );
+    case "redeemSegmentShareLink":
+      return handleRedeemSegmentShareLink(
+        apiRequest as ApiRequest<"redeemSegmentShareLink", RedeemSegmentShareLinkPayload>,
+        sessionUser,
+        env,
+      );
     case "deactivateMatch":
-      return handleDeactivateMatch(apiRequest, sessionUser, env);
+      return handleDeactivateMatch(
+        apiRequest as ApiRequest<"deactivateMatch", DeactivateEntityPayload>,
+        sessionUser,
+        env,
+      );
     case "deactivateTournament":
-      return handleDeactivateTournament(apiRequest, sessionUser, env);
+      return handleDeactivateTournament(
+        apiRequest as ApiRequest<"deactivateTournament", DeactivateEntityPayload>,
+        sessionUser,
+        env,
+      );
     case "deactivateSeason":
-      return handleDeactivateSeason(apiRequest, sessionUser, env);
+      return handleDeactivateSeason(
+        apiRequest as ApiRequest<"deactivateSeason", DeactivateEntityPayload>,
+        sessionUser,
+        env,
+      );
     default:
       return errorResponse(apiRequest.requestId, "NOT_FOUND", `Unknown action: ${apiRequest.action}`);
   }

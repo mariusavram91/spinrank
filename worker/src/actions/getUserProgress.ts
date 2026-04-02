@@ -1,6 +1,6 @@
 import { parseJsonObject } from "../db";
 import { successResponse } from "../responses";
-import type { ApiRequest, Env, MatchRecord, UserRow } from "../types";
+import type { ApiRequest, Env, MatchRecord, UserProgressPoint, UserRow } from "../types";
 
 export async function handleGetUserProgress(
   request: ApiRequest<"getUserProgress">,
@@ -54,7 +54,7 @@ export async function handleGetUserProgress(
   let bestElo = Number(sessionUser.global_elo);
   let bestStreak = 0;
   let streakRunning = 0;
-  const progressPoints = [];
+  const progressPoints: UserProgressPoint[] = [];
 
   const resolvedRank = currentRank === -1 ? null : currentRank + 1;
 

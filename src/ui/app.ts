@@ -19,6 +19,7 @@ import type {
   TournamentBracketRound,
   TournamentRecord,
   SegmentLeaderboardStats,
+  SegmentType,
 } from "../api/contract";
 import { postAction } from "../api/client";
 import { isProviderConfigured, renderGoogleButton } from "../auth/providers";
@@ -63,6 +64,33 @@ interface DashboardState {
   editingSeasonId: string;
   editingSeasonParticipantIds: string[];
   pendingCreateRequestId: string;
+  shareCache: Record<string, SegmentShareInfo>;
+  shareErrors: Record<string, string>;
+  shareLoadingSegmentKey: string;
+  shareNotice: string;
+  pendingShareToken: string;
+  sharePanelSeasonTargetId: string;
+  sharePanelTournamentTargetId: string;
+  shareAlertMessage: string;
+}
+
+interface SegmentShareInfo {
+  segmentType: SegmentType;
+  segmentId: string;
+  shareToken: string;
+  url: string;
+  expiresAt: string;
+}
+
+interface SharePanelElements {
+  section: HTMLElement;
+  createButton: HTMLButtonElement;
+  copyButton: HTMLButtonElement;
+  status: HTMLParagraphElement;
+  qrCanvas: HTMLCanvasElement;
+  qrWrapper: HTMLElement;
+  copyFeedback: HTMLSpanElement;
+  animationTimer: number | null;
 }
 
 interface FairPlayerProfile {
@@ -101,7 +129,6 @@ interface TournamentPlannerState {
   rounds: TournamentPlannerRound[];
   error: string;
 }
-
 const formatDateTime = (value: string): string =>
   new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
@@ -444,6 +471,33 @@ const translations = {
     teamBPlayer2: "Team B player 2",
     tournamentDetailsSection: "Tournament details",
     tournamentParticipantsSection: "Participants",
+    shareSeasonTitle: "Share this season",
+    shareTournamentTitle: "Share this tournament",
+    shareInviteTitle: "Invite people to the {segment}",
+    shareSegmentTypeSeason: "season",
+    shareSegmentTypeTournament: "tournament",
+    sharePanelDescription: "Generate a link or QR code so others can join this segment automatically.",
+    shareLinkLabel: "Share link",
+    sharePanelLinkPlaceholder: "Share link will appear here",
+    saveButtonLabel: "Save",
+    shareCreateLink: "Create share link",
+    shareCopyLink: "Copy share link",
+    shareQrLabel: "QR code",
+    shareSignInPrompt: "Sign in to accept the invite.",
+    shareAlreadyJoinedSeason: "You are already part of this season.",
+    shareAlreadyJoinedTournament: "You are already part of this tournament.",
+    shareButtonLabel: "Share",
+    shareNoSegment: "Load or save a segment before sharing.",
+    shareCopied: "Link copied",
+    shareCopyFailure: "Unable to copy the link.",
+    shareExpiresInDays: "Expires in {days} days",
+    shareExpiresInHours: "Expires in {hours} hours",
+    shareExpiresInMinutes: "Expires in {minutes} minutes",
+    shareExpired: "Expired",
+    shareCreateFailure: "Could not generate a share link.",
+    shareJoinedSeason: "Joined season",
+    shareJoinedTournament: "Joined tournament",
+    shareJoinFailure: "This share link could not be used.",
     faqTitle: "FAQ & Help",
     faqIntro: "Answers to key questions about rankings, matches, seasons, and tournaments.",
     faqMenuLabel: "FAQ",
@@ -611,6 +665,33 @@ const translations = {
     teamBPlayer2: "Spieler 2 (Team B)",
     tournamentDetailsSection: "Turnierdetails",
     tournamentParticipantsSection: "Teilnehmende",
+    shareSeasonTitle: "Saison teilen",
+    shareTournamentTitle: "Turnier teilen",
+    shareInviteTitle: "Lade Personen zur {segment} ein",
+    shareSegmentTypeSeason: "Saison",
+    shareSegmentTypeTournament: "Turnier",
+    sharePanelDescription: "Erstelle einen Link oder QR-Code, damit Teilnehmende automatisch beitreten.",
+    shareLinkLabel: "Freigabelink",
+    sharePanelLinkPlaceholder: "Freigabelink erscheint hier",
+    saveButtonLabel: "Speichern",
+    shareCreateLink: "Freigabelink erstellen",
+    shareCopyLink: "Freigabelink kopieren",
+    shareQrLabel: "QR-Code",
+    shareSignInPrompt: "Melde dich an, um die Einladung anzunehmen.",
+    shareAlreadyJoinedSeason: "Du bist bereits Teil dieser Saison.",
+    shareAlreadyJoinedTournament: "Du bist bereits Teil dieses Turniers.",
+    shareButtonLabel: "Teilen",
+    shareNoSegment: "Lade oder speichere zuerst ein Segment.",
+    shareCopied: "Link kopiert",
+    shareCopyFailure: "Link konnte nicht kopiert werden.",
+    shareExpiresInDays: "Läuft in {days} Tagen ab",
+    shareExpiresInHours: "Läuft in {hours} Stunden ab",
+    shareExpiresInMinutes: "Läuft in {minutes} Minuten ab",
+    shareExpired: "Abgelaufen",
+    shareCreateFailure: "Freigabelink konnte nicht erstellt werden.",
+    shareJoinedSeason: "Saison beigetreten",
+    shareJoinedTournament: "Turnier beigetreten",
+    shareJoinFailure: "Dieser Freigabelink konnte nicht verwendet werden.",
     faqTitle: "FAQ & Hilfe",
     faqIntro: "Antworten auf zentrale Fragen zu Ranglisten, Matches und Events.",
     faqMenuLabel: "FAQ",
@@ -1844,6 +1925,10 @@ export const buildApp = (): HTMLElement => {
 
   const dashboardStatus = document.createElement("p");
   dashboardStatus.className = "dashboard-status";
+  const shareAlert = document.createElement("div");
+  shareAlert.className = "share-alert";
+  shareAlert.setAttribute("aria-live", "polite");
+  shareAlert.hidden = true;
 
   const viewGrid = document.createElement("div");
   viewGrid.className = "view-grid";
@@ -2267,6 +2352,9 @@ export const buildApp = (): HTMLElement => {
   loadSeasonButton.type = "button";
   loadSeasonButton.className = "secondary-button";
   bindLocalizedText(loadSeasonButton, "loadSeason");
+  const seasonLoadActions = document.createElement("div");
+  seasonLoadActions.className = "share-panel__list-actions";
+  seasonLoadActions.append(loadSeasonButton);
 
   const seasonStartDateInput = document.createElement("input");
   seasonStartDateInput.className = "text-input";
@@ -2331,6 +2419,9 @@ export const buildApp = (): HTMLElement => {
   loadTournamentButton.type = "button";
   loadTournamentButton.className = "secondary-button";
   bindLocalizedText(loadTournamentButton, "loadTournament");
+  const tournamentLoadActions = document.createElement("div");
+  tournamentLoadActions.className = "share-panel__list-actions";
+  tournamentLoadActions.append(loadTournamentButton);
 
   const tournamentStatus = document.createElement("p");
   tournamentStatus.className = "form-status";
@@ -2422,14 +2513,39 @@ const dashboardState: DashboardState = {
     matchFormError: "",
     matchFormMessage: "",
     seasonSubmitting: false,
-    seasonFormError: "",
-    seasonFormMessage: "",
-    tournamentSubmitting: false,
-    tournamentFormMessage: "",
-    editingSeasonId: "",
-    editingSeasonParticipantIds: [],
-    pendingCreateRequestId: "",
+  seasonFormError: "",
+  seasonFormMessage: "",
+  tournamentSubmitting: false,
+  tournamentFormMessage: "",
+  editingSeasonId: "",
+  editingSeasonParticipantIds: [],
+  pendingCreateRequestId: "",
+  shareCache: {},
+  shareErrors: {},
+  shareLoadingSegmentKey: "",
+  shareNotice: "",
+  pendingShareToken: "",
+  sharePanelSeasonTargetId: "",
+  sharePanelTournamentTargetId: "",
+  shareAlertMessage: "",
+};
+
+  const captureShareTokenFromUrl = (): void => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const url = new URL(window.location.href);
+    const shareToken = url.searchParams.get("shareToken");
+    if (!shareToken) {
+      return;
+    }
+    dashboardState.pendingShareToken = shareToken;
+    url.searchParams.delete("shareToken");
+    const newSearch = url.searchParams.toString();
+    const nextUrl = `${url.pathname}${newSearch ? `?${newSearch}` : ""}${url.hash}`;
+    window.history.replaceState(null, "", nextUrl);
   };
+  captureShareTokenFromUrl();
 
   let screenBeforeFaq: DashboardState["screen"] = "dashboard";
   let screenBeforePrivacy: DashboardState["screen"] = "dashboard";
@@ -2447,6 +2563,14 @@ const dashboardState: DashboardState = {
   let authMenuOpen = false;
   let createMenuOpen = false;
   let leaderboardNeedsUpdate = true;
+  let seasonSharePanelElements: SharePanelElements | null = null;
+  let tournamentSharePanelElements: SharePanelElements | null = null;
+  let seasonSharePanelRenderedUrl = "";
+  let tournamentSharePanelRenderedUrl = "";
+  let seasonSharePanelMounted = false;
+  let tournamentSharePanelMounted = false;
+  let seasonCopyFeedbackTimer: number | null = null;
+  let tournamentCopyFeedbackTimer: number | null = null;
 
   const markLeaderboardDirty = (): void => {
     leaderboardNeedsUpdate = true;
@@ -2842,13 +2966,187 @@ const dashboardState: DashboardState = {
     }, 5000);
   };
 
+  let shareNoticeTimer: number | null = null;
+  let shareAlertTimer: number | null = null;
+
+  const buildSegmentShareKey = (segmentType: SegmentType, segmentId: string): string =>
+    `${segmentType}:${segmentId}`;
+
+  const getSeasonShareTargetId = (): string =>
+    dashboardState.sharePanelSeasonTargetId || "";
+
+  const getTournamentShareTargetId = (): string =>
+    dashboardState.sharePanelTournamentTargetId || "";
+
+  const setSeasonSharePanelTargetId = (segmentId: string): void => {
+    dashboardState.sharePanelSeasonTargetId = segmentId;
+    seasonSharePanelRenderedUrl = "";
+    syncDashboardState();
+  };
+
+  const setTournamentSharePanelTargetId = (segmentId: string): void => {
+    dashboardState.sharePanelTournamentTargetId = segmentId;
+    tournamentSharePanelRenderedUrl = "";
+    syncDashboardState();
+  };
+
+  const formatShareExpiration = (expiresAt: string): string => {
+    if (!expiresAt) {
+      return "";
+    }
+    const expires = Date.parse(expiresAt);
+    if (Number.isNaN(expires)) {
+      return "";
+    }
+    const diffMs = expires - Date.now();
+    if (diffMs <= 0) {
+      return t("shareExpired");
+    }
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (days >= 1) {
+      return t("shareExpiresInDays").replace("{days}", String(days));
+    }
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (hours >= 1) {
+      return t("shareExpiresInHours").replace("{hours}", String(hours));
+    }
+    const minutes = Math.ceil(diffMs / (1000 * 60));
+    return t("shareExpiresInMinutes").replace("{minutes}", String(minutes));
+  };
+
+  let shareQrModule:
+    | {
+      toCanvas: (
+        canvas: HTMLCanvasElement,
+        value: string,
+        options: { width: number; margin: number },
+      ) => Promise<void>;
+    }
+    | null = null;
+
+  const renderShareQr = async (canvas: HTMLCanvasElement, value: string): Promise<void> => {
+    const size = 96;
+    canvas.width = size;
+    canvas.height = size;
+    if (!value) {
+      canvas.hidden = true;
+      return;
+    }
+    canvas.hidden = false;
+    try {
+      if (!shareQrModule) {
+        shareQrModule = (await import(
+          /* @vite-ignore */ "https://esm.sh/qrcode@1.5.3",
+        )) as {
+          toCanvas: (
+            canvas: HTMLCanvasElement,
+            value: string,
+            options: { width: number; margin: number },
+          ) => Promise<void>;
+        };
+      }
+      await shareQrModule.toCanvas(canvas, value, { width: size, margin: 0 });
+    } catch {
+      canvas.hidden = true;
+    }
+  };
+
+  const animateSharePanel = (panel: SharePanelElements): void => {
+    panel.section.classList.add("share-panel--pulse");
+    if (panel.animationTimer) {
+      window.clearTimeout(panel.animationTimer);
+    }
+    panel.animationTimer = window.setTimeout(() => {
+      panel.section.classList.remove("share-panel--pulse");
+      panel.animationTimer = null;
+    }, 700);
+  };
+
+  const updateSharePanelElements = (
+    elements: SharePanelElements,
+    segmentType: SegmentType,
+    targetId: string,
+    renderedUrl: string,
+    setRenderedUrl: (value: string) => void,
+  ): void => {
+    const key = buildSegmentShareKey(segmentType, targetId);
+    const shareInfo = targetId ? dashboardState.shareCache[key] : null;
+    const error = dashboardState.shareErrors[key];
+    const isLoading = dashboardState.shareLoadingSegmentKey === key;
+    elements.createButton.disabled = !targetId || isLoading;
+    elements.copyButton.disabled = !Boolean(shareInfo?.url);
+    const statusMessage = error || (targetId ? "" : t("shareNoSegment"));
+    elements.status.textContent = statusMessage;
+    elements.status.dataset.status = error ? "error" : "ready";
+    if (shareInfo && shareInfo.url && shareInfo.url !== renderedUrl) {
+      setRenderedUrl(shareInfo.url);
+      void renderShareQr(elements.qrCanvas, shareInfo.url);
+    } else if (!shareInfo) {
+      elements.qrCanvas.hidden = true;
+    }
+    elements.qrWrapper.hidden = !shareInfo;
+  };
+
+  const copyTextToClipboard = async (text: string): Promise<void> => {
+    if (!text) {
+      throw new Error("Nothing to copy.");
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  };
+
+  const showCopyFeedback = (
+    panel: "season" | "tournament",
+    element: HTMLSpanElement,
+    message: string,
+  ): void => {
+    if (panel === "season") {
+      if (seasonCopyFeedbackTimer) {
+        window.clearTimeout(seasonCopyFeedbackTimer);
+      }
+    } else if (panel === "tournament") {
+      if (tournamentCopyFeedbackTimer) {
+        window.clearTimeout(tournamentCopyFeedbackTimer);
+      }
+    }
+    element.textContent = message;
+    const timer = window.setTimeout(() => {
+      element.textContent = "";
+      if (panel === "season") {
+        seasonCopyFeedbackTimer = null;
+      } else {
+        tournamentCopyFeedbackTimer = null;
+      }
+    }, 2000);
+    if (panel === "season") {
+      seasonCopyFeedbackTimer = timer;
+    } else {
+      tournamentCopyFeedbackTimer = timer;
+    }
+  };
+
+
   const syncDashboardState = (): void => {
-    dashboardStatus.textContent = dashboardState.error
+    const statusMessage = dashboardState.error
       ? dashboardState.error
       : dashboardState.loading
         ? "Refreshing..."
-        : "";
+        : dashboardState.shareNotice || "";
+    dashboardStatus.textContent = statusMessage;
     dashboardStatus.dataset.status = dashboardState.error ? "error" : "ready";
+    shareAlert.textContent = dashboardState.shareAlertMessage;
+    shareAlert.hidden = !Boolean(dashboardState.shareAlertMessage);
 
     globalButton.setAttribute("aria-pressed", String(dashboardState.segmentMode === "global"));
     seasonButton.setAttribute("aria-pressed", String(dashboardState.segmentMode === "season"));
@@ -2890,10 +3188,14 @@ const dashboardState: DashboardState = {
     submitSeasonButton.textContent = dashboardState.seasonSubmitting
       ? "Saving season..."
       : dashboardState.editingSeasonId
-        ? "Save season"
-        : "Create season";
+        ? t("saveButtonLabel")
+        : t("createSeason");
     submitMatchButton.textContent = dashboardState.matchSubmitting ? "Saving match..." : "Create match";
-    saveTournamentButton.textContent = dashboardState.tournamentSubmitting ? "Saving tournament..." : "Save tournament";
+    saveTournamentButton.textContent = dashboardState.tournamentSubmitting
+      ? "Saving tournament..."
+      : tournamentPlannerState.tournamentId
+        ? t("saveButtonLabel")
+        : t("saveTournament");
     tournamentStatus.textContent = tournamentPlannerState.error || dashboardState.tournamentFormMessage;
     tournamentStatus.dataset.status = tournamentPlannerState.error ? "error" : "ready";
     deleteSeasonButton.hidden = !canSoftDelete(getEditingSeason() ?? {}, getCurrentUserId(state.current));
@@ -3318,10 +3620,134 @@ const dashboardState: DashboardState = {
       progressBody.replaceChildren(progressLayout);
     }
 
+    updateSeasonSharePanelVisibility();
+    if (seasonSharePanelElements) {
+      updateSharePanelElements(
+        seasonSharePanelElements,
+        "season",
+        getSeasonShareTargetId(),
+        seasonSharePanelRenderedUrl,
+        (value) => {
+          seasonSharePanelRenderedUrl = value;
+        },
+      );
+    }
+    updateTournamentSharePanelVisibility();
+    if (tournamentSharePanelElements) {
+      updateSharePanelElements(
+        tournamentSharePanelElements,
+        "tournament",
+        getTournamentShareTargetId(),
+        tournamentSharePanelRenderedUrl,
+        (value) => {
+          tournamentSharePanelRenderedUrl = value;
+        },
+      );
+    }
     renderSeasonDraftSummary();
     renderTournamentDraftSummary();
     renderMatchDraftSummary();
     syncMatchFormLockState();
+  };
+
+  const showShareNotice = (message: string): void => {
+    dashboardState.shareNotice = message;
+    if (shareNoticeTimer) {
+      window.clearTimeout(shareNoticeTimer);
+      shareNoticeTimer = null;
+    }
+    if (message) {
+      shareNoticeTimer = window.setTimeout(() => {
+        dashboardState.shareNotice = "";
+        shareNoticeTimer = null;
+        syncDashboardState();
+      }, 5000);
+    }
+    syncDashboardState();
+  };
+
+  const setShareAlertVisible = (visible: boolean): void => {
+    if (!shareAlert) {
+      return;
+    }
+    shareAlert.classList.toggle("share-alert--visible", visible);
+  };
+
+  const showShareAlert = (message: string): void => {
+    dashboardState.shareAlertMessage = message;
+    setShareAlertVisible(Boolean(message));
+    if (shareAlertTimer) {
+      window.clearTimeout(shareAlertTimer);
+      shareAlertTimer = null;
+    }
+    if (message) {
+      shareAlertTimer = window.setTimeout(() => {
+        dashboardState.shareAlertMessage = "";
+        shareAlertTimer = null;
+        setShareAlertVisible(false);
+        syncDashboardState();
+      }, 6000);
+    }
+    showShareNotice(message);
+    syncDashboardState();
+  };
+
+  if (dashboardState.pendingShareToken && !isAuthedState(state.current)) {
+    showShareAlert(t("shareSignInPrompt"));
+  }
+
+  const refreshSegmentShareLink = async (
+    segmentType: SegmentType,
+    segmentId: string,
+    panel: SharePanelElements | null = null,
+  ): Promise<void> => {
+    if (!segmentId || dashboardState.shareLoadingSegmentKey === buildSegmentShareKey(segmentType, segmentId)) {
+      return;
+    }
+    const key = buildSegmentShareKey(segmentType, segmentId);
+    dashboardState.shareLoadingSegmentKey = key;
+    delete dashboardState.shareErrors[key];
+    syncDashboardState();
+
+    try {
+      const data = await runAuthedAction("createSegmentShareLink", { segmentType, segmentId });
+      dashboardState.shareCache[key] = {
+        segmentType,
+        segmentId,
+        shareToken: data.shareToken,
+        url: data.url,
+        expiresAt: data.expiresAt,
+      };
+      delete dashboardState.shareErrors[key];
+      if (panel) {
+        animateSharePanel(panel);
+      }
+    } catch (error) {
+      dashboardState.shareErrors[key] =
+        error instanceof Error ? error.message : t("shareCreateFailure");
+    } finally {
+      dashboardState.shareLoadingSegmentKey = "";
+      syncDashboardState();
+    }
+  };
+
+  const tryRedeemPendingShareToken = async (): Promise<void> => {
+    if (!dashboardState.pendingShareToken || !isAuthedState(state.current)) {
+      return;
+    }
+    const token = dashboardState.pendingShareToken;
+    dashboardState.pendingShareToken = "";
+    try {
+      const data = await runAuthedAction("redeemSegmentShareLink", { shareToken: token });
+      const noticeKey = data.segmentType === "season"
+        ? data.joined ? "shareJoinedSeason" : "shareAlreadyJoinedSeason"
+        : data.joined ? "shareJoinedTournament" : "shareAlreadyJoinedTournament";
+      showShareAlert(t(noticeKey));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : t("shareJoinFailure");
+      showShareAlert(message);
+    }
   };
 
   onLanguageChange(() => {
@@ -3609,15 +4035,16 @@ const dashboardState: DashboardState = {
         if (input.checked) {
           tournamentPlannerState.participantIds = [...tournamentPlannerState.participantIds, player.userId];
         } else {
-          tournamentPlannerState.participantIds = tournamentPlannerState.participantIds.filter(
-            (participantId) => participantId !== player.userId,
-          );
-        }
-        tournamentPlannerState.tournamentId = "";
-        tournamentPlannerState.error = "";
-        tournamentPlannerState.rounds = [];
-        tournamentPlannerState.firstRoundMatches = [];
-        loadTournamentSelect.value = "";
+        tournamentPlannerState.participantIds = tournamentPlannerState.participantIds.filter(
+          (participantId) => participantId !== player.userId,
+        );
+      }
+      tournamentPlannerState.tournamentId = "";
+      setTournamentSharePanelTargetId("");
+      tournamentPlannerState.error = "";
+      tournamentPlannerState.rounds = [];
+      tournamentPlannerState.firstRoundMatches = [];
+      loadTournamentSelect.value = "";
         renderTournamentPlanner();
         syncDashboardState();
       });
@@ -3838,6 +4265,7 @@ const dashboardState: DashboardState = {
       );
     }
     tournamentPlannerState.tournamentId = "";
+    setTournamentSharePanelTargetId("");
     tournamentPlannerState.error = "";
     tournamentPlannerState.rounds = [];
     tournamentPlannerState.firstRoundMatches = [];
@@ -4162,6 +4590,11 @@ const dashboardState: DashboardState = {
     }
   };
 
+  const initAuthenticatedDashboard = async (): Promise<void> => {
+    await tryRedeemPendingShareToken();
+    await loadDashboard();
+  };
+
   async function loadMatches(options: { reset?: boolean; filter?: MatchFeedFilter } = {}): Promise<void> {
     const filter = options.filter ?? dashboardState.matchesFilter;
     const limit = getMatchLimitForFilter(filter);
@@ -4294,6 +4727,7 @@ const dashboardState: DashboardState = {
     seasonIsPublicInput.checked = false;
     loadSeasonSelect.value = "";
     syncLoadControlsVisibility();
+    setSeasonSharePanelTargetId("");
   };
 
   const submitSeason = async (): Promise<void> => {
@@ -4317,10 +4751,13 @@ const dashboardState: DashboardState = {
       const data = await runAuthedAction("createSeason", payload);
       dashboardState.seasonFormMessage = `${dashboardState.editingSeasonId ? "Season updated" : "Season created"} and added to the dashboard.`;
       dashboardState.selectedSeasonId = data.season.id;
-      dashboardState.screen = "dashboard";
-      resetSeasonForm();
+      dashboardState.editingSeasonId = data.season.id;
+      dashboardState.editingSeasonParticipantIds = [...payload.participantIds];
+      dashboardState.screen = "createSeason";
       syncAuthState();
+      setSeasonSharePanelTargetId(data.season.id);
       await loadDashboard();
+      await refreshSegmentShareLink("season", data.season.id, seasonSharePanelElements);
     } catch (error) {
       dashboardState.seasonFormError =
         error instanceof Error ? error.message : "Failed to create season.";
@@ -4426,6 +4863,8 @@ const dashboardState: DashboardState = {
       tournamentPlannerState.error = "";
       renderTournamentPlanner();
       syncDashboardState();
+      setTournamentSharePanelTargetId(data.tournament.id);
+      void refreshSegmentShareLink("tournament", data.tournament.id, tournamentSharePanelElements);
     } catch (error) {
       tournamentPlannerState.error =
         error instanceof Error ? error.message : "Failed to load tournament.";
@@ -4467,7 +4906,9 @@ const dashboardState: DashboardState = {
       tournamentPlannerState.name = data.tournament.name;
       dashboardState.tournamentFormMessage = "Tournament created";
       tournamentPlannerState.error = "";
+      setTournamentSharePanelTargetId(data.tournament.id);
       await loadDashboard();
+      await refreshSegmentShareLink("tournament", data.tournament.id, tournamentSharePanelElements);
       populateTournamentPlannerLoadOptions();
       loadTournamentSelect.value = data.tournament.id;
       renderTournamentPlanner();
@@ -4552,6 +4993,7 @@ const dashboardState: DashboardState = {
         : "";
       dashboardState.screen = "dashboard";
       tournamentPlannerState.tournamentId = "";
+      setTournamentSharePanelTargetId("");
       tournamentPlannerState.rounds = [];
       tournamentPlannerState.firstRoundMatches = [];
       await loadDashboard();
@@ -4694,7 +5136,7 @@ const dashboardState: DashboardState = {
         session,
       };
       syncAuthState();
-      await loadDashboard();
+      await initAuthenticatedDashboard();
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Authentication failed.";
@@ -4855,11 +5297,13 @@ const dashboardState: DashboardState = {
     tournamentPlannerState.tournamentId = loadTournamentSelect.value;
     renderTournamentDraftSummary();
     syncLoadControlsVisibility();
+    syncDashboardState();
   });
 
   loadSeasonSelect.addEventListener("change", () => {
     dashboardState.editingSeasonId = loadSeasonSelect.value;
     syncLoadControlsVisibility();
+    syncDashboardState();
   });
 
   loadSeasonButton.addEventListener("click", () => {
@@ -4883,6 +5327,8 @@ const dashboardState: DashboardState = {
     dashboardState.seasonFormMessage = "";
     renderSeasonEditor();
     syncDashboardState();
+    setSeasonSharePanelTargetId(season.id);
+    void refreshSegmentShareLink("season", season.id, seasonSharePanelElements);
   });
 
   tournamentNameInput.addEventListener("input", () => {
@@ -5039,6 +5485,94 @@ const dashboardState: DashboardState = {
     return section;
   };
 
+  const buildSharePanel = (
+    segmentType: SegmentType,
+    targetGetter: () => string,
+  ): SharePanelElements => {
+    const section = document.createElement("section");
+    section.className = "panel-section share-panel";
+
+    const heading = document.createElement("h4");
+    heading.className = "card-title";
+    const titleSegmentKey =
+      segmentType === "season" ? "shareSegmentTypeSeason" : "shareSegmentTypeTournament";
+    heading.textContent = t("shareInviteTitle").replace("{segment}", t(titleSegmentKey));
+
+    const controls = document.createElement("div");
+    controls.className = "share-panel__controls";
+
+    const buttonRow = document.createElement("div");
+    buttonRow.className = "share-panel__button-row";
+    const createButton = document.createElement("button");
+    createButton.type = "button";
+    createButton.className = "primary-button share-panel__create-button";
+    bindLocalizedText(createButton, "shareCreateLink");
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "secondary-button share-panel__copy-button";
+    bindLocalizedText(copyButton, "shareCopyLink");
+    buttonRow.append(createButton, copyButton);
+
+    const buttonStack = document.createElement("div");
+    buttonStack.className = "share-panel__button-stack";
+    const copyFeedback = document.createElement("span");
+    copyFeedback.className = "share-panel__copy-feedback";
+    buttonStack.append(buttonRow, copyFeedback);
+
+    const qrWrapper = document.createElement("div");
+    qrWrapper.className = "share-panel__qr";
+    const qrCanvas = document.createElement("canvas");
+    qrCanvas.className = "share-panel__qr-canvas";
+    qrWrapper.append(qrCanvas);
+    qrWrapper.hidden = true;
+
+    controls.append(buttonStack, qrWrapper);
+
+    const status = document.createElement("p");
+    status.className = "form-status share-panel__status";
+    status.dataset.status = "ready";
+
+    section.append(heading, controls, status);
+
+    const elements: SharePanelElements = {
+      section,
+      createButton,
+      copyButton,
+      status,
+      qrCanvas,
+      qrWrapper,
+      copyFeedback,
+      animationTimer: null,
+    };
+
+    copyButton.addEventListener("click", async () => {
+      const targetId = targetGetter();
+      const key = buildSegmentShareKey(segmentType, targetId);
+      const shareInfo = targetId ? dashboardState.shareCache[key] : null;
+      if (!shareInfo?.url) {
+        showShareNotice(t("shareNoSegment"));
+        return;
+      }
+      try {
+        await copyTextToClipboard(shareInfo.url);
+        showCopyFeedback(segmentType === "season" ? "season" : "tournament", copyFeedback, t("shareCopied"));
+      } catch {
+        showShareNotice(t("shareCopyFailure"));
+      }
+    });
+
+    createButton.addEventListener("click", () => {
+      const targetId = targetGetter();
+      if (!targetId) {
+        showShareNotice(t("shareNoSegment"));
+        return;
+      }
+      void refreshSegmentShareLink(segmentType, targetId, elements);
+    });
+
+    return elements;
+  };
+
   const teamGrid = document.createElement("div");
   teamGrid.className = "team-grid";
   const teamA1Field = buildField("teamAPlayer1", teamA1Select);
@@ -5139,13 +5673,19 @@ const dashboardState: DashboardState = {
   const tournamentDetailsSection = createPanelSection(
     "tournamentDetails",
     buildField("loadSavedTournament", loadTournamentSelect),
-    loadTournamentButton,
+    tournamentLoadActions,
     buildField("tournamentSeasonLabel", tournamentSeasonSelect),
     buildField("tournamentName", tournamentNameInput),
     buildField("tournamentDate", tournamentDateInput),
   );
   const tournamentParticipantsSection = createPanelSection("participants", participantSection);
   const tournamentBracketSection = createPanelSection("bracketPreviewSection", bracketBoard);
+
+  const seasonSharePanelInstance = buildSharePanel("season", getSeasonShareTargetId);
+  seasonSharePanelElements = seasonSharePanelInstance;
+
+  const tournamentSharePanelInstance = buildSharePanel("tournament", getTournamentShareTargetId);
+  tournamentSharePanelElements = tournamentSharePanelInstance;
 
   tournamentPanel.append(
     tournamentTop,
@@ -5198,7 +5738,7 @@ const dashboardState: DashboardState = {
   const seasonDetailsSection = createPanelSection(
     "seasonDetails",
     buildField("loadSavedSeason", loadSeasonSelect),
-    loadSeasonButton,
+    seasonLoadActions,
     buildField("seasonName", seasonNameInput),
     buildField("seasonStartDate", seasonStartDateInput),
     buildField("seasonEndDate", seasonEndDateInput),
@@ -5222,9 +5762,38 @@ const dashboardState: DashboardState = {
   seasonPanel.append(seasonTop, seasonQuickBar, seasonForm);
   createSeasonScreen.append(seasonPanel);
 
+  function updateSeasonSharePanelVisibility(): void {
+    if (!seasonSharePanelElements) {
+      return;
+    }
+    const hasSegment = Boolean(dashboardState.sharePanelSeasonTargetId);
+    if (hasSegment && !seasonSharePanelMounted) {
+      seasonForm.insertBefore(seasonSharePanelElements.section, seasonActionsWrapper);
+      seasonSharePanelMounted = true;
+    } else if (!hasSegment && seasonSharePanelMounted) {
+      seasonForm.removeChild(seasonSharePanelElements.section);
+      seasonSharePanelMounted = false;
+    }
+  }
+
+  function updateTournamentSharePanelVisibility(): void {
+    if (!tournamentSharePanelElements) {
+      return;
+    }
+    const hasSegment = Boolean(dashboardState.sharePanelTournamentTargetId);
+    if (hasSegment && !tournamentSharePanelMounted) {
+      tournamentPanel.insertBefore(tournamentSharePanelElements.section, tournamentActionsWrapper);
+      tournamentSharePanelMounted = true;
+    } else if (!hasSegment && tournamentSharePanelMounted) {
+      tournamentPanel.removeChild(tournamentSharePanelElements.section);
+      tournamentSharePanelMounted = false;
+    }
+  }
+
   header.append(brandMark, providerStack);
   card.append(
     header,
+    shareAlert,
     loginView,
     dashboard,
     createMatchScreen,
@@ -5256,7 +5825,7 @@ const dashboardState: DashboardState = {
   syncDashboardState();
 
   if (isAuthedState(state.current)) {
-    void loadDashboard();
+    void initAuthenticatedDashboard();
   }
 
   return container;

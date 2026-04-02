@@ -12,6 +12,8 @@ export const apiActionNames = [
   "createMatch",
   "createSeason",
   "createTournament",
+  "createSegmentShareLink",
+  "redeemSegmentShareLink",
   "deactivateMatch",
   "deactivateTournament",
   "deactivateSeason",
@@ -277,6 +279,29 @@ export interface CreateTournamentData {
   rounds: TournamentBracketRound[];
 }
 
+export interface CreateSegmentShareLinkPayload {
+  segmentType: SegmentType;
+  segmentId: string;
+  requestId?: string;
+}
+
+export interface SegmentShareLinkData {
+  shareToken: string;
+  expiresAt: string;
+  url: string;
+}
+
+export interface RedeemSegmentShareLinkPayload {
+  shareToken: string;
+}
+
+export interface RedeemSegmentShareLinkData {
+  segmentType: SegmentType;
+  segmentId: string;
+  segmentName: string;
+  joined: boolean;
+}
+
 export interface GetSegmentLeaderboardPayload {
   segmentType: SegmentType;
   segmentId: string;
@@ -373,4 +398,16 @@ export interface TournamentRow {
   created_by_user_id: string | null;
   created_at: string;
   completed_at: string | null;
+}
+
+export interface SegmentShareLinkRow {
+  id: string;
+  segment_type: SegmentType;
+  segment_id: string;
+  created_by_user_id: string;
+  share_token: string;
+  expires_at: string;
+  consumed_at: string | null;
+  consumed_by_user_id: string | null;
+  created_at: string;
 }

@@ -15,6 +15,8 @@ export const apiActions = [
   "getSeasons",
   "getTournaments",
   "getTournamentBracket",
+  "createSegmentShareLink",
+  "redeemSegmentShareLink",
 ] as const;
 
 export type ApiAction = (typeof apiActions)[number];
@@ -346,6 +348,29 @@ export interface GetDashboardData {
   matchBracketContextByMatchId: Record<string, MatchBracketContext>;
 }
 
+export interface CreateSegmentShareLinkPayload {
+  segmentType: SegmentType;
+  segmentId: string;
+  requestId?: string;
+}
+
+export interface SegmentShareLinkData {
+  shareToken: string;
+  expiresAt: string;
+  url: string;
+}
+
+export interface RedeemSegmentShareLinkPayload {
+  shareToken: string;
+}
+
+export interface RedeemSegmentShareLinkData {
+  segmentType: SegmentType;
+  segmentId: string;
+  segmentName: string;
+  joined: boolean;
+}
+
 export interface ApiActionMap {
   health: {
     payload: HealthPayload;
@@ -410,5 +435,13 @@ export interface ApiActionMap {
   getTournamentBracket: {
     payload: GetTournamentBracketPayload;
     data: GetTournamentBracketData;
+  };
+  createSegmentShareLink: {
+    payload: CreateSegmentShareLinkPayload;
+    data: SegmentShareLinkData;
+  };
+  redeemSegmentShareLink: {
+    payload: RedeemSegmentShareLinkPayload;
+    data: RedeemSegmentShareLinkData;
   };
 }
