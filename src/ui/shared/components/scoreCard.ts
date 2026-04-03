@@ -1,7 +1,7 @@
 import type { CreateMatchPayload, LeaderboardEntry, SeasonRecord } from "../../../api/contract";
 import { bindLocalizedText, registerTranslation, t } from "../i18n/runtime";
 import type { TextKey } from "../i18n/translations";
-import { isPastDateValue } from "../utils/format";
+import { isCompletedSeason, shouldShowSeasonInDropdown } from "../../features/app/helpers";
 
 type ScoreKey = "teamA" | "teamB";
 type TeamKey = "A" | "B";
@@ -511,13 +511,14 @@ export const buildScoreCard = (args: {
 
   const syncContextControls = (): void => {
     const seasons = args.getSeasons();
+    const currentUserId = args.getCurrentUserId();
     replaceOptions(
       seasonSelect,
       [
         { value: "", label: t("noSeason") },
-        ...seasons.map((season) => ({
+        ...seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => ({
           value: season.id,
-          label: season.status === "completed" || isPastDateValue(season.endDate)
+          label: isCompletedSeason(season)
             ? `${season.name} • Completed`
             : season.name,
         })),

@@ -8,7 +8,7 @@ import type {
 } from "../../../api/contract";
 import type { TextKey } from "../../shared/i18n/translations";
 import type { ViewState } from "../../shared/types/app";
-import { getTodayDateValue, isPastDateValue } from "../../shared/utils/format";
+import { getDateValueMonthsAgo, getTodayDateValue, isPastDateValue } from "../../shared/utils/format";
 
 export const buildSessionFromBootstrap = (data: BootstrapUserData): AppSession => ({
   sessionToken: data.sessionToken,
@@ -58,6 +58,53 @@ export const isLockedTournament = (tournament: TournamentRecord | undefined): bo
     tournament &&
       (tournament.status === "deleted" || tournament.status === "completed" || isCompletedTournament(tournament)),
   );
+
+const getRecentCompletionCutoff = (): string => getDateValueMonthsAgo(2);
+
+const isWithinRecentCompletionWindow = (dateValue: string | null | undefined): boolean =>
+  Boolean(dateValue && dateValue >= getRecentCompletionCutoff());
+
+export const shouldShowSeasonInDropdown = (
+  season: SeasonRecord | undefined,
+  currentUserId: string,
+): boolean => {
+  if (!season || season.status === "deleted") {
+    return false;
+  }
+
+  const isAssociated =
+    season.createdByUserId === currentUserId || season.participantIds.includes(currentUserId);
+  if (!isAssociated) {
+    return false;
+  }
+
+  if (isCompletedSeason(season)) {
+    return isWithinRecentCompletionWindow(season.endDate);
+  }
+
+  return season.isActive;
+};
+
+export const shouldShowTournamentInDropdown = (
+  tournament: TournamentRecord | undefined,
+  currentUserId: string,
+): boolean => {
+  if (!tournament || tournament.status === "deleted") {
+    return false;
+  }
+
+  const isAssociated =
+    tournament.createdByUserId === currentUserId || tournament.participantIds.includes(currentUserId);
+  if (!isAssociated) {
+    return false;
+  }
+
+  if (tournament.status === "completed") {
+    return isWithinRecentCompletionWindow(tournament.completedAt || tournament.date);
+  }
+
+  return true;
+};
 
 export const getWinnerLabel = (winnerTeam: "A" | "B", teamA: string, teamB: string): string =>
   winnerTeam === "A" ? teamA : teamB;

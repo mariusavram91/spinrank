@@ -17,6 +17,12 @@ export async function handleGetTournaments(
         v.*,
         s.name AS season_name,
         (
+          SELECT json_group_array(tp.user_id)
+          FROM tournament_participants tp
+          WHERE tp.tournament_id = v.id
+          ORDER BY tp.user_id ASC
+        ) AS participant_ids_json,
+        (
           SELECT COUNT(*)
           FROM tournament_participants tp
           WHERE tp.tournament_id = v.id
@@ -54,6 +60,7 @@ export async function handleGetTournaments(
       created_by_user_id: string | null;
       created_at: string;
       completed_at: string | null;
+      participant_ids_json: string | null;
       participant_count: number;
       bracket_status: TournamentRecord["bracketStatus"];
     }>();
@@ -69,6 +76,7 @@ export async function handleGetTournaments(
     createdAt: row.created_at,
     completedAt: row.completed_at || null,
     participantCount: Number(row.participant_count || 0),
+    participantIds: row.participant_ids_json ? JSON.parse(row.participant_ids_json) : [],
     bracketStatus: row.bracket_status,
   }));
 

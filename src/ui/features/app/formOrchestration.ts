@@ -1,7 +1,12 @@
 import type { CreateMatchPayload, CreateSeasonPayload } from "../../../api/contract";
 import type { TextKey } from "../../shared/i18n/translations";
 import type { DashboardState, TournamentPlannerState, ViewState } from "../../shared/types/app";
-import { isCompletedSeason, isCompletedTournament } from "./helpers";
+import {
+  shouldShowSeasonInDropdown,
+  shouldShowTournamentInDropdown,
+  isCompletedSeason,
+  isCompletedTournament,
+} from "./helpers";
 import { getTodayDateValue } from "../../shared/utils/format";
 
 type SelectOption = { value: string; label: string };
@@ -22,6 +27,7 @@ export const createFormOrchestration = (args: {
   dashboardState: DashboardState;
   tournamentPlannerState: TournamentPlannerState;
   getViewState: () => ViewState;
+  getCurrentUserId: () => string;
   isAuthedState: (state: ViewState) => state is Extract<ViewState, { status: "authenticated" }>;
   getActiveTournamentBracketMatchId: () => string | null;
   loadSeasonSelect: HTMLSelectElement;
@@ -133,7 +139,8 @@ export const createFormOrchestration = (args: {
   };
 
   const populateSeasonOptions = (): void => {
-    const options = args.dashboardState.seasons.map((season) => {
+    const currentUserId = args.getCurrentUserId();
+    const options = args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => {
       const option = document.createElement("option");
       option.value = season.id;
       option.textContent = `${season.name} (${args.formatDate(season.startDate)})${isCompletedSeason(season) ? " • Completed" : ""}`;
@@ -152,7 +159,10 @@ export const createFormOrchestration = (args: {
   };
 
   const populateTournamentOptions = (): void => {
-    const options = args.dashboardState.tournaments.map((tournament) => {
+    const currentUserId = args.getCurrentUserId();
+    const options = args.dashboardState.tournaments
+      .filter((tournament) => shouldShowTournamentInDropdown(tournament, currentUserId))
+      .map((tournament) => {
       const option = document.createElement("option");
       option.value = tournament.id;
       option.textContent = `${tournament.name} • ${tournament.seasonName || "Open"} • ${args.formatDate(tournament.date)}`;
@@ -171,14 +181,17 @@ export const createFormOrchestration = (args: {
   };
 
   const populateTournamentPlannerLoadOptions = (): void => {
+    const currentUserId = args.getCurrentUserId();
     replaceOptions(
       args.loadTournamentSelect,
       [
         { value: "", label: args.t("savedTournaments") },
-        ...args.dashboardState.tournaments.map((tournament) => ({
-          value: tournament.id,
-          label: `${tournament.name} • ${tournament.participantCount} players`,
-        })),
+        ...args.dashboardState.tournaments
+          .filter((tournament) => shouldShowTournamentInDropdown(tournament, currentUserId))
+          .map((tournament) => ({
+            value: tournament.id,
+            label: `${tournament.name} • ${tournament.participantCount} players`,
+          })),
       ],
       args.tournamentPlannerState.tournamentId,
       args.t("savedTournaments"),
@@ -187,11 +200,12 @@ export const createFormOrchestration = (args: {
   };
 
   const populateSeasonManagerLoadOptions = (): void => {
+    const currentUserId = args.getCurrentUserId();
     replaceOptions(
       args.loadSeasonSelect,
       [
         { value: "", label: args.t("savedSeasons") },
-        ...args.dashboardState.seasons.map((season) => ({
+        ...args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => ({
           value: season.id,
           label: `${season.name}${isCompletedSeason(season) ? " • Completed" : ""}`,
         })),
@@ -308,7 +322,7 @@ export const createFormOrchestration = (args: {
       args.formSeasonSelect,
       [
         { value: "", label: "No season" },
-        ...args.dashboardState.seasons.map((season) => ({
+        ...args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, sessionUserId)).map((season) => ({
           value: season.id,
           label: `${season.name}${isCompletedSeason(season) ? " • Completed" : ""}`,
         })),
@@ -320,9 +334,12 @@ export const createFormOrchestration = (args: {
     const filteredTournaments =
       contextMode === "season"
         ? args.dashboardState.tournaments.filter((tournament) => {
+            if (!shouldShowTournamentInDropdown(tournament, sessionUserId)) {
+              return false;
+            }
             return !args.formSeasonSelect.value || tournament.seasonId === args.formSeasonSelect.value;
           })
-        : args.dashboardState.tournaments;
+        : args.dashboardState.tournaments.filter((tournament) => shouldShowTournamentInDropdown(tournament, sessionUserId));
 
     replaceOptions(
       args.formTournamentSelect,
@@ -348,7 +365,7 @@ export const createFormOrchestration = (args: {
       args.tournamentSeasonSelect,
       [
         { value: "", label: "No season" },
-        ...args.dashboardState.seasons.map((season) => ({
+        ...args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, sessionUserId)).map((season) => ({
           value: season.id,
           label: season.name,
         })),

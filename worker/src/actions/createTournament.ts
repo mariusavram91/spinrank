@@ -128,6 +128,7 @@ export async function handleCreateTournament(
       createdAt: existing?.created_at ?? nowIso,
       completedAt: completedAt || null,
       participantCount: participantIds.length,
+      participantIds,
       bracketStatus,
     },
     rounds,

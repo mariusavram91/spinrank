@@ -289,6 +289,7 @@ export interface TournamentRecord {
   createdAt: string;
   completedAt: string | null;
   participantCount: number;
+  participantIds: string[];
   bracketStatus: "draft" | "in_progress" | "completed";
 }
 

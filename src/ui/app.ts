@@ -423,6 +423,7 @@ export const buildApp = (): HTMLElement => {
     dashboardState,
     tournamentPlannerState,
     getViewState: () => state.current,
+    getCurrentUserId: () => getCurrentUserId(state.current),
     isAuthedState,
     getActiveTournamentBracketMatchId: () => activeTournamentBracketMatchId,
     loadSeasonSelect,
