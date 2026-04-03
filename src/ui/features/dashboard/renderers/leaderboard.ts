@@ -27,6 +27,19 @@ const getLeaderboardEmptyText = (scope: SegmentMode, t: TranslationFn): string =
   return t("leaderboardEmptyGlobal");
 };
 
+const getTournamentPlacementText = (entry: DashboardState["leaderboard"][number], t: TranslationFn): string | null => {
+  if (entry.placementLabelKey) {
+    const base = t(entry.placementLabelKey);
+    if (entry.placementLabelKey === "leaderboardPlacementRoundOf") {
+      const count = entry.placementLabelCount ?? 0;
+      return base.replace("{count}", String(count));
+    }
+    return base;
+  }
+
+  return entry.placementLabel ?? null;
+};
+
 export type LeaderboardRenderer = {
   markDirty: () => void;
   render: () => void;
@@ -118,13 +131,26 @@ export const createLeaderboardRenderer = (args: {
 
       const ratingValue = entry.seasonScore ?? entry.elo;
       const ratingLabel = entry.seasonScore !== undefined ? args.t("leaderboardSeasonScore") : "Elo";
-      const elo = document.createElement("span");
-      elo.className = "leaderboard-elo";
-      elo.textContent = `(${ratingValue} ${ratingLabel})`;
+      const rating = document.createElement("span");
+      rating.className = "leaderboard-elo";
+      rating.textContent = `(${ratingValue} ${ratingLabel})`;
+
+      const placementText = args.dashboardState.segmentMode === "tournament" ? getTournamentPlacementText(entry, args.t) : null;
+      const placement = placementText ? document.createElement("span") : null;
+      if (placement) {
+        placement.className = "leaderboard-placement";
+        placement.textContent = placementText;
+      }
 
       const metaRow = document.createElement("div");
       metaRow.className = "leaderboard-row__meta-row";
-      metaRow.append(record, streak, elo);
+      metaRow.append(record, streak);
+      if (placement) {
+        metaRow.append(placement);
+      }
+      if (args.dashboardState.segmentMode !== "tournament") {
+        metaRow.append(rating);
+      }
 
       summary.append(identityLine, metaRow);
       row.append(summary);

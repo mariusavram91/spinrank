@@ -47,8 +47,8 @@ export const faqEntries: FaqEntry[] = [
     titleDe: "Globale, Saison- & Turnier-Rankings",
     details: [
       {
-        en: "The global leaderboard aggregates every ranked match you can access; season and tournament leaderboards only include matches assigned to that context.",
-        de: "Die globale Bestenliste fasst alle gerankten Matches zusammen; Saison- und Turnierlisten zeigen nur die Partien, die genau diesem Kontext zugewiesen wurden.",
+        en: "The global leaderboard aggregates every ranked match you can access; season leaderboards use season score, and tournament leaderboards rank players by how far they advanced through the bracket, with placement labels like Winner or Semifinal.",
+        de: "Die globale Bestenliste fasst alle gerankten Matches zusammen; Saison-Listen nutzen den Season-Score, und Turnier-Listen ordnen nach der im Bracket erreichten Runde, mit Platzierungslabels wie Winner oder Semifinal.",
       },
       {
         en: "Tournaments can be tied to a season; when linked, their matches impact both the tournament leaderboard and the parent season.",

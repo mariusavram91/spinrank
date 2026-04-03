@@ -894,6 +894,19 @@ button:disabled,
   color: var(--text-muted);
 }
 
+.leaderboard-placement {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(11, 74, 141, 0.1);
+  color: var(--brand-spin-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .leaderboard-fire {
   display: inline-block;
   margin-left: 4px;

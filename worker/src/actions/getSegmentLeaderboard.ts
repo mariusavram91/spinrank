@@ -1,5 +1,6 @@
 import { errorResponse, successResponse } from "../responses";
-import { calculateSeasonScore, compareLeaderboardRows, MINIMUM_MATCHES_TO_QUALIFY } from "../services/elo";
+import { calculateSeasonScore, MINIMUM_MATCHES_TO_QUALIFY } from "../services/elo";
+import { getBracketRounds } from "../services/brackets";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
 import type {
   ApiRequest,
@@ -7,8 +8,90 @@ import type {
   GetSegmentLeaderboardPayload,
   LeaderboardEntry,
   SegmentLeaderboardStats,
+  TournamentBracketRound,
   UserRow,
 } from "../types";
+
+type TournamentPlacementMetrics = {
+  stageReached: Record<string, number>;
+  bracketWins: Record<string, number>;
+  bracketLosses: Record<string, number>;
+  championIds: Set<string>;
+};
+
+function buildTournamentPlacementMetrics(rounds: TournamentBracketRound[]): TournamentPlacementMetrics {
+  const metrics: TournamentPlacementMetrics = {
+    stageReached: {},
+    bracketWins: {},
+    bracketLosses: {},
+    championIds: new Set<string>(),
+  };
+
+  rounds.forEach((round, roundIndex) => {
+    const stageReached = roundIndex + 1;
+    round.matches.forEach((match) => {
+      const participants = [match.leftPlayerId, match.rightPlayerId].filter((playerId): playerId is string =>
+        Boolean(playerId),
+      );
+
+      participants.forEach((playerId) => {
+        metrics.stageReached[playerId] = Math.max(metrics.stageReached[playerId] ?? 0, stageReached);
+      });
+
+      if (!match.winnerPlayerId) {
+        return;
+      }
+
+      metrics.bracketWins[match.winnerPlayerId] = (metrics.bracketWins[match.winnerPlayerId] ?? 0) + 1;
+      if (match.isFinal) {
+        metrics.championIds.add(match.winnerPlayerId);
+      }
+
+      const loserId = participants.find((playerId) => playerId !== match.winnerPlayerId) ?? null;
+      if (loserId) {
+        metrics.bracketLosses[loserId] = (metrics.bracketLosses[loserId] ?? 0) + 1;
+      }
+    });
+  });
+
+  return metrics;
+}
+
+function getTournamentPlacementLabel(
+  rounds: TournamentBracketRound[],
+  metrics: TournamentPlacementMetrics,
+  userId: string,
+): { key: LeaderboardEntry["placementLabelKey"]; count: number | null } | null {
+  if (metrics.championIds.has(userId)) {
+    return { key: "leaderboardPlacementWinner", count: null };
+  }
+
+  const stageReached = metrics.stageReached[userId] ?? 0;
+  if (stageReached <= 0) {
+    return null;
+  }
+
+  const round = rounds[stageReached - 1];
+  if (!round) {
+    return null;
+  }
+
+  const matchCount = round.matches.length;
+  if (matchCount === 1) {
+    return { key: "leaderboardPlacementFinal", count: null };
+  }
+  if (matchCount === 2) {
+    return { key: "leaderboardPlacementSemifinals", count: null };
+  }
+  if (matchCount === 4) {
+    return { key: "leaderboardPlacementQuarterfinals", count: null };
+  }
+
+  return {
+    key: "leaderboardPlacementRoundOf",
+    count: matchCount * 2,
+  };
+}
 
 export async function handleGetSegmentLeaderboard(
   request: ApiRequest<"getSegmentLeaderboard", GetSegmentLeaderboardPayload>,
@@ -57,6 +140,11 @@ export async function handleGetSegmentLeaderboard(
     }>();
 
   const nowIso = new Date().toISOString();
+  const tournamentRounds =
+    segmentType === "tournament" ? await getBracketRounds(env, segmentId) : ([] as TournamentBracketRound[]);
+  const tournamentPlacementMetrics =
+    segmentType === "tournament" ? buildTournamentPlacementMetrics(tournamentRounds) : null;
+
   const leaderboard = rows.results
     .map<LeaderboardEntry>((row) => {
       const matchEquivalentPlayed = Number(row.matches_played_equivalent ?? row.matches_played ?? 0);
@@ -80,6 +168,18 @@ export async function handleGetSegmentLeaderboard(
               })
             : undefined,
         isQualified: segmentType === "season" ? matchEquivalentPlayed >= MINIMUM_MATCHES_TO_QUALIFY : undefined,
+        ...(segmentType === "tournament" && tournamentPlacementMetrics
+          ? (() => {
+              const placement = getTournamentPlacementLabel(tournamentRounds, tournamentPlacementMetrics, row.user_id);
+              if (!placement) {
+                return {};
+              }
+              return {
+                placementLabelKey: placement.key,
+                placementLabelCount: placement.count,
+              };
+            })()
+          : {}),
         rank: 0,
       };
     })
@@ -105,7 +205,32 @@ export async function handleGetSegmentLeaderboard(
         return left.displayName.localeCompare(right.displayName);
       }
 
-      return compareLeaderboardRows(left, right);
+      const leftMetrics = tournamentPlacementMetrics;
+      const rightChampion = leftMetrics?.championIds.has(right.userId) ?? false;
+      const leftChampion = leftMetrics?.championIds.has(left.userId) ?? false;
+      if (rightChampion !== leftChampion) {
+        return Number(rightChampion) - Number(leftChampion);
+      }
+
+      const leftStageReached = leftMetrics?.stageReached[left.userId] ?? 0;
+      const rightStageReached = leftMetrics?.stageReached[right.userId] ?? 0;
+      if (rightStageReached !== leftStageReached) {
+        return rightStageReached - leftStageReached;
+      }
+
+      const leftWins = leftMetrics?.bracketWins[left.userId] ?? 0;
+      const rightWins = leftMetrics?.bracketWins[right.userId] ?? 0;
+      if (rightWins !== leftWins) {
+        return rightWins - leftWins;
+      }
+
+      const leftLosses = leftMetrics?.bracketLosses[left.userId] ?? 0;
+      const rightLosses = leftMetrics?.bracketLosses[right.userId] ?? 0;
+      if (leftLosses !== rightLosses) {
+        return leftLosses - rightLosses;
+      }
+
+      return left.displayName.localeCompare(right.displayName);
     })
     .slice(0, 100)
     .map((entry, index) => ({

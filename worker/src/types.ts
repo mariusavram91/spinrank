@@ -112,6 +112,14 @@ export interface LeaderboardEntry {
   matchEquivalentPlayed?: number;
   lastMatchAt?: string | null;
   isQualified?: boolean;
+  placementLabel?: string | null;
+  placementLabelKey?:
+    | "leaderboardPlacementWinner"
+    | "leaderboardPlacementFinal"
+    | "leaderboardPlacementSemifinals"
+    | "leaderboardPlacementQuarterfinals"
+    | "leaderboardPlacementRoundOf";
+  placementLabelCount?: number | null;
 }
 
 export interface SegmentMostMatchesPlayer {
