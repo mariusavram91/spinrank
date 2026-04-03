@@ -1,0 +1,174 @@
+import type { DashboardState, TournamentPlannerState } from "../../../shared/types/app";
+import type { TournamentRecord, SeasonRecord } from "../../../../api/contract";
+import type { TextKey } from "../../../shared/i18n/translations";
+import { formatDate } from "../../../shared/utils/format";
+
+type TranslationFn = (key: TextKey) => string;
+
+const getWinnerLabel = (winnerTeam: "A" | "B", teamA: string, teamB: string): string =>
+  winnerTeam === "A" ? teamA : teamB;
+
+export type DraftRendererArgs = {
+  dashboardState: DashboardState;
+  tournamentPlannerState: TournamentPlannerState;
+  matchSummary: HTMLElement;
+  seasonSummary: HTMLElement;
+  tournamentSummary: HTMLElement;
+  seasonStartDateInput: HTMLInputElement;
+  seasonBaseEloSelect: HTMLSelectElement;
+  seasonIsPublicInput: HTMLInputElement;
+  seasonIsActiveInput: HTMLInputElement;
+  tournamentSeasonSelect: HTMLSelectElement;
+  tournamentNameInput: HTMLInputElement;
+  tournamentDateInput: HTMLInputElement;
+  matchTypeSelect: HTMLSelectElement;
+  formatTypeSelect: HTMLSelectElement;
+  pointsToWinSelect: HTMLSelectElement;
+  formSeasonSelect: HTMLSelectElement;
+  formTournamentSelect: HTMLSelectElement;
+  winnerTeamSelect: HTMLSelectElement;
+  teamA1Select: HTMLSelectElement;
+  teamA2Select: HTMLSelectElement;
+  teamB1Select: HTMLSelectElement;
+  teamB2Select: HTMLSelectElement;
+  scoreInputs: Array<{
+    teamA: HTMLInputElement;
+    teamB: HTMLInputElement;
+    teamALabel: HTMLSpanElement;
+    teamBLabel: HTMLSpanElement;
+  }>;
+  renderPlayerNames: (playerIds: string[], players: DashboardState["players"]) => string;
+  buildUniquePlayerList: (values: string[]) => string[];
+  getMatchFeedContextLabel: (
+    season: SeasonRecord | undefined,
+    tournament: TournamentRecord | undefined,
+  ) => string;
+  t: TranslationFn;
+};
+
+export type DraftRenderers = {
+  renderSeasonDraftSummary: () => void;
+  renderTournamentDraftSummary: () => void;
+  renderMatchDraftSummary: () => void;
+  updateScoreLabelsAndPlaceholders: (teamALabel: string, teamBLabel: string) => void;
+};
+
+export const createDraftRenderers = (args: DraftRendererArgs): DraftRenderers => {
+  const getPointsLabel = (value: string): string => {
+    if (value === "11") {
+      return args.t("points11");
+    }
+    if (value === "21") {
+      return args.t("points21");
+    }
+    return `${value} ${args.t("pointsSuffix")}`;
+  };
+
+  const updateScoreLabelsAndPlaceholders = (teamALabel: string, teamBLabel: string): void => {
+    const aLabel = teamALabel || args.t("teamALabel");
+    const bLabel = teamBLabel || args.t("teamBLabel");
+    args.scoreInputs.forEach((game) => {
+      game.teamALabel.textContent = aLabel;
+      game.teamBLabel.textContent = bLabel;
+      game.teamA.placeholder = "0";
+      game.teamB.placeholder = "0";
+    });
+  };
+
+  const deriveMatchWinnerFromInputs = (): "A" | "B" | null => {
+    const visibleGames = args.formatTypeSelect.value === "best_of_3" ? 3 : 1;
+    const scoreEntries = args.scoreInputs
+      .slice(0, visibleGames)
+      .map((game) => ({
+        teamA: Number(game.teamA.value),
+        teamB: Number(game.teamB.value),
+      }))
+      .filter((game) => !Number.isNaN(game.teamA) && !Number.isNaN(game.teamB));
+
+    if (scoreEntries.length === 0) {
+      return null;
+    }
+
+    if (scoreEntries.some((game) => game.teamA === game.teamB)) {
+      return null;
+    }
+
+    const teamAWins = scoreEntries.filter((game) => game.teamA > game.teamB).length;
+    const teamBWins = scoreEntries.filter((game) => game.teamB > game.teamA).length;
+    const requiredWins = args.formatTypeSelect.value === "single_game" ? 1 : 2;
+
+    if (Math.max(teamAWins, teamBWins) < requiredWins || teamAWins === teamBWins) {
+      return null;
+    }
+
+    return teamAWins > teamBWins ? "A" : "B";
+  };
+
+  const renderSeasonDraftSummary = (): void => {
+    args.seasonSummary.textContent = [
+      `${args.dashboardState.editingSeasonParticipantIds.length} participants`,
+      args.seasonStartDateInput.value
+        ? `Starts ${formatDate(args.seasonStartDateInput.value)}`
+        : "No start date",
+      `Base Elo: ${args.seasonBaseEloSelect.value.replace("_", " ")}`,
+      args.seasonIsPublicInput.checked ? "Visibility: public" : "Visibility: private",
+    ].join(" • ");
+  };
+
+  const renderTournamentDraftSummary = (): void => {
+    const season = args.dashboardState.seasons.find((entry) => entry.id === args.tournamentSeasonSelect.value);
+    args.tournamentSummary.textContent = [
+      args.tournamentNameInput.value.trim() || "Untitled tournament",
+      season ? season.name : "No season",
+      `${args.tournamentPlannerState.participantIds.length} players`,
+      args.tournamentDateInput.value ? formatDate(args.tournamentDateInput.value) : "No date",
+    ].join(" • ");
+  };
+
+  const renderMatchDraftSummary = (): void => {
+    const teamAPlayerIds = args.buildUniquePlayerList(
+      args.matchTypeSelect.value === "singles"
+        ? [args.teamA1Select.value]
+        : [args.teamA1Select.value, args.teamA2Select.value],
+    );
+    const teamBPlayerIds = args.buildUniquePlayerList(
+      args.matchTypeSelect.value === "singles"
+        ? [args.teamB1Select.value]
+        : [args.teamB1Select.value, args.teamB2Select.value],
+    );
+    const teamALabel =
+      args.renderPlayerNames(teamAPlayerIds, args.dashboardState.players) || args.t("teamALabel");
+    const teamBLabel =
+      args.renderPlayerNames(teamBPlayerIds, args.dashboardState.players) || args.t("teamBLabel");
+    updateScoreLabelsAndPlaceholders(teamALabel, teamBLabel);
+    const season = args.dashboardState.seasons.find((entry) => entry.id === args.formSeasonSelect.value);
+    const tournament = args.dashboardState.tournaments.find((entry) => entry.id === args.formTournamentSelect.value);
+    const derivedWinner = deriveMatchWinnerFromInputs();
+    if (derivedWinner) {
+      args.winnerTeamSelect.value = derivedWinner;
+    }
+    const winnerLabel = derivedWinner
+      ? `${args.t("matchSummaryWinnerPrefix")} ${getWinnerLabel(derivedWinner, teamALabel, teamBLabel)}`
+      : args.t("matchSummaryWinnerTBD");
+    const matchTypeLabel =
+      args.matchTypeSelect.value === "singles" ? args.t("matchSummarySingles") : args.t("matchSummaryDoubles");
+    const detailLabel =
+      args.formatTypeSelect.value === "best_of_3"
+        ? args.t("matchSummaryBestOf3")
+        : getPointsLabel(args.pointsToWinSelect.value);
+    args.matchSummary.textContent = [
+      matchTypeLabel,
+      `${teamALabel} vs ${teamBLabel}`,
+      detailLabel,
+      winnerLabel,
+      args.getMatchFeedContextLabel(season, tournament),
+    ].join(" • ");
+  };
+
+  return {
+    renderSeasonDraftSummary,
+    renderTournamentDraftSummary,
+    renderMatchDraftSummary,
+    updateScoreLabelsAndPlaceholders,
+  };
+};
