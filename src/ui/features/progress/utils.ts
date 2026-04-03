@@ -64,9 +64,32 @@ export const buildProgressGeometry = (
     return { x, y };
   });
 
-  const path = coordinates
-    .map((coord, index) => `${index === 0 ? "M" : "L"}${coord.x.toFixed(1)} ${coord.y.toFixed(1)}`)
-    .join(" ");
+  const path =
+    coordinates.length === 1
+      ? `M${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`
+      : coordinates.length === 2
+        ? `M${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)} L${coordinates[1].x.toFixed(
+            1,
+          )} ${coordinates[1].y.toFixed(1)}`
+        : (() => {
+            const segments = [`M${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`];
+            for (let index = 0; index < coordinates.length - 1; index += 1) {
+              const previousPoint = coordinates[index - 1] ?? coordinates[index];
+              const currentPoint = coordinates[index];
+              const nextPoint = coordinates[index + 1];
+              const followingPoint = coordinates[index + 2] ?? nextPoint;
+              const controlPoint1X = currentPoint.x + (nextPoint.x - previousPoint.x) / 6;
+              const controlPoint1Y = currentPoint.y + (nextPoint.y - previousPoint.y) / 6;
+              const controlPoint2X = nextPoint.x - (followingPoint.x - currentPoint.x) / 6;
+              const controlPoint2Y = nextPoint.y - (followingPoint.y - currentPoint.y) / 6;
+              segments.push(
+                `C${controlPoint1X.toFixed(1)} ${controlPoint1Y.toFixed(1)} ${controlPoint2X.toFixed(
+                  1,
+                )} ${controlPoint2Y.toFixed(1)} ${nextPoint.x.toFixed(1)} ${nextPoint.y.toFixed(1)}`,
+              );
+            }
+            return segments.join(" ");
+          })();
 
   return {
     path,

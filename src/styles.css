@@ -1355,16 +1355,14 @@ button:disabled,
 .progress-line {
   fill: none;
   stroke: var(--brand-rank);
-  stroke-width: 3;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  shape-rendering: geometricPrecision;
 }
 
 .progress-point {
-  fill: var(--brand-rank);
-  stroke: #ffffff;
-  stroke-width: 2;
-  cursor: pointer;
+  display: none;
 }
 
 .tournament-winner {

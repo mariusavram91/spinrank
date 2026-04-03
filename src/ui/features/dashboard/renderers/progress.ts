@@ -3,7 +3,6 @@ import type { TextKey } from "../../../shared/i18n/translations";
 import {
   buildProgressGeometry,
   createInitialProgressPoint,
-  formatProgressPointTooltip,
   MAX_PROGRESS_DISPLAY_POINTS,
   sampleProgressPoints,
 } from "../../progress/utils";
@@ -134,19 +133,6 @@ export const createProgressRenderer = (args: {
     yBottom.setAttribute("class", "progress-axis-label");
     yBottom.textContent = `${Math.round(axisMin)}`;
 
-    const pointsLayer = document.createElementNS(svgNamespace, "g");
-    pointsLayer.setAttribute("class", "progress-points");
-    geometry.coordinates.forEach((coord, index) => {
-      const circle = document.createElementNS(svgNamespace, "circle");
-      circle.setAttribute("cx", coord.x.toFixed(1));
-      circle.setAttribute("cy", coord.y.toFixed(1));
-      circle.setAttribute("r", "5");
-      circle.setAttribute("class", "progress-point");
-      const sourcePoint = displayPoints[index];
-      circle.setAttribute("title", formatProgressPointTooltip(sourcePoint));
-      pointsLayer.append(circle);
-    });
-
     const firstPoint = displayPoints[0];
     const lastPoint = displayPoints[displayPoints.length - 1];
 
@@ -163,7 +149,7 @@ export const createProgressRenderer = (args: {
     xRight.setAttribute("class", "progress-axis-label");
     xRight.textContent = formatDate(lastPoint.playedAt);
 
-    chart.append(axis, yAxisLabel, baselineLine, baselineLabel, path, pointsLayer, yTop, yBottom, xLeft, xRight);
+    chart.append(axis, yAxisLabel, baselineLine, baselineLabel, path, yTop, yBottom, xLeft, xRight);
 
     const progressLayout = document.createElement("div");
     progressLayout.className = "progress-layout";
