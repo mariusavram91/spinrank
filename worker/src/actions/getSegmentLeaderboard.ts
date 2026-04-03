@@ -191,12 +191,14 @@ export async function handleGetSegmentLeaderboard(
     segmentId,
     leaderboard,
     updatedAt:
-      rows.results.reduce((latest, row) => {
-        if (!row.updated_at) {
-          return latest;
-        }
-        return Date.parse(row.updated_at) > Date.parse(latest) ? row.updated_at : latest;
-      }, rows.results[0]?.updated_at ?? new Date().toISOString()),
+      segmentType === "season"
+        ? nowIso
+        : rows.results.reduce((latest, row) => {
+            if (!row.updated_at) {
+              return latest;
+            }
+            return Date.parse(row.updated_at) > Date.parse(latest) ? row.updated_at : latest;
+          }, rows.results[0]?.updated_at ?? nowIso),
     stats,
   });
 }
