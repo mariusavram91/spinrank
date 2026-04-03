@@ -429,7 +429,7 @@ export const buildScoreCard = (args: {
   let saving = false;
   let savedSnapshot = "";
   let statusMessage = "";
-  let statusKind: "idle" | "success" | "error" = "idle";
+  let statusKind: "idle" | "error" = "idle";
   const getSelectedValues = (): string[] =>
     [selections.teamA1, selections.teamA2, selections.teamB1, selections.teamB2].filter(Boolean);
   const handleSelectionChange = (): void => {
@@ -808,7 +808,7 @@ export const buildScoreCard = (args: {
     resultChip.textContent = `${t("scoreCardMatchScore")}: ${previousGamesWins.A} - ${previousGamesWins.B}`;
     resultChip.dataset.state = currentWinner || matchWinner ? "winner" : "neutral";
 
-    if (statusKind === "success" || statusKind === "error" || statusMessage) {
+    if (statusKind === "error" && statusMessage) {
       savedChip.hidden = false;
       savedChip.textContent = statusMessage;
       savedChip.dataset.state = statusKind;
@@ -961,20 +961,7 @@ export const buildScoreCard = (args: {
     sync();
     try {
       await saveHandler(payload);
-      savedSnapshot = buildPayloadSnapshot({
-        matchType,
-        formatType,
-        pointsToWin,
-        seasonId: selectedSeasonId,
-        tournamentId: selectedTournamentId,
-        selections,
-        games: previousGames,
-        currentScore: scoreState,
-        currentWinner: getGameWinner(scoreState, pointsToWin),
-        matchWinner: getMatchWinner(),
-      });
-      statusMessage = t("scoreCardSavedMatch");
-      statusKind = "success";
+      reset();
     } catch (error) {
       statusMessage = error instanceof Error ? error.message : t("scoreCardSaveFailed");
       statusKind = "error";

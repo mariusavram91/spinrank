@@ -2044,8 +2044,19 @@ button:disabled,
 
 .score-card__instructions {
   margin: 0;
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(191, 91, 4, 0.18);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: normal;
 }
 
 .score-card__controls {
