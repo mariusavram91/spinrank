@@ -1,4 +1,4 @@
-import type { MatchFeedFilter } from "../../../api/contract";
+import type { LeaderboardEntry, MatchFeedFilter, SeasonRecord, TournamentRecord } from "../../../api/contract";
 import { buildHelpScreens } from "../help/screens";
 import { buildDashboardOverview } from "../dashboard/overview";
 import { buildFooter } from "../../shared/components/footer";
@@ -33,6 +33,12 @@ export const createAppDom = (args: {
     loadMoreButton: HTMLButtonElement;
   };
   matchFilterLabels: Record<MatchFeedFilter, TextKey>;
+  getPlayers: () => LeaderboardEntry[];
+  getCurrentUserId: () => string;
+  getSeasons: () => SeasonRecord[];
+  getTournaments: () => TournamentRecord[];
+  getSelectedSeasonId: () => string;
+  getSelectedTournamentId: () => string;
 }) => {
   const container = document.createElement("main");
   container.className = "shell";
@@ -164,7 +170,16 @@ export const createAppDom = (args: {
     show: showScoreCard,
     hide: hideScoreCard,
     isVisible: isScoreCardVisible,
-  } = buildScoreCard();
+    sync: syncScoreCard,
+    setSaveMatchHandler: setScoreCardSaveMatchHandler,
+  } = buildScoreCard({
+    getPlayers: args.getPlayers,
+    getCurrentUserId: args.getCurrentUserId,
+    getSeasons: args.getSeasons,
+    getTournaments: args.getTournaments,
+    getSelectedSeasonId: args.getSelectedSeasonId,
+    getSelectedTournamentId: args.getSelectedTournamentId,
+  });
   const { overlay: deleteWarningOverlay, prompt: promptDeleteWarning } = buildDeleteWarning();
 
   const dashboardOverview = buildDashboardOverview(args.assetsBaseUrl);
@@ -547,6 +562,8 @@ export const createAppDom = (args: {
     showScoreCard,
     hideScoreCard,
     isScoreCardVisible,
+    syncScoreCard,
+    setScoreCardSaveMatchHandler,
     deleteWarningOverlay,
     promptDeleteWarning,
     ...dashboardOverview,

@@ -100,6 +100,9 @@ import {
 } from "./features/app/helpers";
 
 export const buildApp = (): HTMLElement => {
+  let scoreCardPlayersGetter: () => LeaderboardEntry[] = () => [];
+  let scoreCardUserGetter: () => string = () => "";
+  let dashboardState: DashboardState = createDashboardState();
   const {
     container,
     loadingOverlay,
@@ -252,8 +255,16 @@ export const buildApp = (): HTMLElement => {
     bracketBoard,
     closeLanguageSwitchIfOutside,
     languageSwitch,
+    syncScoreCard,
+    setScoreCardSaveMatchHandler,
   } = createAppDom({
     assetsBaseUrl: import.meta.env.BASE_URL,
+    getPlayers: () => scoreCardPlayersGetter(),
+    getCurrentUserId: () => scoreCardUserGetter(),
+    getSeasons: () => dashboardState.seasons,
+    getTournaments: () => dashboardState.tournaments,
+    getSelectedSeasonId: () => dashboardState.selectedSeasonId,
+    getSelectedTournamentId: () => dashboardState.selectedTournamentId,
     buildMatchesPanel,
     matchFilterLabels,
     onMatchFilterClick: (filter) => {
@@ -262,7 +273,8 @@ export const buildApp = (): HTMLElement => {
   });
 
   const state: { current: ViewState } = createViewState();
-  const dashboardState: DashboardState = createDashboardState();
+  scoreCardPlayersGetter = () => dashboardState.players;
+  scoreCardUserGetter = () => getCurrentUserId(state.current);
   captureShareTokenFromUrl(dashboardState);
 
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
@@ -655,6 +667,7 @@ export const buildApp = (): HTMLElement => {
 
   const syncDashboardState = (): void => {
     dashboardSync.syncDashboardState();
+    syncScoreCard();
     const syncSegmentedToggle = (toggle: HTMLElement | null, value: string): void => {
       if (!toggle) {
         return;
@@ -793,6 +806,20 @@ export const buildApp = (): HTMLElement => {
       renderMatchContext(match, seasons, tournaments, bracketContext, t, options),
     renderMatchScore,
     formatDateTime,
+  });
+
+  setScoreCardSaveMatchHandler(async (payload) => {
+    setGlobalLoading(true, "Saving match...");
+    const requestId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `match_${Date.now()}`;
+    try {
+      await runAuthedAction("createMatch", payload, requestId);
+      await loadDashboard();
+    } finally {
+      setGlobalLoading(false);
+    }
   });
 
   const { submitSeason, deleteSeason } = createSeasonActions({
