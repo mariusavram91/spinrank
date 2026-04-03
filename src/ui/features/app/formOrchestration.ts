@@ -17,9 +17,7 @@ export const createFormOrchestration = (args: {
   getViewState: () => ViewState;
   isAuthedState: (state: ViewState) => state is Extract<ViewState, { status: "authenticated" }>;
   getActiveTournamentBracketMatchId: () => string | null;
-  loadSeasonButton: HTMLButtonElement;
   loadSeasonSelect: HTMLSelectElement;
-  loadTournamentButton: HTMLButtonElement;
   loadTournamentSelect: HTMLSelectElement;
   seasonSelect: HTMLSelectElement;
   tournamentSelect: HTMLSelectElement;
@@ -41,7 +39,10 @@ export const createFormOrchestration = (args: {
   seasonBaseEloSelect: HTMLSelectElement;
   seasonIsActiveInput: HTMLInputElement;
   seasonIsPublicInput: HTMLInputElement;
+  tournamentNameInput: HTMLInputElement;
+  tournamentDateInput: HTMLInputElement;
   setSeasonSharePanelTargetId: (seasonId: string) => void;
+  setTournamentSharePanelTargetId: (tournamentId: string) => void;
   getMatchScreenRefs: () => MatchScreenRefs;
   formatDate: (value: string) => string;
   t: (key: TextKey) => string;
@@ -102,10 +103,7 @@ export const createFormOrchestration = (args: {
     );
   };
 
-  const syncLoadControlsVisibility = (): void => {
-    args.loadSeasonButton.hidden = !args.loadSeasonSelect.value;
-    args.loadTournamentButton.hidden = !args.loadTournamentSelect.value;
-  };
+  const syncLoadControlsVisibility = (): void => {};
 
   const populateSeasonOptions = (): void => {
     const options = args.dashboardState.seasons.map((season) => {
@@ -419,6 +417,21 @@ export const createFormOrchestration = (args: {
     args.setSeasonSharePanelTargetId("");
   };
 
+  const resetTournamentForm = (): void => {
+    args.tournamentPlannerState.name = "";
+    args.tournamentPlannerState.tournamentId = "";
+    args.tournamentPlannerState.participantIds = [];
+    args.tournamentPlannerState.firstRoundMatches = [];
+    args.tournamentPlannerState.rounds = [];
+    args.tournamentPlannerState.error = "";
+    args.tournamentNameInput.value = "";
+    args.tournamentDateInput.value = getTodayDateValue();
+    args.tournamentSeasonSelect.value = "";
+    args.loadTournamentSelect.value = "";
+    syncLoadControlsVisibility();
+    args.setTournamentSharePanelTargetId("");
+  };
+
   return {
     replaceOptions,
     syncLoadControlsVisibility,
@@ -430,5 +443,6 @@ export const createFormOrchestration = (args: {
     collectMatchPayload,
     collectSeasonPayload,
     resetSeasonForm,
+    resetTournamentForm,
   };
 };

@@ -17,6 +17,26 @@ export interface MatchScreenElements {
   scoreGrid: HTMLDivElement;
 }
 
+const buildChoiceRow = (labelKey: TextKey, select: HTMLSelectElement, actionButton: HTMLButtonElement): HTMLElement => {
+  const row = document.createElement("div");
+  row.className = "form-choice-row";
+
+  const field = buildField(labelKey, select);
+  field.classList.add("form-choice-row__field");
+
+  const action = document.createElement("div");
+  action.className = "form-choice-row__action";
+
+  const separator = document.createElement("span");
+  separator.className = "form-choice-row__separator";
+  bindLocalizedText(separator, "orLabel");
+
+  actionButton.classList.add("form-choice-row__button");
+  action.append(separator, actionButton);
+  row.append(field, action);
+  return row;
+};
+
 export const buildMatchScreen = (args: {
   screen: HTMLElement;
   composerPanel: HTMLElement;
@@ -165,7 +185,7 @@ export const buildTournamentScreen = (args: {
   deleteTournamentButton: HTMLButtonElement;
   tournamentStatus: HTMLElement;
   loadTournamentSelect: HTMLSelectElement;
-  tournamentLoadActions: HTMLElement;
+  resetTournamentDraftButton: HTMLButtonElement;
   tournamentSeasonSelect: HTMLSelectElement;
   tournamentNameInput: HTMLInputElement;
   tournamentDateInput: HTMLInputElement;
@@ -174,7 +194,6 @@ export const buildTournamentScreen = (args: {
   args.tournamentHeading.append(args.tournamentTitle, args.tournamentMeta);
   args.tournamentTop.append(args.tournamentHeading, args.closeCreateTournamentButton);
   args.participantSection.append(
-    args.participantLabel,
     args.tournamentSelectAllParticipantsField,
     args.participantList,
   );
@@ -187,10 +206,12 @@ export const buildTournamentScreen = (args: {
   tournamentActionsWrapper.className = "form-actions-wrapper";
   tournamentActionsWrapper.append(tournamentActions, args.tournamentStatus);
 
+  const tournamentEntrySection = document.createElement("section");
+  tournamentEntrySection.className = "panel-section panel-section--entry";
+  tournamentEntrySection.append(buildChoiceRow("loadSavedTournament", args.loadTournamentSelect, args.resetTournamentDraftButton));
+
   const tournamentDetailsSection = createPanelSection(
     "tournamentDetails",
-    buildField("loadSavedTournament", args.loadTournamentSelect),
-    args.tournamentLoadActions,
     buildField("tournamentSeasonLabel", args.tournamentSeasonSelect),
     buildField("tournamentName", args.tournamentNameInput),
     buildField("tournamentDate", args.tournamentDateInput),
@@ -200,7 +221,7 @@ export const buildTournamentScreen = (args: {
 
   args.tournamentPanel.append(
     args.tournamentTop,
-    args.tournamentQuickBar,
+    tournamentEntrySection,
     tournamentDetailsSection,
     tournamentParticipantsSection,
     tournamentActionsWrapper,
@@ -236,7 +257,7 @@ export const buildSeasonScreen = (args: {
   seasonForm: HTMLFormElement;
   seasonStatus: HTMLElement;
   loadSeasonSelect: HTMLSelectElement;
-  seasonLoadActions: HTMLElement;
+  resetSeasonDraftButton: HTMLButtonElement;
   seasonNameInput: HTMLInputElement;
   seasonStartDateInput: HTMLInputElement;
   seasonEndDateInput: HTMLInputElement;
@@ -251,7 +272,6 @@ export const buildSeasonScreen = (args: {
   deleteSeasonButton: HTMLButtonElement;
 }): { seasonActionsWrapper: HTMLDivElement } => {
   args.seasonParticipantSection.append(
-    args.seasonParticipantLabel,
     args.seasonSelectAllParticipantsField,
     args.seasonParticipantList,
   );
@@ -267,10 +287,12 @@ export const buildSeasonScreen = (args: {
   seasonActionsWrapper.className = "form-actions-wrapper";
   seasonActionsWrapper.append(seasonActions, args.seasonStatus);
 
+  const seasonEntrySection = document.createElement("section");
+  seasonEntrySection.className = "panel-section panel-section--entry";
+  seasonEntrySection.append(buildChoiceRow("loadSavedSeason", args.loadSeasonSelect, args.resetSeasonDraftButton));
+
   const seasonDetailsSection = createPanelSection(
     "seasonDetails",
-    buildField("loadSavedSeason", args.loadSeasonSelect),
-    args.seasonLoadActions,
     buildField("seasonName", args.seasonNameInput),
     buildField("seasonStartDate", args.seasonStartDateInput),
     buildField("seasonEndDate", args.seasonEndDateInput),
@@ -285,12 +307,13 @@ export const buildSeasonScreen = (args: {
   );
 
   args.seasonForm.append(
+    seasonEntrySection,
     seasonDetailsSection,
     seasonParticipantsSection,
     seasonRulesSection,
     seasonActionsWrapper,
   );
-  args.seasonPanel.append(args.seasonTop, args.seasonQuickBar, args.seasonForm);
+  args.seasonPanel.append(args.seasonTop, args.seasonForm);
   args.screen.append(args.seasonPanel);
 
   return { seasonActionsWrapper };

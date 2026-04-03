@@ -150,7 +150,7 @@ export const createAppDom = (args: {
   const openCreateTournamentButton = document.createElement("button");
   openCreateTournamentButton.type = "button";
   openCreateTournamentButton.className = "secondary-button";
-  bindLocalizedText(openCreateTournamentButton, "tournaments");
+  bindLocalizedText(openCreateTournamentButton, "openCreateTournament");
 
   const openCreateSeasonButton = document.createElement("button");
   openCreateSeasonButton.type = "button";
@@ -306,7 +306,7 @@ export const createAppDom = (args: {
 
   const tournamentTitle = document.createElement("h3");
   tournamentTitle.className = "card-title";
-  bindLocalizedText(tournamentTitle, "createTournament");
+  bindLocalizedText(tournamentTitle, "tournamentScreenTitle");
 
   const tournamentMeta = document.createElement("p");
   tournamentMeta.className = "card-meta";
@@ -324,7 +324,7 @@ export const createAppDom = (args: {
 
   const seasonTitle = document.createElement("h3");
   seasonTitle.className = "card-title";
-  bindLocalizedText(seasonTitle, "createSeason");
+  bindLocalizedText(seasonTitle, "seasonScreenTitle");
 
   const seasonMeta = document.createElement("p");
   seasonMeta.className = "card-meta";
@@ -359,13 +359,10 @@ export const createAppDom = (args: {
   const loadSeasonSelect = document.createElement("select");
   loadSeasonSelect.className = "select-input";
 
-  const loadSeasonButton = document.createElement("button");
-  loadSeasonButton.type = "button";
-  loadSeasonButton.className = "secondary-button";
-  bindLocalizedText(loadSeasonButton, "loadSeason");
-  const seasonLoadActions = document.createElement("div");
-  seasonLoadActions.className = "share-panel__list-actions";
-  seasonLoadActions.append(loadSeasonButton);
+  const resetSeasonDraftButton = document.createElement("button");
+  resetSeasonDraftButton.type = "button";
+  resetSeasonDraftButton.className = "secondary-button";
+  bindLocalizedText(resetSeasonDraftButton, "createNewSeasonDraft");
 
   const seasonStartDateInput = document.createElement("input");
   seasonStartDateInput.className = "text-input";
@@ -426,13 +423,10 @@ export const createAppDom = (args: {
   const loadTournamentSelect = document.createElement("select");
   loadTournamentSelect.className = "select-input";
 
-  const loadTournamentButton = document.createElement("button");
-  loadTournamentButton.type = "button";
-  loadTournamentButton.className = "secondary-button";
-  bindLocalizedText(loadTournamentButton, "loadTournament");
-  const tournamentLoadActions = document.createElement("div");
-  tournamentLoadActions.className = "share-panel__list-actions";
-  tournamentLoadActions.append(loadTournamentButton);
+  const resetTournamentDraftButton = document.createElement("button");
+  resetTournamentDraftButton.type = "button";
+  resetTournamentDraftButton.className = "secondary-button";
+  bindLocalizedText(resetTournamentDraftButton, "createNewTournamentDraft");
 
   const tournamentStatus = document.createElement("p");
   tournamentStatus.className = "form-status";
@@ -600,8 +594,7 @@ export const createAppDom = (args: {
     seasonForm,
     seasonNameInput,
     loadSeasonSelect,
-    loadSeasonButton,
-    seasonLoadActions,
+    resetSeasonDraftButton,
     seasonStartDateInput,
     seasonEndDateInput,
     seasonBaseEloSelect,
@@ -616,8 +609,7 @@ export const createAppDom = (args: {
     deleteSeasonButton,
     tournamentNameInput,
     loadTournamentSelect,
-    loadTournamentButton,
-    tournamentLoadActions,
+    resetTournamentDraftButton,
     tournamentStatus,
     tournamentSummary,
     tournamentLockNotice,

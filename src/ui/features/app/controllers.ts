@@ -18,6 +18,7 @@ export const createTopLevelUiHandlers = (args: {
   hideScoreCard: () => void;
   populateTournamentPlannerLoadOptions: () => void;
   renderTournamentPlanner: () => void;
+  resetTournamentForm: () => void;
   resetSeasonForm: () => void;
   populateSeasonManagerLoadOptions: () => void;
   renderSeasonEditor: () => void;
@@ -114,6 +115,7 @@ export const createTopLevelUiHandlers = (args: {
   onOpenCreateTournament: () => {
     args.menuState.createMenuOpen = false;
     args.dashboardState.screen = "createTournament";
+    args.resetTournamentForm();
     args.tournamentPlannerState.error = "";
     args.dashboardState.tournamentFormMessage = "";
     args.populateTournamentPlannerLoadOptions();
@@ -196,6 +198,7 @@ export const createSelectionAndFormHandlers = (args: {
   tournamentPlannerState: {
     tournamentId: string;
     name: string;
+    error: string;
   };
   loadSeasonSelect: HTMLSelectElement;
   loadTournamentSelect: HTMLSelectElement;
@@ -212,6 +215,8 @@ export const createSelectionAndFormHandlers = (args: {
   syncLoadControlsVisibility: () => void;
   syncDashboardState: () => void;
   renderSeasonEditor: () => void;
+  resetSeasonForm: () => void;
+  resetTournamentForm: () => void;
   setSeasonSharePanelTargetId: (seasonId: string) => void;
   refreshSegmentShareLink: (
     segmentType: SegmentType,
@@ -235,6 +240,8 @@ export const createSelectionAndFormHandlers = (args: {
   onTournamentSelectChange: () => void;
   onSeasonSelectChange: () => void;
   onLoadSeason: () => void;
+  onResetTournamentDraft: () => void;
+  onResetSeasonDraft: () => void;
   onTournamentNameInput: () => void;
   onSaveTournament: () => void;
   onDeleteTournament: () => void;
@@ -251,22 +258,8 @@ export const createSelectionAndFormHandlers = (args: {
   onSeasonDraftChange: () => void;
   onTournamentDraftChange: () => void;
   onScoreInputChange: () => void;
-} => ({
-  onLoadTournament: () => {
-    void args.loadTournamentBracket();
-  },
-  onTournamentSelectChange: () => {
-    args.tournamentPlannerState.tournamentId = args.loadTournamentSelect.value;
-    args.renderTournamentDraftSummary();
-    args.syncLoadControlsVisibility();
-    args.syncDashboardState();
-  },
-  onSeasonSelectChange: () => {
-    args.dashboardState.editingSeasonId = args.loadSeasonSelect.value;
-    args.syncLoadControlsVisibility();
-    args.syncDashboardState();
-  },
-  onLoadSeason: () => {
+} => {
+  const loadSelectedSeason = (): void => {
     const season = args.dashboardState.seasons.find((entry) => entry.id === args.loadSeasonSelect.value);
     if (!season) {
       args.dashboardState.seasonFormError = "Select a saved season first.";
@@ -289,64 +282,104 @@ export const createSelectionAndFormHandlers = (args: {
     args.syncDashboardState();
     args.setSeasonSharePanelTargetId(season.id);
     void args.refreshSegmentShareLink("season", season.id, args.seasonSharePanelElements);
-  },
-  onTournamentNameInput: () => {
-    args.tournamentPlannerState.name = args.tournamentNameInput.value;
-    args.renderTournamentDraftSummary();
-  },
-  onSaveTournament: () => {
-    void args.saveTournament();
-  },
-  onDeleteTournament: () => {
-    void args.deleteTournament();
-  },
-  onDeleteSeason: () => {
-    void args.deleteSeason();
-  },
-  onApplyGlobalMode: () => {
-    void args.applySegmentMode("global");
-  },
-  onApplySeasonMode: () => {
-    void args.applySegmentMode("season");
-  },
-  onApplyTournamentMode: () => {
-    void args.applySegmentMode("tournament");
-  },
-  onLeaderboardSeasonChange: () => {
-    args.dashboardState.selectedSeasonId = args.seasonSelect.value;
-    void args.applySegmentMode("season");
-  },
-  onLeaderboardTournamentChange: () => {
-    args.dashboardState.selectedTournamentId = args.tournamentSelect.value;
-    void args.applySegmentMode("tournament");
-  },
-  onLoadMoreMatches: () => {
-    void args.loadMoreMatches();
-  },
-  onMatchInputChange: () => {
-    args.populateMatchFormOptions();
-    args.syncDashboardState();
-  },
-  onMatchSubmit: (event) => {
-    event.preventDefault();
-    void args.submitMatch();
-  },
-  onSeasonSubmit: (event) => {
-    event.preventDefault();
-    void args.submitSeason();
-  },
-  onSeasonDraftChange: () => {
-    args.renderSeasonDraftSummary();
-    args.syncDashboardState();
-  },
-  onTournamentDraftChange: () => {
-    args.renderTournamentDraftSummary();
-    args.syncDashboardState();
-  },
-  onScoreInputChange: () => {
-    args.renderMatchDraftSummary();
-  },
-});
+  };
+
+  return {
+    onLoadTournament: () => {
+      void args.loadTournamentBracket();
+    },
+    onTournamentSelectChange: () => {
+      args.tournamentPlannerState.tournamentId = args.loadTournamentSelect.value;
+      if (!args.tournamentPlannerState.tournamentId) {
+        args.resetTournamentForm();
+        args.renderTournamentDraftSummary();
+        args.syncDashboardState();
+        return;
+      }
+      args.tournamentPlannerState.error = "";
+      void args.loadTournamentBracket();
+    },
+    onSeasonSelectChange: () => {
+      args.dashboardState.editingSeasonId = args.loadSeasonSelect.value;
+      if (!args.dashboardState.editingSeasonId) {
+        args.resetSeasonForm();
+        args.renderSeasonEditor();
+        args.renderSeasonDraftSummary();
+        args.syncDashboardState();
+        return;
+      }
+      loadSelectedSeason();
+    },
+    onLoadSeason: loadSelectedSeason,
+    onResetTournamentDraft: () => {
+      args.resetTournamentForm();
+      args.renderTournamentDraftSummary();
+      args.syncDashboardState();
+    },
+    onResetSeasonDraft: () => {
+      args.resetSeasonForm();
+      args.renderSeasonEditor();
+      args.renderSeasonDraftSummary();
+      args.syncDashboardState();
+    },
+    onTournamentNameInput: () => {
+      args.tournamentPlannerState.name = args.tournamentNameInput.value;
+      args.renderTournamentDraftSummary();
+    },
+    onSaveTournament: () => {
+      void args.saveTournament();
+    },
+    onDeleteTournament: () => {
+      void args.deleteTournament();
+    },
+    onDeleteSeason: () => {
+      void args.deleteSeason();
+    },
+    onApplyGlobalMode: () => {
+      void args.applySegmentMode("global");
+    },
+    onApplySeasonMode: () => {
+      void args.applySegmentMode("season");
+    },
+    onApplyTournamentMode: () => {
+      void args.applySegmentMode("tournament");
+    },
+    onLeaderboardSeasonChange: () => {
+      args.dashboardState.selectedSeasonId = args.seasonSelect.value;
+      void args.applySegmentMode("season");
+    },
+    onLeaderboardTournamentChange: () => {
+      args.dashboardState.selectedTournamentId = args.tournamentSelect.value;
+      void args.applySegmentMode("tournament");
+    },
+    onLoadMoreMatches: () => {
+      void args.loadMoreMatches();
+    },
+    onMatchInputChange: () => {
+      args.populateMatchFormOptions();
+      args.syncDashboardState();
+    },
+    onMatchSubmit: (event) => {
+      event.preventDefault();
+      void args.submitMatch();
+    },
+    onSeasonSubmit: (event) => {
+      event.preventDefault();
+      void args.submitSeason();
+    },
+    onSeasonDraftChange: () => {
+      args.renderSeasonDraftSummary();
+      args.syncDashboardState();
+    },
+    onTournamentDraftChange: () => {
+      args.renderTournamentDraftSummary();
+      args.syncDashboardState();
+    },
+    onScoreInputChange: () => {
+      args.renderMatchDraftSummary();
+    },
+  };
+};
 
 export const createSharePanelHandlers = (args: {
   segmentType: SegmentType;

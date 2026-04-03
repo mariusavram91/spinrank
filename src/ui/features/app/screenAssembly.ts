@@ -76,7 +76,7 @@ export const assembleAppScreens = (args: {
   deleteTournamentButton: HTMLButtonElement;
   tournamentStatus: HTMLElement;
   loadTournamentSelect: HTMLSelectElement;
-  tournamentLoadActions: HTMLElement;
+  resetTournamentDraftButton: HTMLButtonElement;
   tournamentSeasonSelect: HTMLSelectElement;
   tournamentNameInput: HTMLInputElement;
   tournamentDateInput: HTMLInputElement;
@@ -92,7 +92,7 @@ export const assembleAppScreens = (args: {
   seasonForm: HTMLFormElement;
   seasonStatus: HTMLElement;
   loadSeasonSelect: HTMLSelectElement;
-  seasonLoadActions: HTMLElement;
+  resetSeasonDraftButton: HTMLButtonElement;
   seasonNameInput: HTMLInputElement;
   seasonStartDateInput: HTMLInputElement;
   seasonEndDateInput: HTMLInputElement;
@@ -180,7 +180,7 @@ export const assembleAppScreens = (args: {
     deleteTournamentButton: args.deleteTournamentButton,
     tournamentStatus: args.tournamentStatus,
     loadTournamentSelect: args.loadTournamentSelect,
-    tournamentLoadActions: args.tournamentLoadActions,
+    resetTournamentDraftButton: args.resetTournamentDraftButton,
     tournamentSeasonSelect: args.tournamentSeasonSelect,
     tournamentNameInput: args.tournamentNameInput,
     tournamentDateInput: args.tournamentDateInput,
@@ -199,7 +199,7 @@ export const assembleAppScreens = (args: {
     seasonForm: args.seasonForm,
     seasonStatus: args.seasonStatus,
     loadSeasonSelect: args.loadSeasonSelect,
-    seasonLoadActions: args.seasonLoadActions,
+    resetSeasonDraftButton: args.resetSeasonDraftButton,
     seasonNameInput: args.seasonNameInput,
     seasonStartDateInput: args.seasonStartDateInput,
     seasonEndDateInput: args.seasonEndDateInput,

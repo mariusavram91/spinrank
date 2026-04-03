@@ -1484,6 +1484,39 @@ button:disabled,
   color: var(--error);
 }
 
+.form-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.form-choice-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 10px;
+}
+
+.form-choice-row__field {
+  margin: 0;
+}
+
+.form-choice-row__action {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.form-choice-row__separator {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.form-choice-row__button {
+  align-self: center;
+}
+
 .participant-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1541,6 +1574,12 @@ button:disabled,
   grid-column: 1 / -1;
 }
 
+.panel-section--entry {
+  padding-bottom: 18px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(82, 61, 36, 0.12);
+}
+
 .panel-section h4 {
   margin: 0;
   font-size: 1rem;
@@ -1562,6 +1601,12 @@ button:disabled,
 .share-panel h4 {
   margin: 0;
   font-size: 1rem;
+}
+
+.share-panel__description {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
 }
 
 .share-panel__controls {

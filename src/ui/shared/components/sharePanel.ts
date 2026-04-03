@@ -12,6 +12,10 @@ export const buildSharePanel = (segmentType: SegmentType): SharePanelElements =>
     segmentType === "season" ? "shareSegmentTypeSeason" : "shareSegmentTypeTournament";
   heading.textContent = t("shareInviteTitle").replace("{segment}", t(titleSegmentKey));
 
+  const description = document.createElement("p");
+  description.className = "share-panel__description";
+  bindLocalizedText(description, "sharePanelDescription");
+
   const controls = document.createElement("div");
   controls.className = "share-panel__controls";
 
@@ -48,7 +52,7 @@ export const buildSharePanel = (segmentType: SegmentType): SharePanelElements =>
   status.className = "form-status share-panel__status";
   status.dataset.status = "ready";
 
-  section.append(heading, controls, status);
+  section.append(heading, description, controls, status);
 
   return {
     section,

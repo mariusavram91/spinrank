@@ -68,10 +68,10 @@ export const bindTopLevelUiHandlers = (args: {
 };
 
 export const bindSelectionAndFormHandlers = (args: {
-  loadTournamentButton: HTMLButtonElement;
   loadTournamentSelect: HTMLSelectElement;
   loadSeasonSelect: HTMLSelectElement;
-  loadSeasonButton: HTMLButtonElement;
+  resetTournamentDraftButton: HTMLButtonElement;
+  resetSeasonDraftButton: HTMLButtonElement;
   tournamentNameInput: HTMLInputElement;
   saveTournamentButton: HTMLButtonElement;
   deleteTournamentButton: HTMLButtonElement;
@@ -88,10 +88,10 @@ export const bindSelectionAndFormHandlers = (args: {
   seasonDraftInputs: Array<HTMLInputElement | HTMLSelectElement>;
   tournamentDraftInputs: Array<HTMLInputElement | HTMLSelectElement>;
   scoreInputs: Array<{ teamA: HTMLInputElement; teamB: HTMLInputElement }>;
-  onLoadTournament: () => void;
   onTournamentSelectChange: () => void;
   onSeasonSelectChange: () => void;
-  onLoadSeason: () => void;
+  onResetTournamentDraft: () => void;
+  onResetSeasonDraft: () => void;
   onTournamentNameInput: () => void;
   onSaveTournament: () => void;
   onDeleteTournament: () => void;
@@ -109,10 +109,10 @@ export const bindSelectionAndFormHandlers = (args: {
   onTournamentDraftChange: () => void;
   onScoreInputChange: () => void;
 }): void => {
-  args.loadTournamentButton.addEventListener("click", args.onLoadTournament);
   args.loadTournamentSelect.addEventListener("change", args.onTournamentSelectChange);
   args.loadSeasonSelect.addEventListener("change", args.onSeasonSelectChange);
-  args.loadSeasonButton.addEventListener("click", args.onLoadSeason);
+  args.resetTournamentDraftButton.addEventListener("click", args.onResetTournamentDraft);
+  args.resetSeasonDraftButton.addEventListener("click", args.onResetSeasonDraft);
   args.tournamentNameInput.addEventListener("input", args.onTournamentNameInput);
   args.saveTournamentButton.addEventListener("click", args.onSaveTournament);
   args.deleteTournamentButton.addEventListener("click", args.onDeleteTournament);

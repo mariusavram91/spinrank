@@ -28,11 +28,13 @@ type DashboardSyncDom = {
   openCreateMatchButton: HTMLButtonElement;
   openCreateTournamentButton: HTMLButtonElement;
   openCreateSeasonButton: HTMLButtonElement;
+  tournamentMeta: HTMLElement;
+  seasonMeta: HTMLElement;
   closeCreateMatchButton: HTMLButtonElement;
   closeCreateSeasonButton: HTMLButtonElement;
-  loadSeasonButton: HTMLButtonElement;
+  resetSeasonDraftButton: HTMLButtonElement;
   suggestMatchButton: HTMLButtonElement;
-  loadTournamentButton: HTMLButtonElement;
+  resetTournamentDraftButton: HTMLButtonElement;
   saveTournamentButton: HTMLButtonElement;
   suggestTournamentButton: HTMLButtonElement;
   loadMoreButton: HTMLButtonElement;
@@ -44,6 +46,7 @@ type DashboardSyncDom = {
   tournamentStatus: HTMLElement;
   deleteSeasonButton: HTMLButtonElement;
   deleteTournamentButton: HTMLButtonElement;
+  seasonStartDateInput: HTMLInputElement;
   seasonLockNotice: HTMLElement;
   tournamentLockNotice: HTMLElement;
   leaderboardStatsGroup: HTMLElement;
@@ -145,12 +148,27 @@ export const createDashboardSync = (args: {
         args.dashboardState.loading || args.dashboardState.matchesLoading;
       args.dom.openCreateSeasonButton.disabled =
         args.dashboardState.loading || args.dashboardState.matchesLoading;
+      args.dom.tournamentMeta.textContent = args.t(
+        args.tournamentPlannerState.tournamentId ? "tournamentMetaEditing" : "tournamentMeta",
+      );
+      args.dom.seasonMeta.textContent = args.t(
+        args.dashboardState.editingSeasonId ? "seasonMetaEditing" : "seasonMeta",
+      );
       args.dom.closeCreateMatchButton.disabled = args.dashboardState.matchSubmitting;
       args.dom.closeCreateSeasonButton.disabled = args.dashboardState.seasonSubmitting;
-      args.dom.loadSeasonButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting;
+      const seasonResetAction = args.dom.resetSeasonDraftButton.parentElement as HTMLElement | null;
+      if (seasonResetAction) {
+        seasonResetAction.hidden = !args.dashboardState.editingSeasonId;
+      }
+      args.dom.resetSeasonDraftButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting;
       args.dom.suggestMatchButton.disabled =
         args.dashboardState.loading || args.dashboardState.matchSubmitting;
-      args.dom.loadTournamentButton.disabled = args.dashboardState.loading;
+      const tournamentResetAction = args.dom.resetTournamentDraftButton.parentElement as HTMLElement | null;
+      if (tournamentResetAction) {
+        tournamentResetAction.hidden = !args.tournamentPlannerState.tournamentId;
+      }
+      args.dom.resetTournamentDraftButton.disabled =
+        args.dashboardState.loading || args.dashboardState.tournamentSubmitting;
       args.dom.saveTournamentButton.disabled =
         args.dashboardState.loading ||
         args.dashboardState.tournamentSubmitting ||
@@ -188,6 +206,7 @@ export const createDashboardSync = (args: {
       args.dom.tournamentStatus.textContent =
         args.tournamentPlannerState.error || args.dashboardState.tournamentFormMessage;
       args.dom.tournamentStatus.dataset.status = args.tournamentPlannerState.error ? "error" : "ready";
+      args.dom.seasonStartDateInput.disabled = Boolean(args.dashboardState.editingSeasonId);
       const currentUserId = args.helpers.getCurrentUserId();
       args.dom.deleteSeasonButton.hidden = !args.helpers.canSoftDelete(
         args.helpers.getEditingSeason() ?? {},
