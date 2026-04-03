@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, MatchFeedFilter, SeasonRecord, TournamentRecord } from "../../../api/contract";
+import type { LeaderboardEntry, MatchFeedFilter, SeasonRecord } from "../../../api/contract";
 import { buildHelpScreens } from "../help/screens";
 import { buildDashboardOverview } from "../dashboard/overview";
 import { buildFooter } from "../../shared/components/footer";
@@ -36,9 +36,7 @@ export const createAppDom = (args: {
   getPlayers: () => LeaderboardEntry[];
   getCurrentUserId: () => string;
   getSeasons: () => SeasonRecord[];
-  getTournaments: () => TournamentRecord[];
   getSelectedSeasonId: () => string;
-  getSelectedTournamentId: () => string;
 }) => {
   const container = document.createElement("main");
   container.className = "shell";
@@ -176,9 +174,7 @@ export const createAppDom = (args: {
     getPlayers: args.getPlayers,
     getCurrentUserId: args.getCurrentUserId,
     getSeasons: args.getSeasons,
-    getTournaments: args.getTournaments,
     getSelectedSeasonId: args.getSelectedSeasonId,
-    getSelectedTournamentId: args.getSelectedTournamentId,
   });
   const { overlay: deleteWarningOverlay, prompt: promptDeleteWarning } = buildDeleteWarning();
 

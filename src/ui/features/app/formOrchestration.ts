@@ -1,6 +1,7 @@
 import type { CreateMatchPayload, CreateSeasonPayload } from "../../../api/contract";
 import type { TextKey } from "../../shared/i18n/translations";
 import type { DashboardState, TournamentPlannerState, ViewState } from "../../shared/types/app";
+import { isCompletedSeason, isCompletedTournament } from "./helpers";
 import { getTodayDateValue } from "../../shared/utils/format";
 
 type SelectOption = { value: string; label: string };
@@ -135,7 +136,7 @@ export const createFormOrchestration = (args: {
     const options = args.dashboardState.seasons.map((season) => {
       const option = document.createElement("option");
       option.value = season.id;
-      option.textContent = `${season.name} (${args.formatDate(season.startDate)})${season.status === "completed" ? " • Completed" : ""}`;
+      option.textContent = `${season.name} (${args.formatDate(season.startDate)})${isCompletedSeason(season) ? " • Completed" : ""}`;
       option.selected = season.id === args.dashboardState.selectedSeasonId;
       return option;
     });
@@ -192,7 +193,7 @@ export const createFormOrchestration = (args: {
         { value: "", label: args.t("savedSeasons") },
         ...args.dashboardState.seasons.map((season) => ({
           value: season.id,
-          label: `${season.name}${season.status === "completed" ? " • Completed" : ""}`,
+          label: `${season.name}${isCompletedSeason(season) ? " • Completed" : ""}`,
         })),
       ],
       args.dashboardState.editingSeasonId,
@@ -309,7 +310,7 @@ export const createFormOrchestration = (args: {
         { value: "", label: "No season" },
         ...args.dashboardState.seasons.map((season) => ({
           value: season.id,
-          label: `${season.name}${season.status === "completed" ? " • Completed" : ""}`,
+          label: `${season.name}${isCompletedSeason(season) ? " • Completed" : ""}`,
         })),
       ],
       args.formSeasonSelect.value,
@@ -329,7 +330,7 @@ export const createFormOrchestration = (args: {
         { value: "", label: "No tournament" },
         ...filteredTournaments.map((tournament) => ({
           value: tournament.id,
-          label: `${tournament.name}${tournament.status === "completed" ? " • Completed" : ""}`,
+          label: `${tournament.name}${isCompletedTournament(tournament) ? " • Completed" : ""}`,
         })),
       ],
       args.formTournamentSelect.value,

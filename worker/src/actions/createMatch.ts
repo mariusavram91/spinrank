@@ -1,6 +1,6 @@
-import { isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
+import { dateOnly, isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { applyBracketResult, getBracketRounds, saveTournamentBracket } from "../services/brackets";
+import { applyBracketResult, getBracketRounds, isTournamentBracketCompleted, saveTournamentBracket } from "../services/brackets";
 import { computeEloDeltaForTeams, createBlankRatingState, recomputeAllRankings } from "../services/elo";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
 import type {
@@ -193,7 +193,7 @@ export async function handleCreateMatch(
     if (season && !canAccessSeason(season, sessionUser.id)) {
       return errorResponse(request.requestId, "FORBIDDEN", "You do not have access to this season.");
     }
-    if (season && season.status !== "active") {
+    if (season && (season.status === "completed" || (season.end_date && dateOnly(isoNow()) > season.end_date))) {
       return errorResponse(request.requestId, "CONFLICT", "This season is completed and no further matches can be added.");
     }
 
@@ -201,7 +201,7 @@ export async function handleCreateMatch(
     if (tournament && !(await canAccessTournament(env, tournament, sessionUser.id))) {
       return errorResponse(request.requestId, "FORBIDDEN", "You do not have access to this tournament.");
     }
-    if (tournament && tournament.status !== "active") {
+    if (tournament && (tournament.status === "completed" || (await isTournamentBracketCompleted(env, tournament.id)))) {
       return errorResponse(request.requestId, "CONFLICT", "This tournament is completed and no further matches can be added.");
     }
     if (seasonId && tournament?.season_id && tournament.season_id !== seasonId) {

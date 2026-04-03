@@ -1,4 +1,4 @@
-import { isoNow, randomId } from "../db";
+import { dateOnly, isoNow, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { getSeasonById } from "../services/visibility";
 import type { ApiRequest, CreateSeasonPayload, Env, SeasonRecord, UserRow } from "../types";
@@ -76,7 +76,12 @@ export async function handleCreateSeason(
   if (existing && existing.created_by_user_id !== sessionUser.id) {
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can edit this season.");
   }
-  if (existing?.status === "completed" || existing?.status === "deleted") {
+  if (
+    existing &&
+    (existing.status === "deleted" ||
+      existing.status === "completed" ||
+      (existing.end_date && dateOnly(isoNow()) > existing.end_date))
+  ) {
     return errorResponse(request.requestId, "CONFLICT", "This season can no longer be edited.");
   }
 

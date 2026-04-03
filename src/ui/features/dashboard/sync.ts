@@ -33,6 +33,13 @@ type DashboardSyncDom = {
   closeCreateMatchButton: HTMLButtonElement;
   closeCreateSeasonButton: HTMLButtonElement;
   resetSeasonDraftButton: HTMLButtonElement;
+  seasonNameInput: HTMLInputElement;
+  seasonStartDateInput: HTMLInputElement;
+  seasonEndDateInput: HTMLInputElement;
+  seasonBaseEloSelect: HTMLSelectElement;
+  seasonIsActiveInput: HTMLInputElement;
+  seasonIsPublicInput: HTMLInputElement;
+  seasonSelectAllParticipantsInput: HTMLInputElement;
   suggestMatchButton: HTMLButtonElement;
   matchTypeSelect: HTMLSelectElement;
   resetTournamentDraftButton: HTMLButtonElement;
@@ -47,9 +54,17 @@ type DashboardSyncDom = {
   tournamentStatus: HTMLElement;
   deleteSeasonButton: HTMLButtonElement;
   deleteTournamentButton: HTMLButtonElement;
-  seasonStartDateInput: HTMLInputElement;
   seasonLockNotice: HTMLElement;
   tournamentLockNotice: HTMLElement;
+  seasonBaseEloToggle: HTMLElement | null;
+  seasonStateToggle: HTMLElement | null;
+  seasonVisibilityToggle: HTMLElement | null;
+  tournamentNameInput: HTMLInputElement;
+  tournamentDateInput: HTMLInputElement;
+  tournamentSeasonSelect: HTMLSelectElement;
+  tournamentSelectAllParticipantsInput: HTMLInputElement;
+  loadSeasonSelect: HTMLSelectElement;
+  loadTournamentSelect: HTMLSelectElement;
   leaderboardStatsGroup: HTMLElement;
   leaderboardMatchesSummary: HTMLElement;
   leaderboardMatchesSummaryValue: HTMLElement;
@@ -57,6 +72,7 @@ type DashboardSyncDom = {
   leaderboardStatMostActivePlayer: HTMLElement;
   leaderboardStatMostActiveMeta: HTMLElement;
   leaderboardStatLongestStreak: HTMLElement;
+  leaderboardStatLongestStreakLabel: HTMLElement;
   leaderboardStatLongestStreakPlayer: HTMLElement;
   leaderboardStatLongestStreakMeta: HTMLElement;
 };
@@ -176,13 +192,11 @@ export const createDashboardSync = (args: {
       args.dom.saveTournamentButton.disabled =
         args.dashboardState.loading ||
         args.dashboardState.tournamentSubmitting ||
-        args.tournamentPlannerState.rounds.length === 0 ||
-        args.helpers.isLockedTournament(args.helpers.getEditingTournament());
+        args.tournamentPlannerState.rounds.length === 0;
       args.dom.suggestTournamentButton.disabled =
         args.dashboardState.loading ||
         args.tournamentPlannerState.participantIds.length < 2 ||
-        args.helpers.hasTournamentProgress() ||
-        args.helpers.isLockedTournament(args.helpers.getEditingTournament());
+        args.helpers.hasTournamentProgress();
       args.dom.loadMoreButton.disabled = args.dashboardState.matchesLoading;
       args.dom.loadMoreButton.hidden = !args.dashboardState.matchesCursor;
 
@@ -219,7 +233,6 @@ export const createDashboardSync = (args: {
       const hasTournamentStatus = Boolean(args.tournamentPlannerState.error || args.dashboardState.tournamentFormMessage);
       args.dom.tournamentStatus.hidden = !hasTournamentStatus;
       args.dom.tournamentStatus.classList.toggle("share-alert--visible", hasTournamentStatus);
-      args.dom.seasonStartDateInput.disabled = Boolean(args.dashboardState.editingSeasonId);
       const currentUserId = args.helpers.getCurrentUserId();
       args.dom.deleteSeasonButton.hidden = !args.helpers.canSoftDelete(
         args.helpers.getEditingSeason() ?? {},
@@ -244,33 +257,78 @@ export const createDashboardSync = (args: {
       );
 
       const editingSeason = args.helpers.getEditingSeason();
-      args.dom.seasonLockNotice.hidden = !args.helpers.isLockedSeason(editingSeason);
+      const seasonLocked = args.helpers.isLockedSeason(editingSeason);
+      const seasonEditable = !seasonLocked;
+      const seasonEndDateEditable = !seasonLocked;
+      args.dom.seasonLockNotice.hidden = !seasonLocked;
       if (editingSeason) {
         args.dom.seasonLockNotice.textContent =
-          editingSeason.status === "completed"
-            ? args.t("seasonLockCompleted")
-            : args.t("seasonLockDeleted");
+          editingSeason.status === "deleted" ? args.t("seasonLockDeleted") : args.t("seasonLockCompleted");
       }
+      const setButtonsDisabled = (toggle: HTMLElement | null, disabled: boolean): void => {
+        if (!toggle) {
+          return;
+        }
+        toggle.querySelectorAll<HTMLButtonElement>("button[data-value]").forEach((button) => {
+          button.disabled = disabled;
+        });
+      };
+      args.dom.seasonNameInput.disabled = !seasonEditable;
+      args.dom.seasonStartDateInput.disabled = !seasonEditable;
+      args.dom.seasonEndDateInput.disabled = !seasonEndDateEditable;
+      args.dom.seasonBaseEloSelect.disabled = !seasonEditable;
+      args.dom.seasonIsActiveInput.disabled = !seasonEditable;
+      args.dom.seasonIsPublicInput.disabled = !seasonEditable;
+      args.dom.seasonSelectAllParticipantsInput.disabled = !seasonEditable;
+      args.dom.loadSeasonSelect.disabled = args.dashboardState.loading;
+      args.dom.resetSeasonDraftButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting;
+      args.dom.submitSeasonButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting || seasonLocked;
+      setButtonsDisabled(args.dom.seasonStateToggle, !seasonEditable);
+      setButtonsDisabled(args.dom.seasonBaseEloToggle, !seasonEditable);
+      setButtonsDisabled(args.dom.seasonVisibilityToggle, !seasonEditable);
+      args.dom.deleteSeasonButton.disabled = seasonLocked;
 
       const editingTournament = args.helpers.getEditingTournament();
+      const tournamentLocked = args.helpers.isLockedTournament(editingTournament);
       args.dom.tournamentLockNotice.hidden = !args.helpers.isLockedTournament(editingTournament);
       if (editingTournament) {
         args.dom.tournamentLockNotice.textContent =
-          editingTournament.status === "completed"
-            ? args.t("tournamentLockCompleted")
-            : args.t("tournamentLockDeleted");
+          editingTournament.status === "deleted"
+            ? args.t("tournamentLockDeleted")
+            : args.t("tournamentLockCompleted");
       }
+      args.dom.tournamentNameInput.disabled = tournamentLocked;
+      args.dom.tournamentDateInput.disabled = tournamentLocked;
+      args.dom.tournamentSeasonSelect.disabled = tournamentLocked;
+      args.dom.tournamentSelectAllParticipantsInput.disabled = tournamentLocked;
+      args.dom.loadTournamentSelect.disabled = args.dashboardState.loading;
+      args.dom.resetTournamentDraftButton.disabled =
+        args.dashboardState.loading || args.dashboardState.tournamentSubmitting;
+      args.dom.saveTournamentButton.disabled =
+        args.dashboardState.loading ||
+        args.dashboardState.tournamentSubmitting ||
+        args.tournamentPlannerState.rounds.length === 0 ||
+        tournamentLocked;
+      args.dom.suggestTournamentButton.disabled =
+        args.dashboardState.loading ||
+        args.tournamentPlannerState.participantIds.length < 2 ||
+        args.helpers.hasTournamentProgress() ||
+        tournamentLocked;
+      args.dom.deleteTournamentButton.disabled = tournamentLocked;
 
       args.renderers.leaderboard.render();
 
       const leaderboardStats = args.dashboardState.leaderboardStats;
-      const busiestPlayer = leaderboardStats?.mostMatchesPlayer ?? null;
+      const isTournamentMode = args.dashboardState.segmentMode === "tournament";
+      const busiestPlayer = !isTournamentMode ? leaderboardStats?.mostMatchesPlayer ?? null : null;
+      const tournamentWinnerPlayer = isTournamentMode ? leaderboardStats?.tournamentWinnerPlayer ?? null : null;
       const longestStreakPlayer = getLongestStreakPlayer();
 
       const showStats =
         Boolean(leaderboardStats?.totalMatches) ||
         Boolean(busiestPlayer) ||
-        Boolean(longestStreakPlayer);
+        Boolean(longestStreakPlayer) ||
+        Boolean(tournamentWinnerPlayer);
       args.dom.leaderboardStatsGroup.hidden = !showStats;
 
       if (leaderboardStats?.totalMatches !== undefined) {
@@ -280,7 +338,7 @@ export const createDashboardSync = (args: {
         args.dom.leaderboardMatchesSummary.hidden = true;
       }
 
-      if (busiestPlayer && busiestPlayer.matchesPlayed > 0) {
+      if (!isTournamentMode && busiestPlayer && busiestPlayer.matchesPlayed > 0) {
         args.dom.leaderboardStatMostActivePlayer.textContent = busiestPlayer.displayName;
         args.dom.leaderboardStatMostActiveMeta.textContent = ` • 🔥 ${formatCount(
           busiestPlayer.matchesPlayed,
@@ -290,7 +348,13 @@ export const createDashboardSync = (args: {
         args.dom.leaderboardStatMostActive.hidden = true;
       }
 
-      if (longestStreakPlayer) {
+      if (tournamentWinnerPlayer) {
+        args.dom.leaderboardStatLongestStreakLabel.textContent = args.t("leaderboardWinner");
+        args.dom.leaderboardStatLongestStreakPlayer.textContent = tournamentWinnerPlayer.displayName;
+        args.dom.leaderboardStatLongestStreakMeta.textContent = ` • 🏆 ${args.t("leaderboardChampion")}`;
+        args.dom.leaderboardStatLongestStreak.hidden = false;
+      } else if (longestStreakPlayer) {
+        args.dom.leaderboardStatLongestStreakLabel.textContent = args.t("leaderboardLongestStreakLabel");
         args.dom.leaderboardStatLongestStreakPlayer.textContent = longestStreakPlayer.displayName;
         args.dom.leaderboardStatLongestStreakMeta.textContent = ` • 🏆 ${longestStreakPlayer.streak} ${args.t(
           "leaderboardWins",

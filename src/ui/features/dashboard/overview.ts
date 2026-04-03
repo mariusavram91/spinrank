@@ -27,6 +27,7 @@ export interface DashboardOverviewElements {
   leaderboardStatMostActivePlayer: HTMLSpanElement;
   leaderboardStatMostActiveMeta: HTMLSpanElement;
   leaderboardStatLongestStreak: HTMLDivElement;
+  leaderboardStatLongestStreakLabel: HTMLSpanElement;
   leaderboardStatLongestStreakPlayer: HTMLSpanElement;
   leaderboardStatLongestStreakMeta: HTMLSpanElement;
   leaderboardList: HTMLDivElement;
@@ -96,6 +97,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   leaderboardTop.className = "card-header leaderboard-topline";
 
   const leaderboardHeading = document.createElement("div");
+  leaderboardHeading.className = "leaderboard-topline__heading";
 
   const leaderboardTitle = document.createElement("h3");
   leaderboardTitle.className = "card-title";
@@ -212,7 +214,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
 
   leaderboardHeading.append(leaderboardTitle, segmentToggle, seasonSelect, seasonStats, tournamentSelect);
   leaderboardTop.append(leaderboardHeading);
-  leaderboardPanel.append(leaderboardTop, leaderboardStatsGroup, leaderboardList);
+  leaderboardPanel.append(leaderboardTop, leaderboardList, leaderboardStatsGroup);
 
   return {
     dashboardStatus,
@@ -241,6 +243,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatMostActivePlayer,
     leaderboardStatMostActiveMeta,
     leaderboardStatLongestStreak,
+    leaderboardStatLongestStreakLabel,
     leaderboardStatLongestStreakPlayer,
     leaderboardStatLongestStreakMeta,
     leaderboardList,

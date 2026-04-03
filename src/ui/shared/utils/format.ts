@@ -20,6 +20,9 @@ export const getTodayDateValue = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+export const isPastDateValue = (value: string, todayValue = getTodayDateValue()): boolean =>
+  Boolean(value) && value < todayValue;
+
 export const toLocalDateTimeValue = (value: string): string => {
   const date = new Date(value);
   const parts = [

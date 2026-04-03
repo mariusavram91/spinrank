@@ -8,6 +8,7 @@ import type {
 } from "../../../api/contract";
 import type { TextKey } from "../../shared/i18n/translations";
 import type { ViewState } from "../../shared/types/app";
+import { getTodayDateValue, isPastDateValue } from "../../shared/utils/format";
 
 export const buildSessionFromBootstrap = (data: BootstrapUserData): AppSession => ({
   sessionToken: data.sessionToken,
@@ -38,11 +39,25 @@ export const getMatchFeedContextLabel = (
 
 export const getCurrentUserId = (state: ViewState): string => (isAuthedState(state) ? state.session.user.id : "");
 
+export const isCompletedSeason = (season: SeasonRecord | undefined): boolean =>
+  Boolean(season && season.status !== "deleted" && isPastDateValue(season.endDate, getTodayDateValue()));
+
 export const isLockedSeason = (season: SeasonRecord | undefined): boolean =>
-  Boolean(season && season.status !== "active");
+  Boolean(
+    season &&
+      (season.status === "deleted" ||
+        season.status === "completed" ||
+        isCompletedSeason(season)),
+  );
+
+export const isCompletedTournament = (tournament: TournamentRecord | undefined): boolean =>
+  Boolean(tournament && tournament.bracketStatus === "completed");
 
 export const isLockedTournament = (tournament: TournamentRecord | undefined): boolean =>
-  Boolean(tournament && tournament.status !== "active");
+  Boolean(
+    tournament &&
+      (tournament.status === "deleted" || tournament.status === "completed" || isCompletedTournament(tournament)),
+  );
 
 export const getWinnerLabel = (winnerTeam: "A" | "B", teamA: string, teamB: string): string =>
   winnerTeam === "A" ? teamA : teamB;
@@ -84,4 +99,5 @@ export const matchFilterLabels: Record<MatchFeedFilter, TextKey> = {
   all: "matchFiltersAll",
 };
 
-export const getMatchLimitForFilter = (filter: MatchFeedFilter): number => (filter === "recent" ? 4 : 20);
+export const getMatchLimitForFilter = (filter: MatchFeedFilter): number =>
+  filter === "recent" || filter === "mine" ? 4 : 20;

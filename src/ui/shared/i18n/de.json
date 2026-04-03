@@ -89,6 +89,8 @@
   "leaderboardMatchesLabel": "Ausgetragene Matches",
   "leaderboardMostGamesLabel": "Die meisten Matches",
   "leaderboardLongestStreakLabel": "Längste Siegesserie",
+  "leaderboardWinner": "Sieger",
+  "leaderboardChampion": "Champion",
   "openCreateMatch": "Match erstellen",
   "openCreateSeason": "Saison erstellen",
   "openCreateTournament": "Turnier erstellen",

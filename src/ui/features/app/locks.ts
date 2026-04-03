@@ -33,9 +33,9 @@ export const createLockHelpers = (args: {
     args.submitMatchButton.disabled = args.dashboardState.matchSubmitting || args.dashboardState.loading || locked;
     args.matchLockNotice.hidden = !locked;
 
-    if (tournament && tournament.status === "completed") {
+    if (tournament && args.isLockedTournament(tournament)) {
       args.matchLockNotice.textContent = args.t("matchLockTournamentComplete");
-    } else if (season && season.status === "completed") {
+    } else if (season && args.isLockedSeason(season)) {
       args.matchLockNotice.textContent = args.t("matchLockSeasonComplete");
     } else if (locked) {
       args.matchLockNotice.textContent = args.t("matchLockBracketLocked");

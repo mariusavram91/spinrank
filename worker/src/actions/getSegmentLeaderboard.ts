@@ -95,6 +95,27 @@ export async function handleGetSegmentLeaderboard(
       avatar_url: string | null;
     }>();
 
+  const tournamentWinnerRow =
+    segmentType === "tournament"
+      ? await env.DB.prepare(
+          `
+            SELECT tbm.winner_player_id AS user_id, u.display_name, u.avatar_url
+            FROM tournament_bracket_matches tbm
+            JOIN users u ON u.id = tbm.winner_player_id
+            WHERE tbm.tournament_id = ?1
+              AND tbm.is_final = 1
+              AND tbm.winner_player_id IS NOT NULL
+            LIMIT 1
+          `,
+        )
+          .bind(segmentId)
+          .first<{
+            user_id: string;
+            display_name: string;
+            avatar_url: string | null;
+          }>()
+      : null;
+
   const stats: SegmentLeaderboardStats = {
     totalMatches: Number(matchesRow?.total_matches ?? 0),
     mostMatchesPlayer: topMatchesRow
@@ -105,6 +126,13 @@ export async function handleGetSegmentLeaderboard(
           matchesPlayed: Number(topMatchesRow.matches_played ?? 0),
           wins: Number(topMatchesRow.wins ?? 0),
           losses: Number(topMatchesRow.losses ?? 0),
+        }
+      : null,
+    tournamentWinnerPlayer: tournamentWinnerRow
+      ? {
+          userId: tournamentWinnerRow.user_id,
+          displayName: tournamentWinnerRow.display_name,
+          avatarUrl: tournamentWinnerRow.avatar_url,
         }
       : null,
   };

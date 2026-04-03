@@ -6,6 +6,10 @@ export const createShareRuntime = (args: {
   tournamentPanel: HTMLElement;
   getSeasonActionsWrapper: () => HTMLElement;
   getTournamentActionsWrapper: () => HTMLElement;
+  getEditingSeason: () => DashboardState["seasons"][number] | undefined;
+  getEditingTournament: () => DashboardState["tournaments"][number] | undefined;
+  isLockedSeason: (season: DashboardState["seasons"][number] | undefined) => boolean;
+  isLockedTournament: (tournament: DashboardState["tournaments"][number] | undefined) => boolean;
 }) => {
   let seasonSharePanelMounted = false;
   let tournamentSharePanelMounted = false;
@@ -99,13 +103,19 @@ export const createShareRuntime = (args: {
     if (!seasonSharePanelElements) {
       return;
     }
+    const editingSeason = args.getEditingSeason();
+    const locked = args.isLockedSeason(editingSeason);
     const hasSegment = Boolean(args.dashboardState.sharePanelSeasonTargetId);
+    if (!hasSegment || locked) {
+      if (seasonSharePanelMounted) {
+        args.seasonForm.removeChild(seasonSharePanelElements.section);
+        seasonSharePanelMounted = false;
+      }
+      return;
+    }
     if (hasSegment && !seasonSharePanelMounted) {
       args.seasonForm.insertBefore(seasonSharePanelElements.section, args.getSeasonActionsWrapper());
       seasonSharePanelMounted = true;
-    } else if (!hasSegment && seasonSharePanelMounted) {
-      args.seasonForm.removeChild(seasonSharePanelElements.section);
-      seasonSharePanelMounted = false;
     }
   };
 
@@ -115,13 +125,19 @@ export const createShareRuntime = (args: {
     if (!tournamentSharePanelElements) {
       return;
     }
+    const editingTournament = args.getEditingTournament();
+    const locked = args.isLockedTournament(editingTournament);
     const hasSegment = Boolean(args.dashboardState.sharePanelTournamentTargetId);
+    if (!hasSegment || locked) {
+      if (tournamentSharePanelMounted) {
+        args.tournamentPanel.removeChild(tournamentSharePanelElements.section);
+        tournamentSharePanelMounted = false;
+      }
+      return;
+    }
     if (hasSegment && !tournamentSharePanelMounted) {
       args.tournamentPanel.insertBefore(tournamentSharePanelElements.section, args.getTournamentActionsWrapper());
       tournamentSharePanelMounted = true;
-    } else if (!hasSegment && tournamentSharePanelMounted) {
-      args.tournamentPanel.removeChild(tournamentSharePanelElements.section);
-      tournamentSharePanelMounted = false;
     }
   };
 

@@ -713,6 +713,10 @@ button:disabled,
   gap: 12px;
 }
 
+.leaderboard-topline__heading {
+  width: 100%;
+}
+
 .select-input {
   width: 100%;
   margin-top: 16px;

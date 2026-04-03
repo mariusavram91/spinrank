@@ -89,6 +89,8 @@
   "leaderboardMatchesLabel": "Matches played",
   "leaderboardMostGamesLabel": "Most games this season",
   "leaderboardLongestStreakLabel": "Longest win streak",
+  "leaderboardWinner": "Winner",
+  "leaderboardChampion": "Champion",
   "openCreateMatch": "Create match",
   "openCreateSeason": "Create season",
   "openCreateTournament": "Create Tournament",

@@ -164,6 +164,23 @@ export async function getPlanParticipantIds(env: Env, tournamentId: string): Pro
   return plan ? parseJsonArray<string>(plan.participant_ids_json) : [];
 }
 
+export async function isTournamentBracketCompleted(env: Env, tournamentId: string): Promise<boolean> {
+  const result = await env.DB.prepare(
+    `
+      SELECT winner_player_id
+      FROM tournament_bracket_matches
+      WHERE tournament_id = ?1
+        AND is_final = 1
+        AND winner_player_id IS NOT NULL
+      LIMIT 1
+    `,
+  )
+    .bind(tournamentId)
+    .first<{ winner_player_id: string | null }>();
+
+  return Boolean(result?.winner_player_id);
+}
+
 export async function saveTournamentBracket(
   env: Env,
   tournamentId: string,

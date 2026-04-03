@@ -119,9 +119,16 @@ export interface SegmentMostMatchesPlayer {
   losses: number;
 }
 
+export interface SegmentTournamentWinner {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
 export interface SegmentLeaderboardStats {
   totalMatches: number;
   mostMatchesPlayer: SegmentMostMatchesPlayer | null;
+  tournamentWinnerPlayer: SegmentTournamentWinner | null;
 }
 
 export interface GetLeaderboardData {

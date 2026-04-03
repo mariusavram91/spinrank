@@ -1,6 +1,7 @@
-import type { CreateMatchPayload, LeaderboardEntry, SeasonRecord, TournamentRecord } from "../../../api/contract";
+import type { CreateMatchPayload, LeaderboardEntry, SeasonRecord } from "../../../api/contract";
 import { bindLocalizedText, registerTranslation, t } from "../i18n/runtime";
 import type { TextKey } from "../i18n/translations";
+import { isPastDateValue } from "../utils/format";
 
 type ScoreKey = "teamA" | "teamB";
 type TeamKey = "A" | "B";
@@ -243,9 +244,7 @@ export const buildScoreCard = (args: {
   getPlayers: () => LeaderboardEntry[];
   getCurrentUserId: () => string;
   getSeasons: () => SeasonRecord[];
-  getTournaments: () => TournamentRecord[];
   getSelectedSeasonId: () => string;
-  getSelectedTournamentId: () => string;
 }): ScoreCardElements => {
   const openButton = document.createElement("button");
   openButton.type = "button";
@@ -356,10 +355,7 @@ export const buildScoreCard = (args: {
 
   const seasonSelect = document.createElement("select");
   seasonSelect.className = "select-input score-card__context-select";
-  const tournamentSelect = document.createElement("select");
-  tournamentSelect.className = "select-input score-card__context-select";
   let selectedSeasonId = args.getSelectedSeasonId();
-  let selectedTournamentId = args.getSelectedTournamentId();
 
   const contextPanel = document.createElement("div");
   contextPanel.className = "score-card__context";
@@ -378,14 +374,7 @@ export const buildScoreCard = (args: {
   bindLocalizedText(seasonFieldLabel, "matchFieldSeason");
   seasonField.append(seasonFieldLabel, seasonSelect);
 
-  const tournamentField = document.createElement("label");
-  tournamentField.className = "score-card__context-field";
-  const tournamentFieldLabel = document.createElement("span");
-  tournamentFieldLabel.className = "score-card__context-field-label";
-  bindLocalizedText(tournamentFieldLabel, "matchFieldTournament");
-  tournamentField.append(tournamentFieldLabel, tournamentSelect);
-
-  contextFields.append(seasonField, tournamentField);
+  contextFields.append(seasonField);
   contextPanel.append(contextLabel, contextFields);
 
   const scoreState: GameScore = { teamA: 0, teamB: 0 };
@@ -522,64 +511,24 @@ export const buildScoreCard = (args: {
 
   const syncContextControls = (): void => {
     const seasons = args.getSeasons();
-    const tournaments = args.getTournaments();
-    const selectedTournament = tournaments.find((entry) => entry.id === selectedTournamentId) || null;
-
-    if (selectedTournament?.seasonId && selectedTournament.seasonId !== selectedSeasonId) {
-      selectedSeasonId = selectedTournament.seasonId;
-    }
-
-    const filteredTournaments = selectedSeasonId
-      ? tournaments.filter((entry) => entry.seasonId === selectedSeasonId)
-      : tournaments;
-
-    if (selectedTournamentId && !filteredTournaments.some((entry) => entry.id === selectedTournamentId)) {
-      selectedTournamentId = "";
-    }
-
     replaceOptions(
       seasonSelect,
       [
         { value: "", label: t("noSeason") },
         ...seasons.map((season) => ({
           value: season.id,
-          label: season.status === "completed" ? `${season.name} • Completed` : season.name,
+          label: season.status === "completed" || isPastDateValue(season.endDate)
+            ? `${season.name} • Completed`
+            : season.name,
         })),
       ],
       selectedSeasonId,
       t("noSeason"),
     );
-
-    replaceOptions(
-      tournamentSelect,
-      [
-        { value: "", label: t("noTournament") },
-        ...filteredTournaments.map((tournament) => ({
-          value: tournament.id,
-          label: tournament.status === "completed" ? `${tournament.name} • Completed` : tournament.name,
-        })),
-      ],
-      selectedTournamentId,
-      t("noTournament"),
-    );
   };
 
   seasonSelect.addEventListener("change", () => {
     selectedSeasonId = seasonSelect.value;
-    if (selectedTournamentId) {
-      const selectedTournament = args.getTournaments().find((entry) => entry.id === selectedTournamentId) || null;
-      if (!selectedTournament || selectedTournament.seasonId !== selectedSeasonId) {
-        selectedTournamentId = "";
-      }
-    }
-    syncContextControls();
-    syncActionState();
-  });
-
-  tournamentSelect.addEventListener("change", () => {
-    selectedTournamentId = tournamentSelect.value;
-    const selectedTournament = args.getTournaments().find((entry) => entry.id === selectedTournamentId) || null;
-    selectedSeasonId = selectedTournament?.seasonId || selectedSeasonId;
     syncContextControls();
     syncActionState();
   });
@@ -827,7 +776,7 @@ export const buildScoreCard = (args: {
       formatType,
       pointsToWin,
       seasonId: selectedSeasonId,
-      tournamentId: selectedTournamentId,
+      tournamentId: "",
       selections,
       games: previousGames,
       currentScore: scoreState,
@@ -898,7 +847,6 @@ export const buildScoreCard = (args: {
     formatType = "single_game";
     pointsToWin = 11;
     selectedSeasonId = args.getSelectedSeasonId();
-    selectedTournamentId = args.getSelectedTournamentId();
     selections.teamA1 = "";
     selections.teamA2 = "";
     selections.teamB1 = "";
@@ -931,9 +879,6 @@ export const buildScoreCard = (args: {
       return null;
     }
 
-    const selectedTournament = args.getTournaments().find((entry) => entry.id === selectedTournamentId) || null;
-    const seasonId = selectedTournament?.seasonId || selectedSeasonId || null;
-
     return {
       matchType,
       formatType,
@@ -943,8 +888,8 @@ export const buildScoreCard = (args: {
       score: games.map((game) => ({ teamA: game.teamA, teamB: game.teamB })),
       winnerTeam: matchWinner,
       playedAt: new Date().toISOString(),
-      seasonId,
-      tournamentId: selectedTournamentId || null,
+      seasonId: selectedSeasonId || null,
+      tournamentId: null,
       tournamentBracketMatchId: null,
     };
   };

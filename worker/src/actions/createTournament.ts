@@ -1,6 +1,6 @@
 import { dateOnly, isoNow, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { normalizeRounds, saveTournamentBracket } from "../services/brackets";
+import { isTournamentBracketCompleted, normalizeRounds, saveTournamentBracket } from "../services/brackets";
 import { getSeasonById, getTournamentById } from "../services/visibility";
 import type { ApiRequest, CreateTournamentPayload, Env, TournamentRecord, TournamentStatus, UserRow } from "../types";
 
@@ -50,7 +50,12 @@ export async function handleCreateTournament(
   }
 
   const season = payload.seasonId ? await getSeasonById(env, payload.seasonId) : null;
-  if (season && season.status !== "active") {
+  if (
+    season &&
+    (season.status === "deleted" ||
+      season.status === "completed" ||
+      (season.end_date && dateOnly(isoNow()) > season.end_date))
+  ) {
     return errorResponse(request.requestId, "CONFLICT", "The selected season can no longer be used.");
   }
 
@@ -58,7 +63,7 @@ export async function handleCreateTournament(
   if (existing && existing.created_by_user_id !== sessionUser.id) {
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can edit this tournament.");
   }
-  if (existing?.status === "completed" || existing?.status === "deleted") {
+  if (existing && (existing.status === "deleted" || existing.status === "completed" || (await isTournamentBracketCompleted(env, existing.id)))) {
     return errorResponse(request.requestId, "CONFLICT", "This tournament can no longer be edited.");
   }
 
