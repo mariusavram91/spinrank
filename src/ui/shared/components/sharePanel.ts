@@ -4,7 +4,7 @@ import type { SharePanelElements } from "../types/app";
 
 export const buildSharePanel = (segmentType: SegmentType): SharePanelElements => {
   const section = document.createElement("section");
-  section.className = "panel-section share-panel";
+  section.className = "panel-section share-panel panel-section--editor panel-section--editor-share";
 
   const heading = document.createElement("h4");
   heading.className = "card-title";

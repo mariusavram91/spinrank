@@ -11,7 +11,7 @@ const getWinnerLabel = (winnerTeam: "A" | "B", teamA: string, teamB: string): st
 export type DraftRendererArgs = {
   dashboardState: DashboardState;
   tournamentPlannerState: TournamentPlannerState;
-  matchSummary: HTMLElement;
+  matchOutcome: HTMLElement;
   seasonSummary: HTMLElement;
   tournamentSummary: HTMLElement;
   seasonStartDateInput: HTMLInputElement;
@@ -54,16 +54,6 @@ export type DraftRenderers = {
 };
 
 export const createDraftRenderers = (args: DraftRendererArgs): DraftRenderers => {
-  const getPointsLabel = (value: string): string => {
-    if (value === "11") {
-      return args.t("points11");
-    }
-    if (value === "21") {
-      return args.t("points21");
-    }
-    return `${value} ${args.t("pointsSuffix")}`;
-  };
-
   const updateScoreLabelsAndPlaceholders = (teamALabel: string, teamBLabel: string): void => {
     const aLabel = teamALabel || args.t("teamALabel");
     const bLabel = teamBLabel || args.t("teamBLabel");
@@ -141,28 +131,14 @@ export const createDraftRenderers = (args: DraftRendererArgs): DraftRenderers =>
     const teamBLabel =
       args.renderPlayerNames(teamBPlayerIds, args.dashboardState.players) || args.t("teamBLabel");
     updateScoreLabelsAndPlaceholders(teamALabel, teamBLabel);
-    const season = args.dashboardState.seasons.find((entry) => entry.id === args.formSeasonSelect.value);
-    const tournament = args.dashboardState.tournaments.find((entry) => entry.id === args.formTournamentSelect.value);
     const derivedWinner = deriveMatchWinnerFromInputs();
     if (derivedWinner) {
       args.winnerTeamSelect.value = derivedWinner;
     }
-    const winnerLabel = derivedWinner
+    args.matchOutcome.dataset.state = derivedWinner ? "winner" : "pending";
+    args.matchOutcome.textContent = derivedWinner
       ? `${args.t("matchSummaryWinnerPrefix")} ${getWinnerLabel(derivedWinner, teamALabel, teamBLabel)}`
-      : args.t("matchSummaryWinnerTBD");
-    const matchTypeLabel =
-      args.matchTypeSelect.value === "singles" ? args.t("matchSummarySingles") : args.t("matchSummaryDoubles");
-    const detailLabel =
-      args.formatTypeSelect.value === "best_of_3"
-        ? args.t("matchSummaryBestOf3")
-        : getPointsLabel(args.pointsToWinSelect.value);
-    args.matchSummary.textContent = [
-      matchTypeLabel,
-      `${teamALabel} vs ${teamBLabel}`,
-      detailLabel,
-      winnerLabel,
-      args.getMatchFeedContextLabel(season, tournament),
-    ].join(" • ");
+      : args.t("matchOutcomePending");
   };
 
   return {

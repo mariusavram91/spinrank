@@ -177,7 +177,7 @@ export const buildApp = (): HTMLElement => {
     composerTitle,
     composerMeta,
     composerStatus,
-    matchSummary,
+    matchOutcome,
     matchLockNotice,
     matchQuickBar,
     suggestMatchButton,
@@ -315,7 +315,7 @@ export const buildApp = (): HTMLElement => {
   const draftRenderers = createDraftRenderers({
     dashboardState,
     tournamentPlannerState,
-    matchSummary,
+    matchOutcome,
     seasonSummary,
     tournamentSummary,
     seasonStartDateInput,
@@ -373,11 +373,26 @@ export const buildApp = (): HTMLElement => {
     teamA2Field: HTMLElement | null;
     teamB2Field: HTMLElement | null;
     scoreGrid: HTMLElement | null;
+    contextToggle: HTMLElement | null;
+    matchTypeToggle: HTMLElement | null;
+    formatTypeToggle: HTMLElement | null;
+    pointsToggle: HTMLElement | null;
+    seasonField: HTMLElement | null;
+    tournamentField: HTMLElement | null;
   } = {
     teamA2Field: null,
     teamB2Field: null,
     scoreGrid: null,
+    contextToggle: null,
+    matchTypeToggle: null,
+    formatTypeToggle: null,
+    pointsToggle: null,
+    seasonField: null,
+    tournamentField: null,
   };
+  let seasonBaseEloToggle: HTMLElement | null = null;
+  let seasonStateToggle: HTMLElement | null = null;
+  let seasonVisibilityToggle: HTMLElement | null = null;
   let tournamentActionsWrapper: HTMLElement;
   let seasonActionsWrapper: HTMLElement;
 
@@ -569,6 +584,7 @@ export const buildApp = (): HTMLElement => {
       closeCreateSeasonButton,
       resetSeasonDraftButton,
       suggestMatchButton,
+      matchTypeSelect,
       resetTournamentDraftButton,
       saveTournamentButton,
       suggestTournamentButton,
@@ -639,6 +655,17 @@ export const buildApp = (): HTMLElement => {
 
   const syncDashboardState = (): void => {
     dashboardSync.syncDashboardState();
+    const syncSegmentedToggle = (toggle: HTMLElement | null, value: string): void => {
+      if (!toggle) {
+        return;
+      }
+      Array.from(toggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.value === value));
+      });
+    };
+    syncSegmentedToggle(seasonBaseEloToggle, seasonBaseEloSelect.value || "carry_over");
+    syncSegmentedToggle(seasonStateToggle, seasonIsActiveInput.checked ? "active" : "inactive");
+    syncSegmentedToggle(seasonVisibilityToggle, seasonIsPublicInput.checked ? "public" : "private");
   };
 
   const setShareAlertVisible = (visible: boolean): void => {
@@ -1013,6 +1040,15 @@ export const buildApp = (): HTMLElement => {
     teamB1Field,
     teamB2Field,
     scoreGrid,
+    contextToggle,
+    matchTypeToggle,
+    formatTypeToggle,
+    pointsToggle,
+    seasonField,
+    tournamentField,
+    seasonBaseEloToggle: nextSeasonBaseEloToggle,
+    seasonStateToggle: nextSeasonStateToggle,
+    seasonVisibilityToggle: nextSeasonVisibilityToggle,
     tournamentActionsWrapper: nextTournamentActionsWrapper,
     seasonActionsWrapper: nextSeasonActionsWrapper,
   } = assembleAppScreens({
@@ -1038,7 +1074,7 @@ export const buildApp = (): HTMLElement => {
     composerMeta,
     closeCreateMatchButton,
     matchQuickBar,
-    matchSummary,
+    matchOutcome,
     matchLockNotice,
     matchForm,
     composerStatus,
@@ -1101,6 +1137,9 @@ export const buildApp = (): HTMLElement => {
   });
   tournamentActionsWrapper = nextTournamentActionsWrapper;
   seasonActionsWrapper = nextSeasonActionsWrapper;
+  seasonBaseEloToggle = nextSeasonBaseEloToggle;
+  seasonStateToggle = nextSeasonStateToggle;
+  seasonVisibilityToggle = nextSeasonVisibilityToggle;
   seasonSharePanelElements = seasonSharePanelInstance;
   tournamentSharePanelElements = tournamentSharePanelInstance;
   bindSharePanelHandlers({
@@ -1138,6 +1177,12 @@ export const buildApp = (): HTMLElement => {
   matchScreenRefs.teamA2Field = teamA2Field;
   matchScreenRefs.teamB2Field = teamB2Field;
   matchScreenRefs.scoreGrid = scoreGrid;
+  matchScreenRefs.contextToggle = contextToggle;
+  matchScreenRefs.matchTypeToggle = matchTypeToggle;
+  matchScreenRefs.formatTypeToggle = formatTypeToggle;
+  matchScreenRefs.pointsToggle = pointsToggle;
+  matchScreenRefs.seasonField = seasonField;
+  matchScreenRefs.tournamentField = tournamentField;
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());
   populateMatchFormOptions();

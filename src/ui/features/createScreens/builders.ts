@@ -11,11 +11,49 @@ type ScoreInput = {
 
 export interface MatchScreenElements {
   teamA1Field: HTMLLabelElement;
-  teamA2Field: HTMLLabelElement;
+  teamA2Field: HTMLElement;
   teamB1Field: HTMLLabelElement;
-  teamB2Field: HTMLLabelElement;
+  teamB2Field: HTMLElement;
   scoreGrid: HTMLDivElement;
+  contextToggle: HTMLDivElement;
+  matchTypeToggle: HTMLDivElement;
+  formatTypeToggle: HTMLDivElement;
+  pointsToggle: HTMLDivElement;
+  seasonField: HTMLElement;
+  tournamentField: HTMLElement;
+  matchOutcome: HTMLElement;
 }
+
+export interface SeasonScreenElements {
+  seasonActionsWrapper: HTMLDivElement;
+  seasonBaseEloToggle: HTMLDivElement;
+  seasonStateToggle: HTMLDivElement;
+  seasonVisibilityToggle: HTMLDivElement;
+}
+
+const buildSegmentedControl = (
+  options: Array<{ value: string; labelKey: TextKey }>,
+  onSelect: (value: string) => void,
+): HTMLDivElement => {
+  const toggle = document.createElement("div");
+  toggle.className = "segment-toggle form-segment-toggle";
+  options.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.value = option.value;
+    button.setAttribute("aria-pressed", "false");
+    bindLocalizedText(button, option.labelKey);
+    button.addEventListener("click", () => {
+      onSelect(option.value);
+    });
+    toggle.append(button);
+  });
+  return toggle;
+};
+
+const dispatchSelectChange = (select: HTMLSelectElement): void => {
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+};
 
 const buildChoiceRow = (labelKey: TextKey, select: HTMLSelectElement, actionButton: HTMLButtonElement): HTMLElement => {
   const row = document.createElement("div");
@@ -46,7 +84,7 @@ export const buildMatchScreen = (args: {
   composerMeta: HTMLElement;
   closeCreateMatchButton: HTMLButtonElement;
   matchQuickBar: HTMLElement;
-  matchSummary: HTMLElement;
+  matchOutcome: HTMLElement;
   matchLockNotice: HTMLElement;
   matchForm: HTMLFormElement;
   composerStatus: HTMLElement;
@@ -64,13 +102,93 @@ export const buildMatchScreen = (args: {
   scoreInputs: ScoreInput[];
   submitMatchButton: HTMLButtonElement;
 }): MatchScreenElements => {
+  const contextToggle = buildSegmentedControl(
+    [
+      { value: "open", labelKey: "matchContextOpen" },
+      { value: "season", labelKey: "scopeSeason" },
+      { value: "tournament", labelKey: "scopeTournament" },
+    ],
+    (value) => {
+      contextToggle.dataset.mode = value;
+      if (value === "open") {
+        args.formSeasonSelect.value = "";
+        args.formTournamentSelect.value = "";
+        dispatchSelectChange(args.formSeasonSelect);
+        return;
+      }
+      if (value === "season") {
+        args.formTournamentSelect.value = "";
+        dispatchSelectChange(args.formSeasonSelect);
+        return;
+      }
+      dispatchSelectChange(args.formTournamentSelect);
+    },
+  );
+  contextToggle.dataset.mode = "open";
+
+  const matchTypeToggle = buildSegmentedControl(
+    [
+      { value: "singles", labelKey: "matchTypeSingles" },
+      { value: "doubles", labelKey: "matchTypeDoubles" },
+    ],
+    (value) => {
+      args.matchTypeSelect.value = value;
+      dispatchSelectChange(args.matchTypeSelect);
+    },
+  );
+
+  const formatTypeToggle = buildSegmentedControl(
+    [
+      { value: "single_game", labelKey: "formatSingleGame" },
+      { value: "best_of_3", labelKey: "formatBestOf3" },
+    ],
+    (value) => {
+      args.formatTypeSelect.value = value;
+      dispatchSelectChange(args.formatTypeSelect);
+    },
+  );
+
+  const pointsToggle = buildSegmentedControl(
+    [
+      { value: "11", labelKey: "points11" },
+      { value: "21", labelKey: "points21" },
+    ],
+    (value) => {
+      args.pointsToWinSelect.value = value;
+      dispatchSelectChange(args.pointsToWinSelect);
+    },
+  );
+
+  const seasonField = buildField("matchFieldSeason", args.formSeasonSelect);
+  seasonField.classList.add("match-context-field");
+
+  const tournamentField = buildField("matchFieldTournament", args.formTournamentSelect);
+  tournamentField.classList.add("match-context-field");
+
   const teamGrid = document.createElement("div");
-  teamGrid.className = "team-grid";
+  teamGrid.className = "matchup-grid";
   const teamA1Field = buildField("teamAPlayer1", args.teamA1Select);
+  teamA1Field.classList.add("player-slot");
   const teamA2Field = buildField("teamAPlayer2", args.teamA2Select);
+  teamA2Field.className = "player-slot player-slot--secondary";
   const teamB1Field = buildField("teamBPlayer1", args.teamB1Select);
+  teamB1Field.classList.add("player-slot");
   const teamB2Field = buildField("teamBPlayer2", args.teamB2Select);
-  teamGrid.append(teamA1Field, teamA2Field, teamB1Field, teamB2Field);
+  teamB2Field.className = "player-slot player-slot--secondary";
+
+  const teamAColumn = document.createElement("div");
+  teamAColumn.className = "matchup-team matchup-team--a";
+  teamAColumn.append(teamA1Field, teamA2Field);
+
+  const versus = document.createElement("div");
+  versus.className = "matchup-versus";
+  versus.textContent = "vs";
+
+  const teamBColumn = document.createElement("div");
+  teamBColumn.className = "matchup-team matchup-team--b";
+  teamBColumn.append(teamB1Field, teamB2Field);
+
+  teamGrid.append(teamAColumn, versus, teamBColumn);
 
   const scoreGrid = document.createElement("div");
   scoreGrid.className = "score-grid";
@@ -114,28 +232,40 @@ export const buildMatchScreen = (args: {
 
   scoreSection.append(scoreLabel, scoreGrid);
 
-  const matchContextSection = document.createElement("section");
-  matchContextSection.className = "panel-section";
-  matchContextSection.append(
-    buildField("matchFieldSeason", args.formSeasonSelect),
-    buildField("matchFieldTournament", args.formTournamentSelect),
+  const matchContextSection = createPanelSection(
+    "matchSectionContext",
+    contextToggle,
+    seasonField,
+    tournamentField,
   );
+  matchContextSection.classList.add("panel-section--match", "panel-section--match-context");
 
-  const matchRulesSection = document.createElement("section");
-  matchRulesSection.className = "panel-section";
-  matchRulesSection.append(
-    buildField("matchFieldMatchType", args.matchTypeSelect),
-    buildField("matchFieldFormat", args.formatTypeSelect),
-    buildField("matchFieldPoints", args.pointsToWinSelect),
+  args.matchTypeSelect.classList.add("form-toggle-select");
+  args.formatTypeSelect.classList.add("form-toggle-select");
+  args.pointsToWinSelect.classList.add("form-toggle-select");
+  args.winnerTeamSelect.classList.add("form-toggle-select");
+  args.matchOutcome.className = "match-outcome";
+  bindLocalizedText(args.matchOutcome, "matchOutcomePending");
+  args.matchLockNotice.classList.add("match-lock-notice");
+
+  const matchRulesSection = createPanelSection(
+    "matchSectionSetup",
+    matchTypeToggle,
+    formatTypeToggle,
+    pointsToggle,
+    args.matchLockNotice,
   );
+  matchRulesSection.classList.add("panel-section--match", "panel-section--match-setup");
 
-  const matchPlayersSection = document.createElement("section");
-  matchPlayersSection.className = "panel-section";
-  matchPlayersSection.append(teamGrid, args.suggestMatchButton);
+  const matchPlayersSection = createPanelSection("matchSectionPlayers", teamGrid, args.suggestMatchButton);
+  matchPlayersSection.classList.add("panel-section--match", "panel-section--match-players");
 
-  const matchReviewSection = document.createElement("section");
-  matchReviewSection.className = "panel-section";
-  matchReviewSection.append(buildField("matchFieldWinner", args.winnerTeamSelect), scoreSection);
+  const matchReviewSection = createPanelSection(
+    "matchSectionWinnerScoring",
+    args.matchOutcome,
+    scoreSection,
+  );
+  matchReviewSection.classList.add("panel-section--match", "panel-section--match-review");
 
   const matchActions = document.createElement("div");
   matchActions.className = "form-actions";
@@ -155,7 +285,7 @@ export const buildMatchScreen = (args: {
 
   args.composerHeading.append(args.composerTitle, args.composerMeta);
   args.composerTop.append(args.composerHeading, args.closeCreateMatchButton);
-  args.composerPanel.append(args.composerTop, args.matchQuickBar, args.matchForm);
+  args.composerPanel.append(args.composerTop, args.matchForm);
   args.screen.append(args.composerPanel);
 
   return {
@@ -164,6 +294,13 @@ export const buildMatchScreen = (args: {
     teamB1Field,
     teamB2Field,
     scoreGrid,
+    contextToggle,
+    matchTypeToggle,
+    formatTypeToggle,
+    pointsToggle,
+    seasonField,
+    tournamentField,
+    matchOutcome: args.matchOutcome,
   };
 };
 
@@ -200,14 +337,14 @@ export const buildTournamentScreen = (args: {
 
   const tournamentActions = document.createElement("div");
   tournamentActions.className = "form-actions";
-  tournamentActions.append(args.suggestTournamentButton, args.saveTournamentButton, args.deleteTournamentButton);
+  tournamentActions.append(args.suggestTournamentButton, args.saveTournamentButton);
 
   const tournamentActionsWrapper = document.createElement("div");
   tournamentActionsWrapper.className = "form-actions-wrapper";
   tournamentActionsWrapper.append(tournamentActions, args.tournamentStatus);
 
   const tournamentEntrySection = document.createElement("section");
-  tournamentEntrySection.className = "panel-section panel-section--entry";
+  tournamentEntrySection.className = "panel-section panel-section--entry panel-section--editor panel-section--editor-entry";
   tournamentEntrySection.append(buildChoiceRow("loadSavedTournament", args.loadTournamentSelect, args.resetTournamentDraftButton));
 
   const tournamentDetailsSection = createPanelSection(
@@ -216,8 +353,22 @@ export const buildTournamentScreen = (args: {
     buildField("tournamentName", args.tournamentNameInput),
     buildField("tournamentDate", args.tournamentDateInput),
   );
+  tournamentDetailsSection.classList.add("panel-section--editor", "panel-section--editor-details");
+  const tournamentDetailsHeading = tournamentDetailsSection.querySelector("h4");
+  if (tournamentDetailsHeading) {
+    const tournamentDetailsHeader = document.createElement("div");
+    tournamentDetailsHeader.className = "panel-section__header";
+    args.deleteTournamentButton.className = "icon-button section-delete-button";
+    args.deleteTournamentButton.textContent = "🗑";
+    args.deleteTournamentButton.setAttribute("aria-label", "Delete tournament");
+    args.deleteTournamentButton.title = "Delete tournament";
+    tournamentDetailsHeading.replaceWith(tournamentDetailsHeader);
+    tournamentDetailsHeader.append(tournamentDetailsHeading, args.deleteTournamentButton);
+  }
   const tournamentParticipantsSection = createPanelSection("participants", args.participantSection);
+  tournamentParticipantsSection.classList.add("panel-section--editor", "panel-section--editor-participants");
   const tournamentBracketSection = createPanelSection("bracketPreviewSection", args.bracketBoard);
+  tournamentBracketSection.classList.add("panel-section--editor", "panel-section--editor-bracket");
 
   args.tournamentPanel.append(
     args.tournamentTop,
@@ -241,7 +392,12 @@ export const buildSeasonCheckboxField = (
   const copy = document.createElement("span");
   copy.className = "field-label";
   bindLocalizedText(copy, labelKey);
-  field.append(input, copy);
+  const toggle = document.createElement("span");
+  toggle.className = "checkbox-field__switch";
+  const toggleThumb = document.createElement("span");
+  toggleThumb.className = "checkbox-field__switch-thumb";
+  toggle.append(toggleThumb);
+  field.append(input, copy, toggle);
   return field;
 };
 
@@ -270,7 +426,7 @@ export const buildSeasonScreen = (args: {
   seasonPublicField: HTMLElement;
   submitSeasonButton: HTMLButtonElement;
   deleteSeasonButton: HTMLButtonElement;
-}): { seasonActionsWrapper: HTMLDivElement } => {
+}): SeasonScreenElements => {
   args.seasonParticipantSection.append(
     args.seasonSelectAllParticipantsField,
     args.seasonParticipantList,
@@ -281,14 +437,14 @@ export const buildSeasonScreen = (args: {
 
   const seasonActions = document.createElement("div");
   seasonActions.className = "form-actions";
-  seasonActions.append(args.submitSeasonButton, args.deleteSeasonButton);
+  seasonActions.append(args.submitSeasonButton);
 
   const seasonActionsWrapper = document.createElement("div");
   seasonActionsWrapper.className = "form-actions-wrapper";
   seasonActionsWrapper.append(seasonActions, args.seasonStatus);
 
   const seasonEntrySection = document.createElement("section");
-  seasonEntrySection.className = "panel-section panel-section--entry";
+  seasonEntrySection.className = "panel-section panel-section--entry panel-section--editor panel-section--editor-entry";
   seasonEntrySection.append(buildChoiceRow("loadSavedSeason", args.loadSeasonSelect, args.resetSeasonDraftButton));
 
   const seasonDetailsSection = createPanelSection(
@@ -297,14 +453,78 @@ export const buildSeasonScreen = (args: {
     buildField("seasonStartDate", args.seasonStartDateInput),
     buildField("seasonEndDate", args.seasonEndDateInput),
   );
+  seasonDetailsSection.classList.add("panel-section--editor", "panel-section--editor-details");
+  const seasonDetailsHeading = seasonDetailsSection.querySelector("h4");
+  if (seasonDetailsHeading) {
+    const seasonDetailsHeader = document.createElement("div");
+    seasonDetailsHeader.className = "panel-section__header";
+    args.deleteSeasonButton.className = "icon-button section-delete-button";
+    args.deleteSeasonButton.textContent = "🗑";
+    args.deleteSeasonButton.setAttribute("aria-label", "Delete season");
+    args.deleteSeasonButton.title = "Delete season";
+    seasonDetailsHeading.replaceWith(seasonDetailsHeader);
+    seasonDetailsHeader.append(seasonDetailsHeading, args.deleteSeasonButton);
+  }
 
   const seasonParticipantsSection = createPanelSection("participants", args.seasonParticipantSection);
+  seasonParticipantsSection.classList.add("panel-section--editor", "panel-section--editor-participants");
+
+  const seasonActiveInput = args.seasonActiveField.querySelector("input") as HTMLInputElement | null;
+  const seasonPublicInput = args.seasonPublicField.querySelector("input") as HTMLInputElement | null;
+  args.seasonBaseEloSelect.classList.add("form-toggle-select");
+  if (seasonActiveInput) {
+    seasonActiveInput.classList.add("form-toggle-checkbox");
+  }
+  if (seasonPublicInput) {
+    seasonPublicInput.classList.add("form-toggle-checkbox");
+  }
+
+  const seasonBaseEloToggle = buildSegmentedControl(
+    [
+      { value: "carry_over", labelKey: "seasonCarryOverGlobalElo" },
+      { value: "reset_1200", labelKey: "seasonResetElo1200" },
+    ],
+    (value) => {
+      args.seasonBaseEloSelect.value = value;
+      dispatchSelectChange(args.seasonBaseEloSelect);
+    },
+  );
+
+  const seasonStateToggle = buildSegmentedControl(
+    [
+      { value: "active", labelKey: "seasonStateActive" },
+      { value: "inactive", labelKey: "seasonStateDeactivated" },
+    ],
+    (value) => {
+      if (!seasonActiveInput) {
+        return;
+      }
+      seasonActiveInput.checked = value === "active";
+      seasonActiveInput.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+  );
+
+  const seasonVisibilityToggle = buildSegmentedControl(
+    [
+      { value: "public", labelKey: "seasonVisibilityPublic" },
+      { value: "private", labelKey: "seasonVisibilityPrivate" },
+    ],
+    (value) => {
+      if (!seasonPublicInput) {
+        return;
+      }
+      seasonPublicInput.checked = value === "public";
+      seasonPublicInput.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+  );
+
   const seasonRulesSection = createPanelSection(
     "rankingRules",
-    buildField("baseElo", args.seasonBaseEloSelect),
-    args.seasonActiveField,
-    args.seasonPublicField,
+    seasonBaseEloToggle,
+    seasonStateToggle,
+    seasonVisibilityToggle,
   );
+  seasonRulesSection.classList.add("panel-section--editor", "panel-section--editor-rules");
 
   args.seasonForm.append(
     seasonEntrySection,
@@ -316,5 +536,10 @@ export const buildSeasonScreen = (args: {
   args.seasonPanel.append(args.seasonTop, args.seasonForm);
   args.screen.append(args.seasonPanel);
 
-  return { seasonActionsWrapper };
+  return {
+    seasonActionsWrapper,
+    seasonBaseEloToggle,
+    seasonStateToggle,
+    seasonVisibilityToggle,
+  };
 };

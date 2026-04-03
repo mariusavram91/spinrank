@@ -37,7 +37,7 @@ export const assembleAppScreens = (args: {
   composerMeta: HTMLParagraphElement;
   closeCreateMatchButton: HTMLButtonElement;
   matchQuickBar: HTMLElement;
-  matchSummary: HTMLElement;
+  matchOutcome: HTMLElement;
   matchLockNotice: HTMLElement;
   matchForm: HTMLFormElement;
   composerStatus: HTMLElement;
@@ -143,7 +143,7 @@ export const assembleAppScreens = (args: {
     composerMeta: args.composerMeta,
     closeCreateMatchButton: args.closeCreateMatchButton,
     matchQuickBar: args.matchQuickBar,
-    matchSummary: args.matchSummary,
+    matchOutcome: args.matchOutcome,
     matchLockNotice: args.matchLockNotice,
     matchForm: args.matchForm,
     composerStatus: args.composerStatus,

@@ -183,7 +183,7 @@ export const createShareOrchestration = (args: {
     const statusMessage = error || (targetId ? "" : args.t("shareNoSegment"));
     elements.status.textContent = statusMessage;
     elements.status.dataset.status = error ? "error" : "ready";
-    elements.qrWrapper.hidden = !targetId;
+    elements.qrWrapper.hidden = !Boolean(shareInfo?.url);
     if (shareInfo && shareInfo.url && (shareInfo.url !== renderedUrl || elements.qrCanvas.hidden)) {
       setRenderedUrl(shareInfo.url);
       void args.renderShareQr(elements.qrCanvas, shareInfo.url);

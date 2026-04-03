@@ -191,10 +191,12 @@ export const createAppDom = (args: {
   composerMeta.textContent = "";
 
   const composerStatus = document.createElement("p");
-  composerStatus.className = "form-status";
+  composerStatus.className = "form-status share-alert match-composer-alert";
+  composerStatus.hidden = true;
+  composerStatus.setAttribute("aria-live", "polite");
 
-  const matchSummary = document.createElement("p");
-  matchSummary.className = "summary-chip";
+  const matchOutcome = document.createElement("p");
+  matchOutcome.className = "match-outcome";
 
   const matchLockNotice = document.createElement("p");
   matchLockNotice.className = "form-status";
@@ -202,12 +204,12 @@ export const createAppDom = (args: {
 
   const matchQuickBar = document.createElement("div");
   matchQuickBar.className = "quick-bar quick-bar--match";
-  matchQuickBar.append(matchSummary, matchLockNotice);
+  matchQuickBar.append(matchOutcome, matchLockNotice);
 
   const suggestMatchButton = document.createElement("button");
   suggestMatchButton.type = "button";
   suggestMatchButton.className = "primary-button";
-  bindLocalizedText(suggestMatchButton, "suggestFairTeams");
+  bindLocalizedText(suggestMatchButton, "suggestFairMatchSingles");
 
   const matchForm = document.createElement("form");
   matchForm.className = "match-form";
@@ -336,7 +338,9 @@ export const createAppDom = (args: {
   bindLocalizedText(closeCreateSeasonButton, "back");
 
   const seasonStatus = document.createElement("p");
-  seasonStatus.className = "form-status";
+  seasonStatus.className = "form-status share-alert match-composer-alert";
+  seasonStatus.hidden = true;
+  seasonStatus.setAttribute("aria-live", "polite");
 
   const seasonSummary = document.createElement("p");
   seasonSummary.className = "summary-chip";
@@ -429,7 +433,9 @@ export const createAppDom = (args: {
   bindLocalizedText(resetTournamentDraftButton, "createNewTournamentDraft");
 
   const tournamentStatus = document.createElement("p");
-  tournamentStatus.className = "form-status";
+  tournamentStatus.className = "form-status share-alert match-composer-alert";
+  tournamentStatus.hidden = true;
+  tournamentStatus.setAttribute("aria-live", "polite");
 
   const tournamentSummary = document.createElement("p");
   tournamentSummary.className = "summary-chip";
@@ -551,7 +557,7 @@ export const createAppDom = (args: {
     composerTitle,
     composerMeta,
     composerStatus,
-    matchSummary,
+    matchOutcome,
     matchLockNotice,
     matchQuickBar,
     suggestMatchButton,

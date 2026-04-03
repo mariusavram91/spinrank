@@ -34,6 +34,7 @@ type DashboardSyncDom = {
   closeCreateSeasonButton: HTMLButtonElement;
   resetSeasonDraftButton: HTMLButtonElement;
   suggestMatchButton: HTMLButtonElement;
+  matchTypeSelect: HTMLSelectElement;
   resetTournamentDraftButton: HTMLButtonElement;
   saveTournamentButton: HTMLButtonElement;
   suggestTournamentButton: HTMLButtonElement;
@@ -163,6 +164,9 @@ export const createDashboardSync = (args: {
       args.dom.resetSeasonDraftButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting;
       args.dom.suggestMatchButton.disabled =
         args.dashboardState.loading || args.dashboardState.matchSubmitting;
+      args.dom.suggestMatchButton.textContent = args.t(
+        args.dom.matchTypeSelect.value === "doubles" ? "suggestFairMatchDoubles" : "suggestFairMatchSingles",
+      );
       const tournamentResetAction = args.dom.resetTournamentDraftButton.parentElement as HTMLElement | null;
       if (tournamentResetAction) {
         tournamentResetAction.hidden = !args.tournamentPlannerState.tournamentId;
@@ -189,8 +193,14 @@ export const createDashboardSync = (args: {
       args.dom.composerStatus.textContent =
         args.dashboardState.matchFormError || args.dashboardState.matchFormMessage;
       args.dom.composerStatus.dataset.status = args.dashboardState.matchFormError ? "error" : "ready";
+      const hasComposerStatus = Boolean(args.dashboardState.matchFormError || args.dashboardState.matchFormMessage);
+      args.dom.composerStatus.hidden = !hasComposerStatus;
+      args.dom.composerStatus.classList.toggle("share-alert--visible", hasComposerStatus);
       args.dom.seasonStatus.textContent = args.dashboardState.seasonFormError || args.dashboardState.seasonFormMessage;
       args.dom.seasonStatus.dataset.status = args.dashboardState.seasonFormError ? "error" : "ready";
+      const hasSeasonStatus = Boolean(args.dashboardState.seasonFormError || args.dashboardState.seasonFormMessage);
+      args.dom.seasonStatus.hidden = !hasSeasonStatus;
+      args.dom.seasonStatus.classList.toggle("share-alert--visible", hasSeasonStatus);
       args.dom.submitSeasonButton.textContent = args.dashboardState.seasonSubmitting
         ? "Saving season..."
         : args.dashboardState.editingSeasonId
@@ -206,6 +216,9 @@ export const createDashboardSync = (args: {
       args.dom.tournamentStatus.textContent =
         args.tournamentPlannerState.error || args.dashboardState.tournamentFormMessage;
       args.dom.tournamentStatus.dataset.status = args.tournamentPlannerState.error ? "error" : "ready";
+      const hasTournamentStatus = Boolean(args.tournamentPlannerState.error || args.dashboardState.tournamentFormMessage);
+      args.dom.tournamentStatus.hidden = !hasTournamentStatus;
+      args.dom.tournamentStatus.classList.toggle("share-alert--visible", hasTournamentStatus);
       args.dom.seasonStartDateInput.disabled = Boolean(args.dashboardState.editingSeasonId);
       const currentUserId = args.helpers.getCurrentUserId();
       args.dom.deleteSeasonButton.hidden = !args.helpers.canSoftDelete(

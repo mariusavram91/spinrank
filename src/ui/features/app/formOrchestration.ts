@@ -9,6 +9,12 @@ type MatchScreenRefs = {
   teamA2Field: HTMLElement | null;
   teamB2Field: HTMLElement | null;
   scoreGrid: HTMLElement | null;
+  contextToggle: HTMLElement | null;
+  matchTypeToggle: HTMLElement | null;
+  formatTypeToggle: HTMLElement | null;
+  pointsToggle: HTMLElement | null;
+  seasonField: HTMLElement | null;
+  tournamentField: HTMLElement | null;
 };
 
 export const createFormOrchestration = (args: {
@@ -105,6 +111,26 @@ export const createFormOrchestration = (args: {
 
   const syncLoadControlsVisibility = (): void => {};
 
+  const syncSegmentedToggle = (toggle: HTMLElement | null, value: string): void => {
+    if (!toggle) {
+      return;
+    }
+    Array.from(toggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.value === value));
+    });
+  };
+
+  const resolveMatchContextMode = (contextToggle: HTMLElement | null): "open" | "season" | "tournament" => {
+    const explicitMode = contextToggle?.dataset.mode;
+    if (args.formTournamentSelect.value || explicitMode === "tournament") {
+      return "tournament";
+    }
+    if (args.formSeasonSelect.value || explicitMode === "season") {
+      return "season";
+    }
+    return "open";
+  };
+
   const populateSeasonOptions = (): void => {
     const options = args.dashboardState.seasons.map((season) => {
       const option = document.createElement("option");
@@ -179,10 +205,28 @@ export const createFormOrchestration = (args: {
     const state = args.getViewState();
     const sessionUserId = args.isAuthedState(state) ? state.session.user.id : "";
     const teamA1Value = args.teamA1Select.value || sessionUserId;
+    const {
+      teamA2Field,
+      teamB2Field,
+      scoreGrid,
+      contextToggle,
+      matchTypeToggle,
+      formatTypeToggle,
+      pointsToggle,
+      seasonField,
+      tournamentField,
+    } = args.getMatchScreenRefs();
+    const contextMode = resolveMatchContextMode(contextToggle);
 
     if (args.matchTypeSelect.value === "singles") {
       args.teamA2Select.value = "";
       args.teamB2Select.value = "";
+    }
+    if (contextMode === "open") {
+      args.formSeasonSelect.value = "";
+      args.formTournamentSelect.value = "";
+    } else if (contextMode === "season") {
+      args.formTournamentSelect.value = "";
     }
 
     replaceOptions(
@@ -213,16 +257,6 @@ export const createFormOrchestration = (args: {
       ],
       args.pointsToWinSelect.value || "11",
       "No points",
-    );
-
-    replaceOptions(
-      args.winnerTeamSelect,
-      [
-        { value: "A", label: "Team A" },
-        { value: "B", label: "Team B" },
-      ],
-      args.winnerTeamSelect.value || "A",
-      "No winner",
     );
 
     const playerOptions = args.dashboardState.players.map((player) => ({
@@ -282,9 +316,12 @@ export const createFormOrchestration = (args: {
       "No season",
     );
 
-    const filteredTournaments = args.dashboardState.tournaments.filter((tournament) => {
-      return !args.formSeasonSelect.value || tournament.seasonId === args.formSeasonSelect.value;
-    });
+    const filteredTournaments =
+      contextMode === "season"
+        ? args.dashboardState.tournaments.filter((tournament) => {
+            return !args.formSeasonSelect.value || tournament.seasonId === args.formSeasonSelect.value;
+          })
+        : args.dashboardState.tournaments;
 
     replaceOptions(
       args.formTournamentSelect,
@@ -299,6 +336,13 @@ export const createFormOrchestration = (args: {
       "No tournament",
     );
 
+    const selectedTournament = args.dashboardState.tournaments.find(
+      (tournament) => tournament.id === args.formTournamentSelect.value,
+    );
+    if (contextMode === "tournament") {
+      args.formSeasonSelect.value = selectedTournament?.seasonId || "";
+    }
+
     replaceOptions(
       args.tournamentSeasonSelect,
       [
@@ -312,7 +356,6 @@ export const createFormOrchestration = (args: {
       "No season",
     );
 
-    const { teamA2Field, teamB2Field, scoreGrid } = args.getMatchScreenRefs();
     if (teamA2Field) {
       teamA2Field.hidden = !isDoubles;
     }
@@ -327,6 +370,20 @@ export const createFormOrchestration = (args: {
         row.hidden = index >= visibleGames;
       }
     });
+
+    if (contextToggle) {
+      contextToggle.dataset.mode = contextMode;
+    }
+    if (seasonField) {
+      seasonField.hidden = contextMode !== "season";
+    }
+    if (tournamentField) {
+      tournamentField.hidden = contextMode !== "tournament";
+    }
+    syncSegmentedToggle(contextToggle, contextMode);
+    syncSegmentedToggle(matchTypeToggle, args.matchTypeSelect.value || "singles");
+    syncSegmentedToggle(formatTypeToggle, args.formatTypeSelect.value || "single_game");
+    syncSegmentedToggle(pointsToggle, args.pointsToWinSelect.value || "11");
   };
 
   const collectMatchPayload = (): CreateMatchPayload => {
@@ -371,10 +428,9 @@ export const createFormOrchestration = (args: {
     }
 
     const actualWinner = teamAWins > teamBWins ? "A" : "B";
-    const selectedWinner = args.winnerTeamSelect.value as CreateMatchPayload["winnerTeam"];
-    if (selectedWinner !== actualWinner) {
-      throw new Error("The selected winner does not match the submitted score.");
-    }
+    const tournament = args.dashboardState.tournaments.find(
+      (entry) => entry.id === args.formTournamentSelect.value,
+    );
 
     return {
       matchType: args.matchTypeSelect.value as CreateMatchPayload["matchType"],
@@ -383,9 +439,9 @@ export const createFormOrchestration = (args: {
       teamAPlayerIds: playerIdsA,
       teamBPlayerIds: playerIdsB,
       score,
-      winnerTeam: selectedWinner,
+      winnerTeam: actualWinner,
       playedAt: new Date().toISOString(),
-      seasonId: args.formSeasonSelect.value || null,
+      seasonId: tournament?.seasonId || args.formSeasonSelect.value || null,
       tournamentId: args.formTournamentSelect.value || null,
       tournamentBracketMatchId: args.getActiveTournamentBracketMatchId(),
     };
