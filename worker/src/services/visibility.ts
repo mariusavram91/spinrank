@@ -1,7 +1,13 @@
 import { parseJsonArray } from "../db";
 import type { Env, SeasonRow, TournamentRow } from "../types";
 
-export const visibleSeasonsSql = `
+export const getRecentCompletionCutoffDate = (): string => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - 2);
+  return date.toISOString().slice(0, 10);
+};
+
+export const buildVisibleSeasonsSql = (): string => `
   SELECT
     s.id,
     s.name,
@@ -20,13 +26,22 @@ export const visibleSeasonsSql = `
     ON sp.season_id = s.id AND sp.user_id = ?1
   WHERE s.status != 'deleted'
     AND (
-      s.is_public = 1
-      OR s.created_by_user_id = ?1
+      (
+        s.status = 'completed'
+        AND date(s.end_date) >= ?2
+      )
+      OR (
+        s.status != 'completed'
+        AND s.is_active = 1
+      )
+    )
+    AND (
+      s.created_by_user_id = ?1
       OR sp.user_id IS NOT NULL
     )
 `;
 
-export const visibleTournamentsSql = `
+export const buildVisibleTournamentsSql = (): string => `
   SELECT
     t.id,
     t.name,
@@ -43,6 +58,10 @@ export const visibleTournamentsSql = `
     AND (
       t.created_by_user_id = ?1
       OR tp.user_id IS NOT NULL
+    )
+    AND (
+      t.status != 'completed'
+      OR date(COALESCE(t.completed_at, t.date)) >= ?2
     )
 `;
 

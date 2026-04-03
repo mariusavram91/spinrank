@@ -1,5 +1,5 @@
 import { successResponse } from "../responses";
-import { visibleTournamentsSql } from "../services/visibility";
+import { buildVisibleTournamentsSql, getRecentCompletionCutoffDate } from "../services/visibility";
 import type { ApiRequest, Env, GetTournamentsPayload, TournamentRecord, UserRow } from "../types";
 
 export async function handleGetTournaments(
@@ -11,7 +11,7 @@ export async function handleGetTournaments(
   const result = await env.DB.prepare(
     `
       WITH visible AS (
-        ${visibleTournamentsSql}
+        ${buildVisibleTournamentsSql()}
       )
       SELECT
         v.*,
@@ -45,11 +45,11 @@ export async function handleGetTournaments(
         END AS bracket_status
       FROM visible v
       LEFT JOIN seasons s ON s.id = v.season_id
-      WHERE (?2 = '' OR v.season_id = ?2)
+      WHERE (?3 = '' OR v.season_id = ?3)
       ORDER BY v.date DESC, v.id DESC
     `,
   )
-    .bind(sessionUser.id, seasonId)
+    .bind(sessionUser.id, getRecentCompletionCutoffDate(), seasonId)
     .all<{
       id: string;
       name: string;
