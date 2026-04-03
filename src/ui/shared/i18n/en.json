@@ -86,6 +86,7 @@
   "leaderboardWins": "Wins",
   "leaderboardLosses": "Losses",
   "leaderboardStreak": "Streak",
+  "leaderboardSeasonScore": "Season score",
   "leaderboardMatchesLabel": "Matches played",
   "leaderboardMostGamesLabel": "Most games this season",
   "leaderboardLongestStreakLabel": "Longest win streak",

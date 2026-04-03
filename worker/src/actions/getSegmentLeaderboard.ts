@@ -1,4 +1,5 @@
 import { errorResponse, successResponse } from "../responses";
+import { calculateSeasonScore, compareLeaderboardRows, MINIMUM_MATCHES_TO_QUALIFY } from "../services/elo";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
 import type {
   ApiRequest,
@@ -33,34 +34,82 @@ export async function handleGetSegmentLeaderboard(
 
   const rows = await env.DB.prepare(
     `
-      SELECT es.user_id, es.elo, es.wins, es.losses, es.streak, es.updated_at, u.display_name, u.avatar_url
+      SELECT es.user_id, es.elo, es.matches_played, es.matches_played_equivalent, es.wins, es.losses,
+             es.streak, es.last_match_at, es.updated_at, u.display_name, u.avatar_url
       FROM elo_segments es
       JOIN users u ON u.id = es.user_id
       WHERE es.segment_type = ?1 AND es.segment_id = ?2
-      ORDER BY es.elo DESC, es.wins DESC, es.losses ASC, u.display_name ASC
-      LIMIT 100
     `,
   )
     .bind(segmentType, segmentId)
     .all<{
       user_id: string;
       elo: number;
+      matches_played: number;
+      matches_played_equivalent: number;
       wins: number;
       losses: number;
       streak: number;
+      last_match_at: string;
       updated_at: string;
       display_name: string;
       avatar_url: string | null;
     }>();
 
-  const leaderboard = rows.results.map<LeaderboardEntry>((row, index) => ({
-    userId: row.user_id,
-    displayName: row.display_name,
-    avatarUrl: row.avatar_url,
-    elo: Number(row.elo),
-    wins: Number(row.wins),
-    losses: Number(row.losses),
-      streak: Number(row.streak),
+  const nowIso = new Date().toISOString();
+  const leaderboard = rows.results
+    .map<LeaderboardEntry>((row) => {
+      const matchEquivalentPlayed = Number(row.matches_played_equivalent ?? row.matches_played ?? 0);
+      return {
+        userId: row.user_id,
+        displayName: row.display_name,
+        avatarUrl: row.avatar_url,
+        elo: Number(row.elo),
+        wins: Number(row.wins),
+        losses: Number(row.losses),
+        streak: Number(row.streak),
+        matchEquivalentPlayed,
+        lastMatchAt: row.last_match_at || null,
+        seasonScore:
+          segmentType === "season"
+            ? calculateSeasonScore({
+                elo: Number(row.elo),
+                lastMatchAt: row.last_match_at || null,
+                matchEquivalentPlayed,
+                nowIso,
+              })
+            : undefined,
+        isQualified: segmentType === "season" ? matchEquivalentPlayed >= MINIMUM_MATCHES_TO_QUALIFY : undefined,
+        rank: 0,
+      };
+    })
+    .sort((left, right) => {
+      if (segmentType === "season") {
+        const leftSeasonScore = left.seasonScore ?? left.elo;
+        const rightSeasonScore = right.seasonScore ?? right.elo;
+        if (rightSeasonScore !== leftSeasonScore) {
+          return rightSeasonScore - leftSeasonScore;
+        }
+        if ((right.matchEquivalentPlayed ?? 0) !== (left.matchEquivalentPlayed ?? 0)) {
+          return (right.matchEquivalentPlayed ?? 0) - (left.matchEquivalentPlayed ?? 0);
+        }
+        if (right.elo !== left.elo) {
+          return right.elo - left.elo;
+        }
+        if (right.wins !== left.wins) {
+          return right.wins - left.wins;
+        }
+        if (left.losses !== right.losses) {
+          return left.losses - right.losses;
+        }
+        return left.displayName.localeCompare(right.displayName);
+      }
+
+      return compareLeaderboardRows(left, right);
+    })
+    .slice(0, 100)
+    .map((entry, index) => ({
+      ...entry,
       rank: index + 1,
     }));
 
@@ -141,7 +190,13 @@ export async function handleGetSegmentLeaderboard(
     segmentType,
     segmentId,
     leaderboard,
-    updatedAt: rows.results[0]?.updated_at ?? new Date().toISOString(),
+    updatedAt:
+      rows.results.reduce((latest, row) => {
+        if (!row.updated_at) {
+          return latest;
+        }
+        return Date.parse(row.updated_at) > Date.parse(latest) ? row.updated_at : latest;
+      }, rows.results[0]?.updated_at ?? new Date().toISOString()),
     stats,
   });
 }

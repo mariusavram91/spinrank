@@ -15,16 +15,16 @@ export const faqEntries: FaqEntry[] = [
     titleDe: "Wie Elo funktioniert",
     details: [
       {
-        en: "Every ranked match updates both players: winners gain Elo, losers drop Elo, and the size of the change depends on how big the pre-match rating gap was and whether you played a single game or best-of-3.",
-        de: "Jedes gerankte Match verändert beide Spieler: Gewinner bekommen Punkte, Verlierer verlieren Punkte, und die Höhe der Änderung richtet sich nach dem Rating-Unterschied vor dem Spiel und dem Spielmodus.",
+        en: "Every ranked match updates both players: winners gain Elo, losers drop Elo, and the size of the change depends on the pre-match rating gap and whether you played singles or doubles.",
+        de: "Jedes gerankte Match verändert beide Spieler: Gewinner bekommen Elo, Verlierer verlieren Elo, und die Höhe der Änderung richtet sich nach dem Rating-Unterschied vor dem Spiel und danach, ob Singles oder Doubles gespielt wurden.",
       },
       {
-        en: "SpinRank follows the classic Elo formula, applies a combined K-factor (40 until you reach 30 matches, then 24), so newer or less-active players jump faster while steady players settle, and splits the rounded change evenly across teammates.",
-        de: "SpinRank nutzt die klassische Elo-Formel und einen kombinierten K-Faktor (40 bis 30 Matches, danach 24), so dass neue oder selten aktive Spieler größere Sprünge machen, während Regelmäßige ruhiger werden, und die gerundete Änderung gleichmäßig auf beide Partner verteilt wird.",
+        en: "SpinRank uses a higher K-factor for newer players and steps it down after 10 and 30 equivalent matches, so fresh accounts move faster than established ones.",
+        de: "SpinRank nutzt für neue Spieler einen höheren K-Faktor und senkt ihn nach 10 und 30 äquivalenten Matches ab, damit frische Accounts schneller reagieren als etablierte.",
       },
       {
-        en: "In doubles matches we average both teams’ ratings before running the math, and every player shares the same signed change so partnerships move together.",
-        de: "Bei Doppelmatches mitteln wir die Ratings beider Teams, berechnen die Änderung und teilen denselben Wert an jedes Teammitglied aus, damit Partner gleich stark nach oben oder unten gehen.",
+        en: "Doubles count as a smaller match weight than singles, so the team change is slightly softer before it is split across teammates.",
+        de: "Doubles zählen mit geringerem Gewicht als Singles, daher fällt die Teamänderung etwas sanfter aus, bevor sie auf die Teammitglieder verteilt wird.",
       },
     ],
   },
@@ -55,8 +55,8 @@ export const faqEntries: FaqEntry[] = [
         de: "Turniere lassen sich einer Saison zuordnen; sind sie verknüpft, beeinflussen ihre Matches sowohl das Turnier-Ranking als auch die übergeordnete Saison.",
       },
       {
-        en: "Within any leaderboard we sort by Elo first, then by more wins, fewer losses, and finally alphabetically so ties stay consistent.",
-        de: "In jeder Liste sortieren wir nach Elo, bei Gleichstand nach mehr Siegen, dann weniger Niederlagen und zuletzt alphabetisch, damit es immer eine klare Reihenfolge gibt.",
+        en: "Global leaderboards still sort by raw Elo, but season leaderboards use a visible season score that adds a small activity bonus and subtracts inactivity over time; tournaments keep the raw Elo order.",
+        de: "Die globale Bestenliste sortiert weiter nach roher Elo, aber Saison-Listen nutzen einen sichtbaren Season-Score mit Aktivitätsbonus und Inaktivitätsabzug; Turniere bleiben bei der rohen Elo-Reihenfolge.",
       },
     ],
   },

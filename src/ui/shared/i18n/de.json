@@ -86,6 +86,7 @@
   "leaderboardWins": "Siege",
   "leaderboardLosses": "Niederlagen",
   "leaderboardStreak": "Serie",
+  "leaderboardSeasonScore": "Season-Score",
   "leaderboardMatchesLabel": "Ausgetragene Matches",
   "leaderboardMostGamesLabel": "Die meisten Matches",
   "leaderboardLongestStreakLabel": "Längste Siegesserie",

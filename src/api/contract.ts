@@ -109,6 +109,10 @@ export interface LeaderboardEntry {
   losses: number;
   streak: number;
   rank: number;
+  seasonScore?: number;
+  matchEquivalentPlayed?: number;
+  lastMatchAt?: string | null;
+  isQualified?: boolean;
 }
 
 export interface SegmentMostMatchesPlayer {

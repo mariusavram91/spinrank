@@ -1,4 +1,4 @@
-import { dateOnly, isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
+import { dateOnly, isoNow, parseJsonArray, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { applyBracketResult, getBracketRounds, isTournamentBracketCompleted, saveTournamentBracket } from "../services/brackets";
 import { computeEloDeltaForTeams, createBlankRatingState, recomputeAllRankings } from "../services/elo";
@@ -90,62 +90,6 @@ async function validatePlayers(env: Env, playerIds: string[]): Promise<Record<st
   return byId;
 }
 
-async function loadSegmentRatingMap(
-  env: Env,
-  segmentType: "season" | "tournament",
-  segmentId: string,
-  playerIds: string[],
-  nowIso: string,
-) {
-  const placeholders = playerIds.map((_, index) => `?${index + 3}`).join(",");
-  const result = await env.DB.prepare(
-    `
-      SELECT user_id, elo, matches_played, wins, losses, streak, updated_at
-      FROM elo_segments
-      WHERE segment_type = ?1
-        AND segment_id = ?2
-        AND user_id IN (${placeholders})
-    `,
-  )
-    .bind(segmentType, segmentId, ...playerIds)
-    .all<{
-      user_id: string;
-      elo: number;
-      matches_played: number;
-      wins: number;
-      losses: number;
-      streak: number;
-      updated_at: string;
-    }>();
-
-  const state = Object.fromEntries(
-    playerIds.map((playerId) => [playerId, createBlankRatingState(nowIso)]),
-  ) as Record<
-    string,
-    {
-      elo: number;
-      wins: number;
-      losses: number;
-      streak: number;
-      matchesPlayed: number;
-      updatedAt: string;
-    }
-  >;
-
-  result.results.forEach((row) => {
-    state[row.user_id] = {
-      elo: Number(row.elo || 1200),
-      wins: Number(row.wins || 0),
-      losses: Number(row.losses || 0),
-      streak: Number(row.streak || 0),
-      matchesPlayed: Number(row.matches_played || 0),
-      updatedAt: row.updated_at || nowIso,
-    };
-  });
-
-  return state;
-}
-
 export async function handleCreateMatch(
   request: ApiRequest<"createMatch", CreateMatchPayload>,
   sessionUser: UserRow,
@@ -208,19 +152,48 @@ export async function handleCreateMatch(
       return errorResponse(request.requestId, "VALIDATION_ERROR", "Selected tournament does not belong to the selected season.");
     }
 
-    await recomputeAllRankings(env);
-
-    const usersById = await validatePlayers(env, allPlayerIds);
+    await validatePlayers(env, allPlayerIds);
+    const snapshots = await recomputeAllRankings(env);
     const nowIso = isoNow();
-    const globalDelta = computeEloDeltaForTeams(teamAPlayerIds, teamBPlayerIds, usersById, winnerTeam);
+    const globalDelta = computeEloDeltaForTeams(
+      teamAPlayerIds,
+      teamBPlayerIds,
+      snapshots.globalState,
+      winnerTeam,
+      matchType,
+    );
     const segmentDelta: Record<string, Record<string, number>> = {};
+    type SegmentRatingState = ReturnType<typeof createBlankRatingState>;
+
+    const ensureSegmentState = (segmentType: "season" | "tournament", segmentId: string): Record<string, SegmentRatingState> => {
+      const segmentKey = `${segmentType}:${segmentId}`;
+      const state: Record<string, SegmentRatingState> = snapshots.segmentStates.get(segmentKey) ?? {};
+      allPlayerIds.forEach((playerId) => {
+        state[playerId] ??= createBlankRatingState(nowIso);
+      });
+      snapshots.segmentStates.set(segmentKey, state);
+      return state;
+    };
+
     if (seasonId) {
-      const segmentUsers = await loadSegmentRatingMap(env, "season", seasonId, allPlayerIds, nowIso);
-      segmentDelta[seasonId] = computeEloDeltaForTeams(teamAPlayerIds, teamBPlayerIds, segmentUsers, winnerTeam);
+      const segmentUsers = ensureSegmentState("season", seasonId);
+      segmentDelta[seasonId] = computeEloDeltaForTeams(
+        teamAPlayerIds,
+        teamBPlayerIds,
+        segmentUsers,
+        winnerTeam,
+        matchType,
+      );
     }
     if (tournamentId) {
-      const segmentUsers = await loadSegmentRatingMap(env, "tournament", tournamentId, allPlayerIds, nowIso);
-      segmentDelta[tournamentId] = computeEloDeltaForTeams(teamAPlayerIds, teamBPlayerIds, segmentUsers, winnerTeam);
+      const segmentUsers = ensureSegmentState("tournament", tournamentId);
+      segmentDelta[tournamentId] = computeEloDeltaForTeams(
+        teamAPlayerIds,
+        teamBPlayerIds,
+        segmentUsers,
+        winnerTeam,
+        matchType,
+      );
     }
 
     const matchId = randomId("match");

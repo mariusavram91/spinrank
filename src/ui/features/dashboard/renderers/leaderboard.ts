@@ -116,9 +116,11 @@ export const createLeaderboardRenderer = (args: {
         streak.append(" ", fire);
       }
 
+      const ratingValue = entry.seasonScore ?? entry.elo;
+      const ratingLabel = entry.seasonScore !== undefined ? args.t("leaderboardSeasonScore") : "Elo";
       const elo = document.createElement("span");
       elo.className = "leaderboard-elo";
-      elo.textContent = `(${entry.elo} Elo)`;
+      elo.textContent = `(${ratingValue} ${ratingLabel})`;
 
       const metaRow = document.createElement("div");
       metaRow.className = "leaderboard-row__meta-row";
