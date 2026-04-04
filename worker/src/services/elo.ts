@@ -1,5 +1,5 @@
-import { isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
-import type { Env, MatchType, UserRow, WinnerTeam } from "../types";
+import { dateOnly, isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
+import type { Env, MatchType, SeasonRow, UserRow, WinnerTeam } from "../types";
 
 const STARTING_ELO = 1200;
 const SINGLES_WEIGHT = 1;
@@ -38,6 +38,16 @@ interface SegmentParticipantRow {
   segment_id: string;
   user_id: string;
 }
+
+interface SeasonSeedState {
+  id: string;
+  startDate: string;
+  baseEloMode: SeasonRow["base_elo_mode"];
+  participantIds: string[];
+  initialized: boolean;
+}
+
+type SeasonSeedRow = Pick<SeasonRow, "id" | "start_date" | "base_elo_mode" | "participant_ids_json">;
 
 export interface RatingSnapshot {
   globalState: Record<string, RatingState>;
@@ -185,6 +195,29 @@ function seedRatingStates(
   });
 }
 
+function initializeSeasonRatingState(
+  season: SeasonSeedState,
+  globalState: Record<string, RatingState>,
+  segmentStates: Map<string, Record<string, RatingState>>,
+  nowIso: string,
+): void {
+  if (season.initialized) {
+    return;
+  }
+
+  const state: Record<string, RatingState> = {};
+  season.participantIds.forEach((playerId) => {
+    const blank = createBlankRatingState(nowIso);
+    if (season.baseEloMode === "carry_over") {
+      blank.elo = globalState[playerId]?.elo ?? STARTING_ELO;
+    }
+    state[playerId] = blank;
+  });
+
+  segmentStates.set(getSegmentKey("season", season.id), state);
+  season.initialized = true;
+}
+
 function distributeDeltaAcrossPlayers(playerIds: string[], totalDelta: number, result: Record<string, number>): void {
   const baseDelta = totalDelta >= 0 ? Math.floor(totalDelta / playerIds.length) : Math.ceil(totalDelta / playerIds.length);
   const remainder = totalDelta - baseDelta * playerIds.length;
@@ -257,6 +290,7 @@ export function computeEloDeltaForTeams(
 
 function buildRatingSnapshots(
   users: UserRow[],
+  seasons: SeasonSeedRow[],
   participantRows: SegmentParticipantRow[],
   matches: MatchDeltaRow[],
 ): RatingSnapshot {
@@ -266,15 +300,43 @@ function buildRatingSnapshots(
   ) as Record<string, RatingState>;
 
   const segmentStates = new Map<string, Record<string, RatingState>>();
+  const seasonStateById = new Map<string, SeasonSeedState>(
+    seasons.map((season) => [
+      season.id,
+      {
+        id: season.id,
+        startDate: season.start_date,
+        baseEloMode: season.base_elo_mode,
+        participantIds: parseJsonArray<string>(season.participant_ids_json),
+        initialized: false,
+      },
+    ]),
+  );
+  const orderedSeasons = [...seasonStateById.values()].sort((left, right) =>
+    left.startDate === right.startDate ? left.id.localeCompare(right.id) : left.startDate.localeCompare(right.startDate),
+  );
 
   participantRows.forEach((row) => {
+    if (row.segment_type === "season") {
+      return;
+    }
     const segmentKey = getSegmentKey(row.segment_type, row.segment_id);
     const segmentState = segmentStates.get(segmentKey) ?? {};
     ensureRatingState(segmentState, row.user_id, nowIso);
     segmentStates.set(segmentKey, segmentState);
   });
 
+  const initializeSeasonsUpTo = (cutoffDate: string): void => {
+    orderedSeasons.forEach((season) => {
+      if (!season.initialized && season.startDate <= cutoffDate) {
+        initializeSeasonRatingState(season, globalState, segmentStates, nowIso);
+      }
+    });
+  };
+
   matches.forEach((match) => {
+    initializeSeasonsUpTo(dateOnly(match.played_at || match.created_at || nowIso));
+
     const teamA = parseJsonArray<string>(match.team_a_player_ids_json);
     const teamB = parseJsonArray<string>(match.team_b_player_ids_json);
     const globalDelta = parseJsonObject<Record<string, number>>(match.global_elo_delta_json, {});
@@ -295,6 +357,12 @@ function buildRatingSnapshots(
       }
 
       const segmentKey = getSegmentKey(segmentType, segmentId);
+      if (segmentType === "season") {
+        const season = seasonStateById.get(segmentId);
+        if (season) {
+          initializeSeasonRatingState(season, globalState, segmentStates, nowIso);
+        }
+      }
       const segmentState = segmentStates.get(segmentKey) ?? {};
       seedRatingStates(segmentState, [...teamA, ...teamB], nowIso);
       updateTeamState(teamA, segmentState, deltaMap, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "A");
@@ -302,6 +370,8 @@ function buildRatingSnapshots(
       segmentStates.set(segmentKey, segmentState);
     });
   });
+
+  initializeSeasonsUpTo("9999-12-31");
 
   return {
     globalState,
@@ -323,6 +393,15 @@ export function createBlankRatingState(nowIso: string): RatingState {
 }
 
 export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
+  const seasons = await env.DB.prepare(
+    `
+      SELECT id, start_date, base_elo_mode, participant_ids_json
+      FROM seasons
+      WHERE status != 'deleted'
+      ORDER BY start_date ASC, id ASC
+    `,
+  ).all<SeasonSeedRow>();
+
   const users = await env.DB.prepare(
     `
       SELECT *
@@ -355,7 +434,12 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
     `,
   ).all<MatchDeltaRow>();
 
-  const snapshots = buildRatingSnapshots(users.results, participantRows, matches.results);
+  const snapshots = buildRatingSnapshots(
+    users.results,
+    seasons.results,
+    participantRows,
+    matches.results,
+  );
   const nowIso = isoNow();
 
   await env.DB.batch([

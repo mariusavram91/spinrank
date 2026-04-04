@@ -180,6 +180,7 @@ export const createSelectionAndFormHandlers = (args: {
   dashboardState: {
     editingSeasonId: string;
     editingSeasonParticipantIds: string[];
+    seasonDraftMode: "create" | "edit";
     seasonFormError: string;
     seasonFormMessage: string;
     selectedSeasonId: string;
@@ -270,6 +271,7 @@ export const createSelectionAndFormHandlers = (args: {
     }
 
     args.dashboardState.editingSeasonId = season.id;
+    args.dashboardState.seasonDraftMode = "edit";
     args.dashboardState.editingSeasonParticipantIds = [...season.participantIds];
     args.seasonNameInput.value = season.name;
     args.seasonStartDateInput.value = season.startDate;

@@ -43,6 +43,7 @@ export const createDashboardState = (): DashboardState => ({
   tournamentFormMessage: "",
   editingSeasonId: "",
   editingSeasonParticipantIds: [],
+  seasonDraftMode: "create",
   pendingCreateRequestId: "",
   shareCache: {},
   shareErrors: {},

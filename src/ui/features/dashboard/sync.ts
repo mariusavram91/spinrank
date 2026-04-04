@@ -173,14 +173,13 @@ export const createDashboardSync = (args: {
       args.dom.tournamentMeta.textContent = args.t(
         args.tournamentPlannerState.tournamentId ? "tournamentMetaEditing" : "tournamentMeta",
       );
-      args.dom.seasonMeta.textContent = args.t(
-        args.dashboardState.editingSeasonId ? "seasonMetaEditing" : "seasonMeta",
-      );
+      const isSeasonEditingDraft = args.dashboardState.seasonDraftMode === "edit";
+      args.dom.seasonMeta.textContent = args.t(isSeasonEditingDraft ? "seasonMetaEditing" : "seasonMeta");
       args.dom.closeCreateMatchButton.disabled = args.dashboardState.matchSubmitting;
       args.dom.closeCreateSeasonButton.disabled = args.dashboardState.seasonSubmitting;
       const seasonResetAction = args.dom.resetSeasonDraftButton.parentElement as HTMLElement | null;
       if (seasonResetAction) {
-        seasonResetAction.hidden = !args.dashboardState.editingSeasonId;
+        seasonResetAction.hidden = !isSeasonEditingDraft;
       }
       args.dom.resetSeasonDraftButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting;
       args.dom.suggestMatchButton.disabled =
@@ -222,7 +221,7 @@ export const createDashboardSync = (args: {
       args.dom.seasonStatus.classList.toggle("share-alert--visible", hasSeasonStatus);
       args.dom.submitSeasonButton.textContent = args.dashboardState.seasonSubmitting
         ? "Saving season..."
-        : args.dashboardState.editingSeasonId
+        : isSeasonEditingDraft
           ? args.t("saveButtonLabel")
           : args.t("createSeason");
       args.dom.submitMatchButton.textContent =

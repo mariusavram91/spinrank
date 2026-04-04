@@ -19,6 +19,8 @@ export type ViewState =
 
 export type SegmentMode = "global" | "season" | "tournament";
 
+export type SeasonDraftMode = "create" | "edit";
+
 export interface DashboardState {
   screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "faq" | "privacy";
   loading: boolean;
@@ -49,6 +51,7 @@ export interface DashboardState {
   tournamentFormMessage: string;
   editingSeasonId: string;
   editingSeasonParticipantIds: string[];
+  seasonDraftMode: SeasonDraftMode;
   pendingCreateRequestId: string;
   shareCache: Record<string, SegmentShareInfo>;
   shareErrors: Record<string, string>;

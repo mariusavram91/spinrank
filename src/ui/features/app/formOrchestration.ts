@@ -466,7 +466,10 @@ export const createFormOrchestration = (args: {
   };
 
   const collectSeasonPayload = (): CreateSeasonPayload => ({
-    seasonId: args.dashboardState.editingSeasonId || null,
+    seasonId:
+      args.dashboardState.seasonDraftMode === "edit"
+        ? args.dashboardState.editingSeasonId || null
+        : null,
     name: args.seasonNameInput.value.trim(),
     startDate: args.seasonStartDateInput.value,
     endDate: args.seasonEndDateInput.value || null,
@@ -480,6 +483,7 @@ export const createFormOrchestration = (args: {
     const state = args.getViewState();
     args.dashboardState.editingSeasonId = "";
     args.dashboardState.editingSeasonParticipantIds = args.isAuthedState(state) ? [state.session.user.id] : [];
+    args.dashboardState.seasonDraftMode = "create";
     args.seasonNameInput.value = "";
     args.seasonStartDateInput.value = getTodayDateValue();
     args.seasonEndDateInput.value = "";

@@ -14,6 +14,7 @@ export const createSeasonActions = (args: {
     selectedSeasonId: string;
     editingSeasonId: string;
     editingSeasonParticipantIds: string[];
+    seasonDraftMode: "create" | "edit";
     screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "faq" | "privacy";
   };
   seasonNameInput: HTMLInputElement;
@@ -40,7 +41,7 @@ export const createSeasonActions = (args: {
     confirmationValue: string;
   }) => Promise<boolean>;
   formatDate: (value: string) => string;
-}) => ({
+  }) => ({
   submitSeason: async (): Promise<void> => {
     args.dashboardState.seasonSubmitting = true;
     args.dashboardState.seasonFormError = "";
@@ -61,15 +62,20 @@ export const createSeasonActions = (args: {
         throw new Error("Season end date cannot be earlier than the start date.");
       }
       args.setGlobalLoading(true, "Saving season...");
+      const isEditing = args.dashboardState.seasonDraftMode === "edit";
       const payload = args.collectSeasonPayload();
       const data = await args.runAuthedAction("createSeason", payload);
       args.dashboardState.seasonFormMessage = `${
-        args.dashboardState.editingSeasonId ? "Season updated" : "Season created"
+        isEditing ? "Season updated" : "Season created"
       } and added to the dashboard.`;
       args.dashboardState.selectedSeasonId = data.season.id;
-      args.dashboardState.editingSeasonId = data.season.id;
-      args.dashboardState.editingSeasonParticipantIds = [...payload.participantIds];
       args.dashboardState.screen = "createSeason";
+      if (isEditing) {
+        args.dashboardState.editingSeasonId = data.season.id;
+        args.dashboardState.editingSeasonParticipantIds = [...payload.participantIds];
+      } else {
+        args.resetSeasonForm();
+      }
       args.syncAuthState();
       args.setSeasonSharePanelTargetId(data.season.id);
       await args.loadDashboard();

@@ -90,17 +90,6 @@ export async function handleCreateSeason(
   const isActive = Boolean(payload.isActive);
 
   const batch = [];
-  if (isActive) {
-    batch.push(
-      env.DB.prepare(
-        `
-          UPDATE seasons
-          SET is_active = 0
-          WHERE id != ?1 AND status != 'deleted'
-        `,
-      ).bind(seasonId),
-    );
-  }
 
   batch.push(
     env.DB.prepare(
