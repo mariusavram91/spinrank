@@ -37,7 +37,8 @@ export const createFixedRuntime = (
     now: () => nowMs,
     nowIso: () => nowIso,
     randomUUID: () => {
-      const nextUuid = uuids[Math.min(uuidIndex, uuids.length - 1)] ?? "uuid_1";
+      const nextUuid =
+        uuids[uuidIndex] ?? `uuid_${Math.max(uuidIndex + 1, uuids.length + 1)}`;
       uuidIndex += 1;
       return nextUuid;
     },

@@ -125,7 +125,28 @@ Health check:
 
 - `http://127.0.0.1:8787/health`
 
-### 9. Start the frontend
+### 9. Running tests
+
+#### Frontend (repo root)
+
+- `npm run test` — run every Vitest suite under `tests/` once. This is the default `test` script used by CI.
+- `npm run test:watch` — keep Vitest running in watch mode while you work on the UI.
+- `npm run test:unit` / `npm run test:integration` — focus on `tests/unit` or `tests/integration` when you only need that surface.
+- `npm run test:coverage` — run Vitest with coverage reporting; results land in `coverage/`.
+- `npm run test:e2e` — run the Playwright tests configured in `playwright.config.ts`. Install the browsers once with `npx playwright install` before running this script.
+- `npm run test:all` — sequentially runs `test:coverage` and `test:e2e` for a full handoff in one command.
+
+Run every script from the repo root. Vitest inherits the Vite config, so `npm run typecheck` must succeed before tests can pass; fix any type errors before rerunning.
+
+#### Worker (worker/)
+
+- `npm run test` — from within `worker/`, this runs the worker-specific Vitest suites in `tests/unit/worker` and `tests/integration/worker`.
+- You must `cd worker` before running npm scripts that reference the worker’s `package.json`.
+- `npx wrangler` or the worker tests may rely on local D1 state and environment variables, so ensure the worker dependencies are installed and the same local setup steps (migrations, seeds) have been applied if the suites expect persisted data.
+
+The worker tests share the repo’s TypeScript config, so rerun `npm run typecheck` in the root if you see build failures.
+
+### 10. Start the frontend
 
 From the repo root:
 
