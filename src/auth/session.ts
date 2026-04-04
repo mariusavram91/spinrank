@@ -21,35 +21,84 @@ const isSessionShape = (value: unknown): value is AppSession => {
 export const isExpiredSession = (session: AppSession): boolean =>
   Date.parse(session.expiresAt) <= Date.now();
 
-export const loadSession = (): AppSession | null => {
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return null;
+export interface SessionStorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+export interface SessionStoreDeps {
+  storage: SessionStorageLike;
+  now?: () => number;
+  storageKey?: string;
+}
+
+const getBrowserStorage = (): SessionStorageLike => {
+  if (typeof window === "undefined" || !window.localStorage) {
+    throw new Error("Browser storage is not available in this environment.");
   }
 
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isSessionShape(parsed)) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-
-    if (isExpiredSession(parsed)) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-
-    return parsed;
-  } catch {
-    window.localStorage.removeItem(STORAGE_KEY);
-    return null;
-  }
+  return window.localStorage;
 };
 
+export const createSessionStore = ({
+  storage,
+  now = Date.now,
+  storageKey = STORAGE_KEY,
+}: SessionStoreDeps) => {
+  const loadSession = (): AppSession | null => {
+    const raw = storage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!isSessionShape(parsed)) {
+        storage.removeItem(storageKey);
+        return null;
+      }
+
+      if (Date.parse(parsed.expiresAt) <= now()) {
+        storage.removeItem(storageKey);
+        return null;
+      }
+
+      return parsed;
+    } catch {
+      storage.removeItem(storageKey);
+      return null;
+    }
+  };
+
+  const saveSession = (session: AppSession): void => {
+    storage.setItem(storageKey, JSON.stringify(session));
+  };
+
+  const clearSession = (): void => {
+    storage.removeItem(storageKey);
+  };
+
+  return {
+    loadSession,
+    saveSession,
+    clearSession,
+  };
+};
+
+export const loadSession = (): AppSession | null =>
+  createSessionStore({
+    storage: getBrowserStorage(),
+  }).loadSession();
+
 export const saveSession = (session: AppSession): void => {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  createSessionStore({
+    storage: getBrowserStorage(),
+  }).saveSession(session);
 };
 
 export const clearSession = (): void => {
-  window.localStorage.removeItem(STORAGE_KEY);
+  createSessionStore({
+    storage: getBrowserStorage(),
+  }).clearSession();
 };

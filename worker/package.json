@@ -6,6 +6,7 @@
     "build": "wrangler build",
     "dev": "wrangler dev --env dev --persist-to=.wrangler/state",
     "deploy": "wrangler deploy",
+    "test": "vitest run ../tests/unit/worker ../tests/integration/worker",
     "db:local:migrate": "wrangler d1 migrations apply DB --env dev --local --persist-to=.wrangler/state",
     "db:local:seed": "wrangler d1 execute DB --env dev --local --persist-to=.wrangler/state --file=seed/dev_seed.sql",
     "db:remote:migrate": "wrangler d1 migrations apply DB --remote"
