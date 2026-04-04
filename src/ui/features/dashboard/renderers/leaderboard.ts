@@ -17,6 +17,24 @@ const renderStreak = (streak: number, t: TranslationFn): string => {
 const getBestVisibleStreak = (players: DashboardState["leaderboard"]): number =>
   players.reduce((max, player) => Math.max(max, player.streak), 0);
 
+const getVisibleLeaderboardEntries = (
+  leaderboard: DashboardState["leaderboard"],
+  segmentMode: SegmentMode,
+  currentUserId: string,
+): DashboardState["leaderboard"] => {
+  if (segmentMode !== "global") {
+    return leaderboard.slice(0, 20);
+  }
+
+  const topTen = leaderboard.slice(0, 10);
+  if (topTen.some((entry) => entry.userId === currentUserId)) {
+    return topTen;
+  }
+
+  const currentUserEntry = leaderboard.find((entry) => entry.userId === currentUserId);
+  return currentUserEntry ? [...topTen, currentUserEntry] : topTen;
+};
+
 const getLeaderboardEmptyText = (scope: SegmentMode, t: TranslationFn): string => {
   if (scope === "season") {
     return t("leaderboardEmptySeason");
@@ -327,9 +345,10 @@ export const createLeaderboardRenderer = (args: {
       return;
     }
 
-    const bestVisibleStreak = getBestVisibleStreak(leaderboard);
     const currentUserId = args.getCurrentUserId();
-    const rows = leaderboard.slice(0, 20).map((entry) => {
+    const visibleEntries = getVisibleLeaderboardEntries(leaderboard, args.dashboardState.segmentMode, currentUserId);
+    const bestVisibleStreak = getBestVisibleStreak(visibleEntries);
+    const rows = visibleEntries.map((entry) => {
       const row = document.createElement("article");
       row.className = [
         "leaderboard-row",

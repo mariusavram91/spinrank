@@ -15,12 +15,12 @@ export const faqEntries: FaqEntry[] = [
     titleDe: "Wie das Ranking funktioniert",
     details: [
       {
-        en: "Every ranked match changes both players' Elo. The winner gains points and the loser loses points.",
-        de: "Jedes gerankte Match verändert die Elo beider Spieler. Der Sieger gewinnt Punkte und der Verlierer verliert Punkte.",
+        en: "SpinRank has three different ranking views: global Elo, season score, and tournament placement. They are related, but they are not the same thing.",
+        de: "SpinRank hat drei verschiedene Ranking-Ansichten: globale Elo, Saison-Score und Turnierplatzierung. Sie hängen zusammen, sind aber nicht dasselbe.",
       },
       {
-        en: "The size of the change depends on how close the two sides were before the match started.",
-        de: "Wie groß die Änderung ist, hängt davon ab, wie nah die beiden Seiten vor dem Match beieinander lagen.",
+        en: "The easiest rule is: every ranked match updates global Elo, season matches update the season table, and tournament brackets decide tournament placement.",
+        de: "Die einfachste Regel ist: Jedes gerankte Match aktualisiert die globale Elo, Saison-Matches aktualisieren die Saison-Tabelle, und Turnier-Brackets bestimmen die Turnierplatzierung.",
       },
     ],
   },
@@ -43,20 +43,36 @@ export const faqEntries: FaqEntry[] = [
     titleDe: "Ranking-Arten",
     details: [
       {
-        en: "The global leaderboard shows your overall Elo from every ranked match you can access.",
-        de: "Die globale Bestenliste zeigt deine gesamte Elo aus allen gerankten Matches, auf die du Zugriff hast.",
+        en: "Global leaderboard: this is your long-term overall Elo. It includes every active ranked match you played, whether that match was open play, part of a season, part of a tournament, or both.",
+        de: "Globale Bestenliste: Das ist deine langfristige Gesamt-Elo. Sie umfasst jedes aktive gerankte Match, das du gespielt hast, egal ob freies Spiel, Teil einer Saison, Teil eines Turniers oder beides.",
       },
       {
-        en: "Season leaderboards use Glicko-2. The displayed season score is conservative skill, meaning rating minus two times rating deviation.",
-        de: "Saison-Listen nutzen Glicko-2. Der angezeigte Season-Score ist konservative Stärke, also Rating minus zweimal Rating Deviation.",
+        en: "What changes global Elo: every active ranked match. If a match is deleted later, it stops counting. Global Elo is not limited to one season or one tournament.",
+        de: "Was die globale Elo verändert: jedes aktive gerankte Match. Wenn ein Match später gelöscht wird, zählt es nicht mehr. Die globale Elo ist nicht auf eine bestimmte Saison oder ein bestimmtes Turnier begrenzt.",
       },
       {
-        en: "Attendance matters a little too: after two missed season weeks, each extra missed week applies a small penalty capped at 16 points.",
-        de: "Auch Anwesenheit zählt ein wenig: Nach zwei verpassten Saisonwochen kostet jede weitere verpasste Woche ein paar Punkte, maximal 16.",
+        en: "Season leaderboard: this does not use plain Elo. Seasons use Glicko-2, and the shown season score is a conservative score: rating minus two times rating deviation, then minus any attendance penalty.",
+        de: "Saison-Bestenliste: Hier wird nicht die normale Elo verwendet. Saisons nutzen Glicko-2, und der angezeigte Saison-Score ist ein konservativer Wert: Rating minus zweimal Rating Deviation, minus einer möglichen Anwesenheitsstrafe.",
       },
       {
-        en: "If a tournament belongs to a season, its matches also count toward that season's rating and attendance. Open tournaments only affect the tournament itself.",
-        de: "Gehört ein Turnier zu einer Saison, zählen seine Matches auch für Rating und Anwesenheit dieser Saison. Offene Turniere beeinflussen nur das Turnier selbst.",
+        en: "What counts toward a season: only matches inside that season. That includes regular season matches and also tournament matches when the tournament is linked to that season. Matches outside the season do not affect that season table.",
+        de: "Was für eine Saison zählt: nur Matches innerhalb dieser Saison. Dazu gehören normale Saison-Matches und auch Turnier-Matches, wenn das Turnier mit dieser Saison verknüpft ist. Matches außerhalb der Saison beeinflussen diese Saison-Tabelle nicht.",
+      },
+      {
+        en: "Attendance matters in seasons too. After two missed season weeks, each additional missed week applies a small penalty, capped at 16 points.",
+        de: "Auch Anwesenheit zählt in Saisons. Nach zwei verpassten Saisonwochen gibt es für jede weitere verpasste Woche eine kleine Strafe, maximal 16 Punkte.",
+      },
+      {
+        en: "Tournament leaderboard: this is placement-based, not a separate rating score. The bracket decides the order: winner first, then finalist, then players eliminated in earlier rounds.",
+        de: "Turnier-Bestenliste: Diese basiert auf Platzierungen, nicht auf einem eigenen Rating-Score. Das Bracket bestimmt die Reihenfolge: Sieger zuerst, dann Finalist, dann Spieler, die in früheren Runden ausgeschieden sind.",
+      },
+      {
+        en: "What counts toward a tournament: only matches played in that tournament bracket. Tournament placement is about how far you advanced, not about your global Elo or season score.",
+        de: "Was für ein Turnier zählt: nur Matches, die in diesem Turnier-Bracket gespielt wurden. Die Turnierplatzierung hängt davon ab, wie weit du gekommen bist, nicht von deiner globalen Elo oder deinem Saison-Score.",
+      },
+      {
+        en: "Important overlap: a tournament match always counts for the tournament itself, also counts for global Elo, and counts for a season only if that tournament is attached to a season.",
+        de: "Wichtige Überschneidung: Ein Turnier-Match zählt immer für das Turnier selbst, außerdem für die globale Elo und nur dann auch für eine Saison, wenn dieses Turnier einer Saison zugeordnet ist.",
       },
     ],
   },
@@ -69,8 +85,8 @@ export const faqEntries: FaqEntry[] = [
         de: "Matches können Einzel- oder Doppelpartien sein, als Einzelspiel oder Best-of-3 ausgetragen werden, und du legst fest, wie viele Punkte den Sieg entscheiden.",
       },
       {
-        en: "Open-play matches do not need a season or tournament. They still count toward your global Elo.",
-        de: "Freie Matches brauchen keine Saison oder kein Turnier. Sie zählen trotzdem für deine globale Elo.",
+        en: "Open-play matches do not need a season or tournament. They still count toward your global Elo, but they do not affect any season table or tournament placement unless you attach them there.",
+        de: "Freie Matches brauchen keine Saison oder kein Turnier. Sie zählen trotzdem für deine globale Elo, beeinflussen aber keine Saison-Tabelle und keine Turnierplatzierung, solange du sie nicht dort zuordnest.",
       },
     ],
   },
@@ -83,8 +99,8 @@ export const faqEntries: FaqEntry[] = [
         de: "Saisons bündeln deine Spiele über einen Zeitraum, damit du später leicht auf eine bestimmte Spielphase schauen kannst.",
       },
       {
-        en: "You can attach a match to a season, a tournament, both, or neither.",
-        de: "Du kannst ein Match einer Saison, einem Turnier, beidem oder auch gar nichts zuordnen.",
+        en: "You can attach a match to a season, a tournament, both, or neither. That choice decides which leaderboard views the match appears in, while global Elo still updates from every ranked match.",
+        de: "Du kannst ein Match einer Saison, einem Turnier, beidem oder auch gar nichts zuordnen. Diese Zuordnung entscheidet, in welchen Bestenlisten das Match erscheint, während die globale Elo trotzdem aus jedem gerankten Match aktualisiert wird.",
       },
     ],
   },
