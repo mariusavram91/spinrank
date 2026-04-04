@@ -1,4 +1,5 @@
 import { handleCreateSeason } from "../../../worker/src/actions/createSeason";
+import type { UserRow } from "../../../worker/src/types";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 
 describe("worker integration: createSeason", () => {
@@ -16,7 +17,7 @@ describe("worker integration: createSeason", () => {
         `,
       )
         .bind("user_owner")
-        .first<{ id: string; display_name: string; global_elo: number; wins: number; losses: number; streak: number }>();
+        .first<UserRow>();
 
       const response = await handleCreateSeason(
         {

@@ -5,10 +5,7 @@ export interface TestWorkerRuntime {
 }
 
 export interface TestWorkerEnv {
-  DB: {
-    prepare: (sql: string) => unknown;
-    batch: (statements: readonly unknown[]) => Promise<unknown>;
-  };
+  DB: D1Database;
   GOOGLE_CLIENT_ID: string;
   APP_SESSION_SECRET: string;
   APP_ORIGIN: string;
@@ -17,10 +14,24 @@ export interface TestWorkerEnv {
   runtime: TestWorkerRuntime;
 }
 
-const createThrowingDb = (): TestWorkerEnv["DB"] => ({
-  prepare: () => {
+const createThrowingStatement = (): D1PreparedStatement => ({
+  bind: () => createThrowingStatement(),
+  first: async () => {
     throw new Error("Test DB not configured.");
   },
+  all: async () => {
+    throw new Error("Test DB not configured.");
+  },
+  run: async () => {
+    throw new Error("Test DB not configured.");
+  },
+  toSql: () => {
+    throw new Error("Test DB not configured.");
+  },
+});
+
+const createThrowingDb = (): D1Database => ({
+  prepare: () => createThrowingStatement(),
   batch: async () => {
     throw new Error("Test DB not configured.");
   },

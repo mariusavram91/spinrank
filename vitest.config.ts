@@ -10,23 +10,9 @@ export default defineConfig({
       reporter: ["text", "html", "lcov"],
       include: ["src/**/*.ts", "worker/src/**/*.ts"],
     },
+    include: ["tests/unit/**", "tests/integration/**"],
     exclude: ["tests/e2e/**", "node_modules/**", "worker/node_modules/**"],
+    environment: "node",
+    environmentMatchGlobs: [["tests/unit/frontend/**", "jsdom"]],
   },
-  projects: [
-    {
-      name: "node",
-      test: {
-        include: ["tests/unit/**", "tests/integration/**"],
-        exclude: ["tests/unit/frontend/**"],
-        environment: "node",
-      },
-    },
-    {
-      name: "jsdom",
-      test: {
-        include: ["tests/unit/frontend/**"],
-        environment: "jsdom",
-      },
-    },
-  ],
 });

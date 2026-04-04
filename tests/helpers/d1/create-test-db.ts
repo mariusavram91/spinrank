@@ -7,7 +7,7 @@ import { applyMigrations } from "./apply-migrations";
 
 const execFileAsync = promisify(execFile);
 
-interface D1Result<T> {
+export interface D1Result<T> {
   results: T[];
   success: boolean;
   meta: Record<string, unknown>;
@@ -38,7 +38,7 @@ const bindSql = (sql: string, params: readonly unknown[]): string =>
     return sqlLiteral(params[index]);
   });
 
-class TestD1PreparedStatement {
+export class TestD1PreparedStatement implements D1PreparedStatement {
   constructor(
     private readonly dbPath: string,
     private readonly sql: string,
@@ -90,7 +90,7 @@ const runSqlJson = async <T>(dbPath: string, sql: string): Promise<T[]> => {
   return JSON.parse(trimmed) as T[];
 };
 
-export class TestD1Database {
+export class TestD1Database implements D1Database {
   constructor(private readonly dbPath: string) {}
 
   prepare(sql: string): TestD1PreparedStatement {
