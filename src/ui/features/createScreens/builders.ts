@@ -317,6 +317,7 @@ export const buildTournamentScreen = (args: {
   tournamentMeta: HTMLElement;
   closeCreateTournamentButton: HTMLButtonElement;
   tournamentQuickBar: HTMLElement;
+  tournamentInsights: HTMLElement;
   participantSection: HTMLElement;
   participantLabel: HTMLElement;
   participantSearchInput: HTMLInputElement;
@@ -347,7 +348,7 @@ export const buildTournamentScreen = (args: {
 
   const tournamentActionsWrapper = document.createElement("div");
   tournamentActionsWrapper.className = "form-actions-wrapper";
-  tournamentActionsWrapper.append(tournamentActions, args.tournamentStatus);
+  tournamentActionsWrapper.append(tournamentActions);
 
   const tournamentEntrySection = document.createElement("section");
   tournamentEntrySection.className = "panel-section panel-section--entry panel-section--editor panel-section--editor-entry";
@@ -378,6 +379,7 @@ export const buildTournamentScreen = (args: {
 
   args.tournamentPanel.append(
     args.tournamentTop,
+    args.tournamentQuickBar,
     tournamentEntrySection,
     tournamentDetailsSection,
     tournamentParticipantsSection,
@@ -416,6 +418,7 @@ export const buildSeasonScreen = (args: {
   seasonMeta: HTMLElement;
   closeCreateSeasonButton: HTMLButtonElement;
   seasonQuickBar: HTMLElement;
+  seasonInsights: HTMLElement;
   seasonForm: HTMLFormElement;
   seasonStatus: HTMLElement;
   loadSeasonSelect: HTMLSelectElement;
@@ -449,7 +452,7 @@ export const buildSeasonScreen = (args: {
 
   const seasonActionsWrapper = document.createElement("div");
   seasonActionsWrapper.className = "form-actions-wrapper";
-  seasonActionsWrapper.append(seasonActions, args.seasonStatus);
+  seasonActionsWrapper.append(seasonActions);
 
   const seasonEntrySection = document.createElement("section");
   seasonEntrySection.className = "panel-section panel-section--entry panel-section--editor panel-section--editor-entry";
@@ -541,7 +544,7 @@ export const buildSeasonScreen = (args: {
     seasonRulesSection,
     seasonActionsWrapper,
   );
-  args.seasonPanel.append(args.seasonTop, args.seasonForm);
+  args.seasonPanel.append(args.seasonTop, args.seasonQuickBar, args.seasonForm);
   args.screen.append(args.seasonPanel);
 
   return {

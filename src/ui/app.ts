@@ -7,6 +7,7 @@ import type {
   CreateSeasonPayload,
   GetUserProgressData,
   LeaderboardEntry,
+  MatchBracketContext,
   MatchFeedFilter,
   MatchRecord,
   SeasonRecord,
@@ -41,6 +42,7 @@ import { createMatchesRenderer } from "./features/dashboard/renderers/matches";
 import { createProgressRenderer } from "./features/dashboard/renderers/progress";
 import { createDraftRenderers } from "./features/dashboard/renderers/drafts";
 import { createDashboardSync } from "./features/dashboard/sync";
+import { renderProfileScreen } from "./features/profile/render";
 import { createMatchActions } from "./features/matches/actions";
 import { buildFairMatchSuggestion, buildUniquePlayerList, findPlayer, renderMatchScore, renderPlayerNames } from "./features/matches/utils";
 import { buildHelpScreens } from "./features/help/screens";
@@ -119,6 +121,13 @@ export const buildApp = (): HTMLElement => {
     createMatchScreen,
     createTournamentScreen,
     createSeasonScreen,
+    profileScreen,
+    closeProfileButton,
+    profileStatus,
+    profileSeasonsList,
+    profileTournamentsList,
+    profileMatchesList,
+    profileLoadMoreButton,
     faqScreen,
     faqBackButton,
     privacyScreen,
@@ -226,6 +235,7 @@ export const buildApp = (): HTMLElement => {
     seasonSummary,
     seasonLockNotice,
     seasonQuickBar,
+    seasonInsights,
     seasonForm,
     seasonNameInput,
     loadSeasonSelect,
@@ -251,6 +261,7 @@ export const buildApp = (): HTMLElement => {
     tournamentSummary,
     tournamentLockNotice,
     tournamentQuickBar,
+    tournamentInsights,
     participantSection,
     participantLabel,
     participantList,
@@ -502,6 +513,7 @@ export const buildApp = (): HTMLElement => {
     createMatchScreen,
     createTournamentScreen,
     createSeasonScreen,
+    profileScreen,
     faqScreen,
     privacyScreen,
     loginView,
@@ -699,6 +711,72 @@ export const buildApp = (): HTMLElement => {
 
   const syncDashboardState = (): void => {
     dashboardSync.syncDashboardState();
+    if (isAuthedState(state.current)) {
+      const currentUserId = getCurrentUserId(state.current);
+      renderProfileScreen({
+        dashboardState,
+        currentUserId,
+        seasonsList: profileSeasonsList,
+        tournamentsList: profileTournamentsList,
+        matchesList: profileMatchesList,
+        status: profileStatus,
+        loadMoreButton: profileLoadMoreButton,
+        t: (key) => t(key),
+        renderMatchScore,
+        renderPlayerNames,
+        renderMatchContext: (match, seasons, tournaments, bracketContext, options) =>
+          renderMatchContext(match, seasons, tournaments, bracketContext, t, options),
+        formatDateTime,
+        onOpenSeason: openSeasonEditor,
+        onOpenTournament: openTournamentEditor,
+        onLoadMoreMatches: () => {
+          void loadProfileMatches(false);
+        },
+      });
+
+      const renderSegmentInsights = (
+        target: HTMLElement,
+        segmentType: "season" | "tournament",
+        segmentId: string,
+      ): void => {
+        if (!segmentId) {
+          target.hidden = true;
+          target.replaceChildren();
+          return;
+        }
+        const summary = dashboardState.profileSegmentSummaries[buildProfileSummaryKey(segmentType, segmentId)];
+        if (!summary) {
+          target.hidden = true;
+          target.replaceChildren();
+          void ensureProfileSegmentSummary(segmentType, segmentId);
+          return;
+        }
+        const chips = [
+          `${t("leaderboardWins")} ${summary.wins}`,
+          `${t("leaderboardLosses")} ${summary.losses}`,
+          summary.rank ? `${t("progressRanked")} #${summary.rank}` : "",
+          summary.placementLabelKey
+            ? `${t("profilePlacement")} ${t(summary.placementLabelKey).replace(
+                "{count}",
+                String(summary.placementLabelCount ?? 0),
+              )}`
+            : "",
+          `${t("profileParticipants")} ${summary.participantCount}`,
+        ]
+          .filter(Boolean)
+          .map((label) => {
+            const chip = document.createElement("span");
+            chip.className = "profile-stat-chip";
+            chip.textContent = label;
+            return chip;
+          });
+        target.hidden = chips.length === 0;
+        target.replaceChildren(...chips);
+      };
+
+      renderSegmentInsights(seasonInsights, "season", dashboardState.editingSeasonId);
+      renderSegmentInsights(tournamentInsights, "tournament", tournamentPlannerState.tournamentId);
+    }
     syncMatchPlayerSearchInputs();
     syncScoreCard();
     const syncSegmentedToggle = (toggle: HTMLElement | null, value: string): void => {
@@ -926,6 +1004,147 @@ export const buildApp = (): HTMLElement => {
     applyTournamentWinnerLocally,
   });
 
+  const buildProfileSummaryKey = (segmentType: "season" | "tournament", segmentId: string): string =>
+    `${segmentType}:${segmentId}`;
+
+  const ensureProfileSegmentSummary = async (segmentType: "season" | "tournament", segmentId: string): Promise<void> => {
+    if (!segmentId || !isAuthedState(state.current)) {
+      return;
+    }
+    const key = buildProfileSummaryKey(segmentType, segmentId);
+    if (
+      dashboardState.profileSegmentSummaries[key] ||
+      dashboardState.profileSegmentSummaryLoadingKeys.includes(key)
+    ) {
+      return;
+    }
+
+    dashboardState.profileSegmentSummaryLoadingKeys = [...dashboardState.profileSegmentSummaryLoadingKeys, key];
+    syncDashboardState();
+
+    try {
+      const data = await runAuthedAction("getSegmentLeaderboard", { segmentType, segmentId });
+      const currentUserId = getCurrentUserId(state.current);
+      const currentEntry = data.leaderboard.find((entry) => entry.userId === currentUserId);
+      const participantCount =
+        segmentType === "season"
+          ? dashboardState.seasons.find((season) => season.id === segmentId)?.participantIds.length ?? data.leaderboard.length
+          : dashboardState.tournaments.find((tournament) => tournament.id === segmentId)?.participantCount ??
+            data.leaderboard.length;
+
+      dashboardState.profileSegmentSummaries[key] = {
+        segmentType,
+        segmentId,
+        wins: currentEntry?.wins ?? 0,
+        losses: currentEntry?.losses ?? 0,
+        rank: currentEntry?.rank ?? null,
+        placementLabelKey: currentEntry?.placementLabelKey,
+        placementLabelCount: currentEntry?.placementLabelCount ?? null,
+        participantCount,
+      };
+    } catch {
+      // Keep the card interactive even if segment stats fail to load.
+    } finally {
+      dashboardState.profileSegmentSummaryLoadingKeys = dashboardState.profileSegmentSummaryLoadingKeys.filter(
+        (entry) => entry !== key,
+      );
+      syncDashboardState();
+    }
+  };
+
+  const loadProfileMatches = async (reset = false): Promise<void> => {
+    if (!isAuthedState(state.current)) {
+      return;
+    }
+
+    dashboardState.profileMatchesLoading = true;
+    syncDashboardState();
+
+    try {
+      const data = await runAuthedAction("getMatches", {
+        filter: "mine",
+        limit: 15,
+        cursor: reset ? undefined : dashboardState.profileMatchesCursor ?? undefined,
+      });
+      const bracketContext = Object.fromEntries(
+        data.matches
+          .filter((match) => Boolean(match.bracketContext))
+          .map((match) => [match.id, match.bracketContext as MatchBracketContext]),
+      );
+      dashboardState.profileMatches = reset ? data.matches : [...dashboardState.profileMatches, ...data.matches];
+      dashboardState.profileMatchesCursor = data.nextCursor;
+      dashboardState.matchBracketContextByMatchId = {
+        ...dashboardState.matchBracketContextByMatchId,
+        ...bracketContext,
+      };
+    } finally {
+      dashboardState.profileMatchesLoading = false;
+      syncDashboardState();
+    }
+  };
+
+  const openSeasonEditor = (seasonId: string): void => {
+    const season = dashboardState.seasons.find((entry) => entry.id === seasonId);
+    if (!season || isLockedSeason(season)) {
+      return;
+    }
+    dashboardState.screen = "createSeason";
+    dashboardState.seasonFormError = "";
+    dashboardState.seasonFormMessage = "";
+    populateSeasonManagerLoadOptions();
+    syncAuthState();
+    syncDashboardState();
+    loadSeasonSelect.value = seasonId;
+    loadSeasonSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const openTournamentEditor = (tournamentId: string): void => {
+    const tournament = dashboardState.tournaments.find((entry) => entry.id === tournamentId);
+    if (!tournament || isLockedTournament(tournament)) {
+      return;
+    }
+    dashboardState.screen = "createTournament";
+    dashboardState.tournamentFormMessage = "";
+    tournamentPlannerState.error = "";
+    populateTournamentPlannerLoadOptions();
+    syncAuthState();
+    syncDashboardState();
+    loadTournamentSelect.value = tournamentId;
+    loadTournamentSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const openProfileScreen = async (): Promise<void> => {
+    if (!isAuthedState(state.current)) {
+      return;
+    }
+
+    dashboardState.screen = "profile";
+    dashboardState.profileLoading = true;
+    syncAuthState();
+    syncDashboardState();
+
+    const currentUserId = getCurrentUserId(state.current);
+    const visibleSeasons = dashboardState.seasons.filter(
+      (season) => season.status !== "deleted" && season.participantIds.includes(currentUserId),
+    );
+    const visibleTournaments = dashboardState.tournaments.filter(
+      (tournament) => tournament.status !== "deleted" && tournament.participantIds.includes(currentUserId),
+    );
+
+    try {
+      await Promise.all([
+        loadProfileMatches(true),
+        ...visibleSeasons.map((season) => ensureProfileSegmentSummary("season", season.id)),
+        ...visibleTournaments.map((tournament) => ensureProfileSegmentSummary("tournament", tournament.id)),
+      ]);
+    } catch (error) {
+      dashboardState.error = error instanceof Error ? error.message : "Failed to load profile.";
+    } finally {
+      dashboardState.profileLoading = false;
+      syncDashboardState();
+    }
+  };
+
   const topLevelUiHandlers = createTopLevelUiHandlers({
     authActions,
     createMenu,
@@ -938,6 +1157,7 @@ export const buildApp = (): HTMLElement => {
     syncAuthState,
     syncDashboardState,
     loadDashboard,
+    openProfileScreen,
     resetScoreInputs,
     showScoreCard,
     hideScoreCard,
@@ -974,6 +1194,7 @@ export const buildApp = (): HTMLElement => {
     faqMenuButton,
     footerFaqButton,
     footerPrivacyButton,
+    authAvatar,
     authMenuButton,
     createMenuButton,
     refreshButton,
@@ -984,6 +1205,7 @@ export const buildApp = (): HTMLElement => {
     closeCreateMatchButton,
     closeCreateTournamentButton,
     closeCreateSeasonButton,
+    closeProfileButton,
     faqBackButton,
     privacyBackButton,
     closeScoreCardButton,
@@ -1016,6 +1238,7 @@ export const buildApp = (): HTMLElement => {
     resetTournamentForm,
     setSeasonSharePanelTargetId,
     refreshSegmentShareLink,
+    ensureProfileSegmentSummary,
     seasonSharePanelElements,
     saveTournament,
     deleteTournament,
@@ -1156,6 +1379,7 @@ export const buildApp = (): HTMLElement => {
     tournamentMeta,
     closeCreateTournamentButton,
     tournamentQuickBar,
+    tournamentInsights,
     participantSection,
     participantLabel,
     participantSearchInput,
@@ -1179,6 +1403,7 @@ export const buildApp = (): HTMLElement => {
     seasonMeta,
     closeCreateSeasonButton,
     seasonQuickBar,
+    seasonInsights,
     seasonForm,
     seasonStatus,
     loadSeasonSelect,

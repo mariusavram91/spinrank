@@ -1064,6 +1064,201 @@ button:disabled,
   border-color: rgba(145, 91, 31, 0.22);
 }
 
+.profile-screen__body {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.profile-section__title {
+  font-size: 1rem;
+}
+
+.profile-card-list,
+.profile-match-list,
+.segment-insights {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.profile-segment-card-shell {
+  position: relative;
+}
+
+.profile-segment-card {
+  position: relative;
+  display: grid;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-left: 4px solid rgba(22, 163, 74, 0.42);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 248, 252, 0.98));
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.profile-segment-card:hover,
+.profile-segment-card:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(15, 23, 42, 0.22);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.profile-segment-card--created {
+  border-left: 4px solid #1d4ed8;
+}
+
+.profile-segment-card--inactive {
+  border-left-color: rgba(217, 119, 6, 0.85);
+  background: linear-gradient(180deg, rgba(255, 251, 235, 0.98), rgba(254, 243, 199, 0.9));
+}
+
+.profile-segment-card--completed {
+  border-left-color: rgba(100, 116, 139, 0.9);
+  border-style: dashed;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(226, 232, 240, 0.88),
+      rgba(226, 232, 240, 0.88) 10px,
+      rgba(241, 245, 249, 0.96) 10px,
+      rgba(241, 245, 249, 0.96) 20px
+    );
+  color: rgba(15, 23, 42, 0.68);
+}
+
+.profile-segment-card__top,
+.profile-match-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.profile-segment-card__title-block {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-segment-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.profile-segment-card__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.profile-segment-card__title {
+  font-weight: 700;
+}
+
+.profile-segment-card__meta,
+.profile-match-card__meta,
+.profile-match-card__date,
+.profile-segment-card__loading {
+  color: rgba(15, 23, 42, 0.65);
+  font-size: 0.92rem;
+}
+
+.profile-segment-card__badges,
+.profile-segment-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.profile-segment-card__medal {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.16),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  font-size: 2rem;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.18));
+}
+
+.profile-badge,
+.profile-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.profile-badge--role {
+  background: rgba(29, 78, 216, 0.12);
+  color: #1d4ed8;
+}
+
+.profile-visibility-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  font-size: 0.9rem;
+  opacity: 0.82;
+}
+
+.profile-match-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.profile-segment-card:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.profile-match-card--won {
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.95), rgba(220, 252, 231, 0.92));
+  border-color: rgba(22, 163, 74, 0.18);
+}
+
+.profile-match-card--lost {
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.92));
+  border-color: rgba(220, 38, 38, 0.18);
+}
+
+.profile-match-card__players,
+.profile-match-card__score {
+  font-weight: 600;
+}
+
 .matches-list {
   align-content: start;
 }

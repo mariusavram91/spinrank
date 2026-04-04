@@ -13,6 +13,7 @@ export const createTopLevelUiHandlers = (args: {
   syncAuthState: () => void;
   syncDashboardState: () => void;
   loadDashboard: () => Promise<void>;
+  openProfileScreen: () => Promise<void>;
   resetScoreInputs: () => void;
   showScoreCard: () => void;
   hideScoreCard: () => void;
@@ -27,7 +28,7 @@ export const createTopLevelUiHandlers = (args: {
   applyFairMatchSuggestion: () => void;
   suggestTournamentBracket: () => void;
   dashboardState: {
-    screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "faq" | "privacy";
+    screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "profile" | "faq" | "privacy";
     seasonFormError: string;
     seasonFormMessage: string;
     tournamentFormMessage: string;
@@ -43,6 +44,7 @@ export const createTopLevelUiHandlers = (args: {
   onLogout: () => void;
   onOpenFaq: () => void;
   onOpenPrivacy: () => void;
+  onOpenProfile: () => void;
   onToggleAuthMenu: () => void;
   onToggleCreateMenu: () => void;
   onDocumentClick: (event: MouseEvent) => void;
@@ -54,6 +56,7 @@ export const createTopLevelUiHandlers = (args: {
   onCloseCreateMatch: () => void;
   onCloseCreateTournament: () => void;
   onCloseCreateSeason: () => void;
+  onCloseProfile: () => void;
   onCloseFaq: () => void;
   onClosePrivacy: () => void;
   onCloseScoreCard: () => void;
@@ -71,6 +74,10 @@ export const createTopLevelUiHandlers = (args: {
   },
   onOpenPrivacy: () => {
     args.openPrivacyScreen();
+  },
+  onOpenProfile: () => {
+    args.menuState.authMenuOpen = false;
+    void args.openProfileScreen();
   },
   onToggleAuthMenu: () => {
     args.menuState.createMenuOpen = false;
@@ -154,6 +161,11 @@ export const createTopLevelUiHandlers = (args: {
     args.syncAuthState();
     args.syncDashboardState();
   },
+  onCloseProfile: () => {
+    args.dashboardState.screen = "dashboard";
+    args.syncAuthState();
+    args.syncDashboardState();
+  },
   onCloseFaq: () => {
     args.closeFaqScreen();
   },
@@ -228,6 +240,7 @@ export const createSelectionAndFormHandlers = (args: {
     targetId: string,
     elements: SharePanelElements | null,
   ) => Promise<void>;
+  ensureProfileSegmentSummary: (segmentType: SegmentType, targetId: string) => Promise<void>;
   seasonSharePanelElements: SharePanelElements | null;
   saveTournament: () => Promise<void>;
   deleteTournament: () => Promise<void>;
@@ -291,6 +304,7 @@ export const createSelectionAndFormHandlers = (args: {
     args.syncDashboardState();
     args.setSeasonSharePanelTargetId(season.id);
     void args.refreshSegmentShareLink("season", season.id, args.seasonSharePanelElements);
+    void args.ensureProfileSegmentSummary("season", season.id);
   };
 
   return {
@@ -306,6 +320,7 @@ export const createSelectionAndFormHandlers = (args: {
         return;
       }
       args.tournamentPlannerState.error = "";
+      void args.ensureProfileSegmentSummary("tournament", args.tournamentPlannerState.tournamentId);
       void args.loadTournamentBracket();
     },
     onSeasonSelectChange: () => {

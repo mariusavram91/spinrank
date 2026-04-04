@@ -15,7 +15,7 @@ export const createSeasonActions = (args: {
     editingSeasonId: string;
     editingSeasonParticipantIds: string[];
     seasonDraftMode: "create" | "edit";
-    screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "faq" | "privacy";
+    screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "profile" | "faq" | "privacy";
   };
   seasonNameInput: HTMLInputElement;
   seasonStartDateInput: HTMLInputElement;

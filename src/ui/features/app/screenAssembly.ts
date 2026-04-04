@@ -67,6 +67,7 @@ export const assembleAppScreens = (args: {
   tournamentMeta: HTMLParagraphElement;
   closeCreateTournamentButton: HTMLButtonElement;
   tournamentQuickBar: HTMLElement;
+  tournamentInsights: HTMLElement;
   participantSection: HTMLElement;
   participantLabel: HTMLElement;
   participantSearchInput: HTMLInputElement;
@@ -90,6 +91,7 @@ export const assembleAppScreens = (args: {
   seasonMeta: HTMLParagraphElement;
   closeCreateSeasonButton: HTMLButtonElement;
   seasonQuickBar: HTMLElement;
+  seasonInsights: HTMLElement;
   seasonForm: HTMLFormElement;
   seasonStatus: HTMLElement;
   loadSeasonSelect: HTMLSelectElement;
@@ -173,6 +175,7 @@ export const assembleAppScreens = (args: {
     tournamentMeta: args.tournamentMeta,
     closeCreateTournamentButton: args.closeCreateTournamentButton,
     tournamentQuickBar: args.tournamentQuickBar,
+    tournamentInsights: args.tournamentInsights,
     participantSection: args.participantSection,
     participantLabel: args.participantLabel,
     participantSearchInput: args.participantSearchInput,
@@ -199,6 +202,7 @@ export const assembleAppScreens = (args: {
     seasonMeta: args.seasonMeta,
     closeCreateSeasonButton: args.closeCreateSeasonButton,
     seasonQuickBar: args.seasonQuickBar,
+    seasonInsights: args.seasonInsights,
     seasonForm: args.seasonForm,
     seasonStatus: args.seasonStatus,
     loadSeasonSelect: args.loadSeasonSelect,

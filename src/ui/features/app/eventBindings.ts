@@ -7,6 +7,7 @@ export const bindTopLevelUiHandlers = (args: {
   faqMenuButton: HTMLButtonElement;
   footerFaqButton: HTMLButtonElement;
   footerPrivacyButton: HTMLButtonElement;
+  authAvatar: HTMLImageElement;
   authMenuButton: HTMLButtonElement;
   createMenuButton: HTMLButtonElement;
   refreshButton: HTMLButtonElement;
@@ -17,6 +18,7 @@ export const bindTopLevelUiHandlers = (args: {
   closeCreateMatchButton: HTMLButtonElement;
   closeCreateTournamentButton: HTMLButtonElement;
   closeCreateSeasonButton: HTMLButtonElement;
+  closeProfileButton: HTMLButtonElement;
   faqBackButton: HTMLButtonElement;
   privacyBackButton: HTMLButtonElement;
   closeScoreCardButton: HTMLButtonElement;
@@ -26,6 +28,7 @@ export const bindTopLevelUiHandlers = (args: {
   onLogout: () => void;
   onOpenFaq: () => void;
   onOpenPrivacy: () => void;
+  onOpenProfile: () => void;
   onToggleAuthMenu: () => void;
   onToggleCreateMenu: () => void;
   onDocumentClick: (event: MouseEvent) => void;
@@ -37,6 +40,7 @@ export const bindTopLevelUiHandlers = (args: {
   onCloseCreateMatch: () => void;
   onCloseCreateTournament: () => void;
   onCloseCreateSeason: () => void;
+  onCloseProfile: () => void;
   onCloseFaq: () => void;
   onClosePrivacy: () => void;
   onCloseScoreCard: () => void;
@@ -48,6 +52,13 @@ export const bindTopLevelUiHandlers = (args: {
   args.faqMenuButton.addEventListener("click", args.onOpenFaq);
   args.footerFaqButton.addEventListener("click", args.onOpenFaq);
   args.footerPrivacyButton.addEventListener("click", args.onOpenPrivacy);
+  args.authAvatar.addEventListener("click", args.onOpenProfile);
+  args.authAvatar.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      args.onOpenProfile();
+    }
+  });
   args.authMenuButton.addEventListener("click", args.onToggleAuthMenu);
   args.createMenuButton.addEventListener("click", args.onToggleCreateMenu);
   document.addEventListener("click", args.onDocumentClick);
@@ -59,6 +70,7 @@ export const bindTopLevelUiHandlers = (args: {
   args.closeCreateMatchButton.addEventListener("click", args.onCloseCreateMatch);
   args.closeCreateTournamentButton.addEventListener("click", args.onCloseCreateTournament);
   args.closeCreateSeasonButton.addEventListener("click", args.onCloseCreateSeason);
+  args.closeProfileButton.addEventListener("click", args.onCloseProfile);
   args.faqBackButton.addEventListener("click", args.onCloseFaq);
   args.privacyBackButton.addEventListener("click", args.onClosePrivacy);
   args.closeScoreCardButton.addEventListener("click", args.onCloseScoreCard);

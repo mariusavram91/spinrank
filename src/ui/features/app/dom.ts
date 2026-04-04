@@ -91,6 +91,9 @@ export const createAppDom = (args: {
   const authAvatar = document.createElement("img");
   authAvatar.className = "auth-avatar";
   authAvatar.alt = "Signed-in user avatar";
+  authAvatar.tabIndex = 0;
+  authAvatar.setAttribute("role", "button");
+  authAvatar.setAttribute("aria-label", "Open profile");
 
   const authMenuButton = document.createElement("button");
   authMenuButton.type = "button";
@@ -118,6 +121,81 @@ export const createAppDom = (args: {
   const createSeasonScreen = document.createElement("section");
   createSeasonScreen.className = "dashboard";
   createSeasonScreen.hidden = true;
+
+  const profileScreen = document.createElement("section");
+  profileScreen.className = "dashboard";
+  profileScreen.hidden = true;
+
+  const profilePanel = document.createElement("section");
+  profilePanel.className = "content-card profile-screen";
+
+  const profileTop = document.createElement("div");
+  profileTop.className = "card-header";
+
+  const profileHeading = document.createElement("div");
+
+  const profileTitle = document.createElement("h3");
+  profileTitle.className = "card-title";
+  bindLocalizedText(profileTitle, "profileTitle");
+
+  const profileMeta = document.createElement("p");
+  profileMeta.className = "card-meta";
+  bindLocalizedText(profileMeta, "profileMeta");
+
+  const closeProfileButton = document.createElement("button");
+  closeProfileButton.type = "button";
+  closeProfileButton.className = "secondary-button compact-header-button";
+  bindLocalizedText(closeProfileButton, "back");
+
+  profileHeading.append(profileTitle, profileMeta);
+  profileTop.append(profileHeading, closeProfileButton);
+
+  const profileStatus = document.createElement("p");
+  profileStatus.className = "form-status";
+  profileStatus.hidden = true;
+  profileStatus.setAttribute("aria-live", "polite");
+
+  const profileBody = document.createElement("div");
+  profileBody.className = "profile-screen__body";
+
+  const profileSeasonsSection = document.createElement("section");
+  profileSeasonsSection.className = "profile-section";
+  const profileSeasonsTitle = document.createElement("h4");
+  profileSeasonsTitle.className = "card-title profile-section__title";
+  bindLocalizedText(profileSeasonsTitle, "profileSeasonLabel");
+  const profileSeasonsList = document.createElement("div");
+  profileSeasonsList.className = "profile-card-list";
+  profileSeasonsSection.append(profileSeasonsTitle, profileSeasonsList);
+
+  const profileTournamentsSection = document.createElement("section");
+  profileTournamentsSection.className = "profile-section";
+  const profileTournamentsTitle = document.createElement("h4");
+  profileTournamentsTitle.className = "card-title profile-section__title";
+  bindLocalizedText(profileTournamentsTitle, "tournaments");
+  const profileTournamentsList = document.createElement("div");
+  profileTournamentsList.className = "profile-card-list";
+  profileTournamentsSection.append(profileTournamentsTitle, profileTournamentsList);
+
+  const profileMatchesSection = document.createElement("section");
+  profileMatchesSection.className = "profile-section";
+  const profileMatchesTitle = document.createElement("h4");
+  profileMatchesTitle.className = "card-title profile-section__title";
+  bindLocalizedText(profileMatchesTitle, "profileMatches");
+  const profileMatchesList = document.createElement("div");
+  profileMatchesList.className = "profile-match-list";
+  const profileLoadMoreButton = document.createElement("button");
+  profileLoadMoreButton.type = "button";
+  profileLoadMoreButton.className = "secondary-button";
+  bindLocalizedText(profileLoadMoreButton, "loadMore");
+  profileMatchesSection.append(profileMatchesTitle, profileMatchesList);
+
+  profileBody.append(
+    profileSeasonsSection,
+    profileTournamentsSection,
+    profileMatchesSection,
+  );
+  profilePanel.append(profileTop, profileStatus, profileBody);
+  profileScreen.append(profilePanel);
 
   const { faqScreen, faqBackButton, privacyScreen, privacyBackButton } = buildHelpScreens();
   const { footer, faqButton: footerFaqButton, privacyButton: footerPrivacyButton } = buildFooter();
@@ -361,8 +439,12 @@ export const createAppDom = (args: {
   seasonLockNotice.hidden = true;
 
   const seasonQuickBar = document.createElement("div");
-  seasonQuickBar.className = "quick-bar quick-bar--season";
-  seasonQuickBar.append(seasonSummary, seasonLockNotice);
+  seasonQuickBar.className = "segment-lock-bar";
+  seasonQuickBar.append(seasonLockNotice);
+
+  const seasonInsights = document.createElement("div");
+  seasonInsights.className = "segment-insights";
+  seasonInsights.hidden = true;
 
   const seasonForm = document.createElement("form");
   seasonForm.className = "match-form";
@@ -464,8 +546,12 @@ export const createAppDom = (args: {
   tournamentLockNotice.hidden = true;
 
   const tournamentQuickBar = document.createElement("div");
-  tournamentQuickBar.className = "quick-bar quick-bar--tournament";
-  tournamentQuickBar.append(tournamentSummary, tournamentLockNotice);
+  tournamentQuickBar.className = "segment-lock-bar";
+  tournamentQuickBar.append(tournamentLockNotice);
+
+  const tournamentInsights = document.createElement("div");
+  tournamentInsights.className = "segment-insights";
+  tournamentInsights.hidden = true;
 
   const participantSection = document.createElement("div");
   participantSection.className = "form-field";
@@ -529,6 +615,7 @@ export const createAppDom = (args: {
     createMatchScreen,
     createTournamentScreen,
     createSeasonScreen,
+    profileScreen,
     faqScreen,
     privacyScreen,
     footer,
@@ -551,6 +638,14 @@ export const createAppDom = (args: {
     createMatchScreen,
     createTournamentScreen,
     createSeasonScreen,
+    profileScreen,
+    profilePanel,
+    closeProfileButton,
+    profileStatus,
+    profileSeasonsList,
+    profileTournamentsList,
+    profileMatchesList,
+    profileLoadMoreButton,
     faqScreen,
     faqBackButton,
     privacyScreen,
@@ -626,6 +721,7 @@ export const createAppDom = (args: {
     seasonSummary,
     seasonLockNotice,
     seasonQuickBar,
+    seasonInsights,
     seasonForm,
     seasonNameInput,
     loadSeasonSelect,
@@ -651,6 +747,7 @@ export const createAppDom = (args: {
     tournamentSummary,
     tournamentLockNotice,
     tournamentQuickBar,
+    tournamentInsights,
     participantSection,
     participantLabel,
     participantList,

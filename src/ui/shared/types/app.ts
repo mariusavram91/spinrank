@@ -22,8 +22,19 @@ export type SegmentMode = "global" | "season" | "tournament";
 
 export type SeasonDraftMode = "create" | "edit";
 
+export interface ProfileSegmentSummary {
+  segmentType: SegmentType;
+  segmentId: string;
+  wins: number;
+  losses: number;
+  rank: number | null;
+  placementLabelKey?: LeaderboardEntry["placementLabelKey"];
+  placementLabelCount?: number | null;
+  participantCount: number;
+}
+
 export interface DashboardState {
-  screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "faq" | "privacy";
+  screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "profile" | "faq" | "privacy";
   loading: boolean;
   error: string;
   leaderboard: LeaderboardEntry[];
@@ -41,6 +52,12 @@ export interface DashboardState {
   matches: MatchRecord[];
   matchesCursor: string | null;
   matchesLoading: boolean;
+  profileMatches: MatchRecord[];
+  profileMatchesCursor: string | null;
+  profileLoading: boolean;
+  profileMatchesLoading: boolean;
+  profileSegmentSummaries: Record<string, ProfileSegmentSummary>;
+  profileSegmentSummaryLoadingKeys: string[];
   matchBracketContextByMatchId: Record<string, { roundTitle: string; isFinal: boolean }>;
   matchSubmitting: boolean;
   matchFormError: string;
