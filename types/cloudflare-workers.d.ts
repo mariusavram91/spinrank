@@ -16,3 +16,16 @@ interface D1Database {
   prepare(sql: string): D1PreparedStatement;
   batch(statements: readonly D1PreparedStatement[]): Promise<D1Result<unknown>[]>;
 }
+
+interface CacheStorage {
+  default: Cache;
+}
+
+interface CfProperties {
+  cacheEverything?: boolean;
+  cacheTtl?: number;
+}
+
+interface RequestInit {
+  cf?: CfProperties;
+}
