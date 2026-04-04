@@ -1,3 +1,5 @@
+import type { WorkerRuntimeDeps } from "./runtime";
+
 export const apiActionNames = [
   "health",
   "bootstrapUser",
@@ -67,6 +69,8 @@ export interface Env {
   APP_SESSION_SECRET: string;
   APP_ORIGIN: string;
   APP_ENV?: string;
+  TEST_AUTH_SECRET?: string;
+  runtime?: Partial<WorkerRuntimeDeps>;
 }
 
 export interface SessionClaims {

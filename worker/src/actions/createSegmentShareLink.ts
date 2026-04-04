@@ -1,5 +1,6 @@
 import { isoNow, parseJsonArray, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
+import { resolveWorkerRuntime } from "../runtime";
 import { getSeasonById, getTournamentById, getTournamentParticipantIds } from "../services/visibility";
 import type {
   ApiRequest,
@@ -85,7 +86,7 @@ export async function handleCreateSegmentShareLink(
     );
   }
 
-  const now = isoNow();
+  const now = isoNow(env.runtime);
   const dedupStatement = env.DB.prepare(
     `
       INSERT INTO request_dedup (action, request_id, target_id, created_at)
@@ -109,9 +110,10 @@ export async function handleCreateSegmentShareLink(
     .bind(now, sessionUser.id, segmentType, segmentId, sessionUser.id, now)
     .run();
 
-  const shareToken = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + SHARE_LINK_TTL_MS).toISOString();
-  const linkId = randomId("share");
+  const runtime = resolveWorkerRuntime(env.runtime);
+  const shareToken = runtime.randomUUID();
+  const expiresAt = new Date(runtime.now() + SHARE_LINK_TTL_MS).toISOString();
+  const linkId = randomId("share", env.runtime);
   await env.DB.batch([
     env.DB.prepare(
       `

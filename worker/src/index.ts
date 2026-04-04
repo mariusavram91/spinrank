@@ -1,6 +1,9 @@
 import { handleAvatarRequest } from "./avatar";
+import { isoNow } from "./db";
 import { cors, errorResponse, json } from "./responses";
 import { parseApiRequest, routeApiRequest } from "./router";
+import { resolveWorkerRuntime } from "./runtime";
+import { handleTestBootstrapRequest, isTestBootstrapRequest } from "./testAuth";
 import type { Env } from "./types";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -14,8 +17,8 @@ const getClientAddress = (request: Request): string =>
   request.headers.get("host") ??
   "unknown";
 
-const enforceRateLimit = (key: string): number | null => {
-  const now = Date.now();
+const enforceRateLimit = (key: string, env: Env): number | null => {
+  const now = resolveWorkerRuntime(env.runtime).now();
   const bucket = rateLimitBuckets.get(key);
   if (!bucket || now >= bucket.resetAt) {
     rateLimitBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
@@ -32,13 +35,17 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const requestOrigin = request.headers.get("origin");
 
-    if (!env.APP_SESSION_SECRET || !env.GOOGLE_CLIENT_ID) {
+    if (isTestBootstrapRequest(request)) {
+      return handleTestBootstrapRequest(request, env);
+    }
+
+    if (!env.APP_SESSION_SECRET) {
       return json(
         env,
         errorResponse(
           "unknown",
           "INTERNAL_ERROR",
-          "Required environment variables (APP_SESSION_SECRET, GOOGLE_CLIENT_ID) are missing. If running locally, add them to worker/.dev.vars",
+          "Required environment variable APP_SESSION_SECRET is missing. If running locally, add it to worker/.dev.vars",
         ),
         500,
         requestOrigin,
@@ -59,7 +66,7 @@ export default {
           data: {
             status: "ok",
             environment: env.APP_ENV || "dev",
-            timestamp: new Date().toISOString(),
+            timestamp: isoNow(env.runtime),
             version: "cloudflare-worker",
           },
           error: null,
@@ -85,7 +92,7 @@ export default {
 
     try {
       const apiRequest = await parseApiRequest(request);
-      const retryAfterSeconds = enforceRateLimit(getClientAddress(request));
+      const retryAfterSeconds = enforceRateLimit(getClientAddress(request), env);
       if (retryAfterSeconds) {
         return json(
           env,
@@ -103,7 +110,7 @@ export default {
             data: {
               status: "ok",
               environment: env.APP_ENV || "dev",
-              timestamp: new Date().toISOString(),
+              timestamp: isoNow(env.runtime),
               version: "cloudflare-worker",
             },
             error: null,

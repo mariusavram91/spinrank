@@ -1,4 +1,4 @@
-import { parseJsonObject } from "../db";
+import { isoNow, parseJsonObject } from "../db";
 import { successResponse } from "../responses";
 import type { ApiRequest, Env, MatchRecord, UserProgressPoint, UserRow } from "../types";
 
@@ -83,7 +83,7 @@ export async function handleGetUserProgress(
 
   bestStreak = Math.max(bestStreak, Number(sessionUser.streak || 0));
 
-  const nowIso = new Date().toISOString();
+  const nowIso = isoNow(env.runtime);
   const finalPoints =
     progressPoints.length > 0
       ? progressPoints

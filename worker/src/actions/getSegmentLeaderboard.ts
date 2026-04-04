@@ -1,3 +1,4 @@
+import { isoNow } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { calculateSeasonScore, MINIMUM_MATCHES_TO_QUALIFY } from "../services/elo";
 import { getBracketRounds } from "../services/brackets";
@@ -211,7 +212,7 @@ export async function handleGetSegmentLeaderboard(
     segmentType === "tournament" ? await getBracketRounds(env, segmentId) : ([] as TournamentBracketRound[]);
   const tournamentPlacementMetrics =
     segmentType === "tournament" ? buildTournamentPlacementMetrics(tournamentRounds) : null;
-  const nowIso = new Date().toISOString();
+  const nowIso = isoNow(env.runtime);
   const segmentMatchStatsRows = await env.DB.prepare(
     `
       SELECT

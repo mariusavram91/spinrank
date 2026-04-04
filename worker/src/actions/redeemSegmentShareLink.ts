@@ -34,7 +34,7 @@ export async function handleRedeemSegmentShareLink(
     return errorResponse(request.requestId, "NOT_FOUND", "Share link not found.");
   }
 
-  const now = isoNow();
+  const now = isoNow(env.runtime);
   if (link.consumed_at) {
     return errorResponse(request.requestId, "CONFLICT", "This share link has already been used.");
   }

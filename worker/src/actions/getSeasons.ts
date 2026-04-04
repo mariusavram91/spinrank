@@ -14,7 +14,7 @@ export async function handleGetSeasons(
       ORDER BY s.is_active DESC, s.start_date DESC, s.id DESC
     `,
   )
-    .bind(sessionUser.id, getRecentCompletionCutoffDate())
+    .bind(sessionUser.id, getRecentCompletionCutoffDate(env.runtime))
     .all<SeasonRow>();
 
   const seasons = result.results.map<SeasonRecord>((row) => ({

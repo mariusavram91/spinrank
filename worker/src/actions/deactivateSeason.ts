@@ -30,7 +30,7 @@ export async function handleDeactivateSeason(
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can delete this item.");
   }
 
-  const nowIso = isoNow();
+  const nowIso = isoNow(env.runtime);
   await env.DB.batch([
     env.DB.prepare(
       `
@@ -70,7 +70,7 @@ export async function handleDeactivateSeason(
         INSERT INTO audit_log (id, action, actor_user_id, target_id, payload_json, created_at)
         VALUES (?1, 'deactivateSeason', ?2, ?3, ?4, ?5)
       `,
-    ).bind(randomId("audit"), sessionUser.id, id, JSON.stringify(request.payload), nowIso),
+    ).bind(randomId("audit", env.runtime), sessionUser.id, id, JSON.stringify(request.payload), nowIso),
   ]);
 
   await recomputeAllRankings(env);

@@ -1,3 +1,4 @@
+import { isoNow } from "../db";
 import { compareLeaderboardRows } from "../services/elo";
 import { successResponse } from "../responses";
 import type { ApiRequest, Env, LeaderboardEntry, UserRow } from "../types";
@@ -40,6 +41,6 @@ export async function handleGetLeaderboard(
 
   return successResponse(request.requestId, {
     leaderboard: leaderboard.map((entry, index) => ({ ...entry, rank: index + 1 })),
-    updatedAt: rows.results[0]?.updated_at ?? new Date().toISOString(),
+    updatedAt: rows.results[0]?.updated_at ?? isoNow(env.runtime),
   });
 }

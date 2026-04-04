@@ -1,3 +1,4 @@
+import { isoNow } from "../db";
 import { successResponse } from "../responses";
 import { handleGetLeaderboard } from "./getLeaderboard";
 import { handleGetMatches } from "./getMatches";
@@ -38,7 +39,7 @@ export async function handleGetDashboard(
     seasons: seasons.data?.seasons ?? [],
     tournaments: tournaments.data?.tournaments ?? [],
     leaderboard: leaderboard.data?.leaderboard ?? [],
-    leaderboardUpdatedAt: leaderboard.data?.updatedAt ?? new Date().toISOString(),
+    leaderboardUpdatedAt: leaderboard.data?.updatedAt ?? isoNow(env.runtime),
     userProgress: userProgress.data!,
     matches: matches.data?.matches ?? [],
     nextCursor: matches.data?.nextCursor ?? null,

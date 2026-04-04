@@ -11,6 +11,9 @@ export async function handleBootstrapUser(
   if (provider !== "google") {
     return errorResponse(request.requestId, "VALIDATION_ERROR", "Unsupported auth provider.");
   }
+  if (!env.GOOGLE_CLIENT_ID) {
+    return errorResponse(request.requestId, "INTERNAL_ERROR", "GOOGLE_CLIENT_ID is not configured.");
+  }
 
   try {
     const verified = await verifyGoogleIdToken(idToken, env);
@@ -26,7 +29,7 @@ export async function handleBootstrapUser(
     const email = claims.email ? String(claims.email) : null;
     const displayName = String(claims.name ?? claims.email ?? "Google user");
     const avatarUrl = claims.picture ? String(claims.picture) : null;
-    const nowIso = isoNow();
+    const nowIso = isoNow(env.runtime);
 
     await env.DB.prepare(
       `
@@ -42,7 +45,7 @@ export async function handleBootstrapUser(
           updated_at = excluded.updated_at
       `,
     )
-      .bind(randomId("user"), providerUserId, email, displayName, avatarUrl, nowIso)
+      .bind(randomId("user", env.runtime), providerUserId, email, displayName, avatarUrl, nowIso)
       .run();
 
     const user = await env.DB.prepare(

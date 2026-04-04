@@ -54,7 +54,7 @@ export async function handleCreateTournament(
     season &&
     (season.status === "deleted" ||
       season.status === "completed" ||
-      (season.end_date && dateOnly(isoNow()) > season.end_date))
+      (season.end_date && dateOnly(isoNow(env.runtime)) > season.end_date))
   ) {
     return errorResponse(request.requestId, "CONFLICT", "The selected season can no longer be used.");
   }
@@ -78,8 +78,8 @@ export async function handleCreateTournament(
     return errorResponse(request.requestId, "CONFLICT", "This tournament can no longer be edited.");
   }
 
-  const nowIso = isoNow();
-  const tournamentId = existing?.id ?? payload.tournamentId ?? randomId("tournament");
+  const nowIso = isoNow(env.runtime);
+  const tournamentId = existing?.id ?? payload.tournamentId ?? randomId("tournament", env.runtime);
   const date = payload.date || existing?.date || dateOnly(nowIso);
   const bracketStatus = getBracketStatus(rounds);
   const status: TournamentStatus = bracketStatus === "completed" ? "completed" : existing?.status ?? "active";
@@ -122,7 +122,7 @@ export async function handleCreateTournament(
         INSERT INTO audit_log (id, action, actor_user_id, target_id, payload_json, created_at)
         VALUES (?1, 'createTournament', ?2, ?3, ?4, ?5)
       `,
-    ).bind(randomId("audit"), sessionUser.id, tournamentId, JSON.stringify(payload), nowIso),
+    ).bind(randomId("audit", env.runtime), sessionUser.id, tournamentId, JSON.stringify(payload), nowIso),
   ]);
 
   await saveTournamentBracket(env, tournamentId, participantIds, rounds, sessionUser.id, nowIso);

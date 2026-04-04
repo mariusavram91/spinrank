@@ -1,5 +1,6 @@
-import { parseJsonArray, parseJsonObject, randomId } from "../db";
+import { isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
 import type { Env, TournamentBracketMatch, TournamentBracketRound } from "../types";
+import type { WorkerRuntimeDeps } from "../runtime";
 
 interface BracketRow {
   id: string;
@@ -15,7 +16,10 @@ interface BracketRow {
   is_final: number;
 }
 
-export function normalizeRounds(rounds: TournamentBracketRound[]): TournamentBracketRound[] {
+export function normalizeRounds(
+  rounds: TournamentBracketRound[],
+  runtime?: Partial<WorkerRuntimeDeps>,
+): TournamentBracketRound[] {
   if (!Array.isArray(rounds) || rounds.length === 0) {
     throw new Error("createTournament requires at least one round.");
   }
@@ -23,7 +27,7 @@ export function normalizeRounds(rounds: TournamentBracketRound[]): TournamentBra
   return rounds.map((round) => ({
     title: String(round.title || "").trim() || "Round",
     matches: (round.matches || []).map((match) => ({
-      id: String(match.id || randomId("tbm")),
+      id: String(match.id || randomId("tbm", runtime)),
       leftPlayerId: match.leftPlayerId || null,
       rightPlayerId: match.rightPlayerId || null,
       createdMatchId: match.createdMatchId || null,
@@ -189,7 +193,7 @@ export async function saveTournamentBracket(
   createdByUserId: string,
   nowIso: string,
 ): Promise<void> {
-  const normalized = normalizeRounds(rounds);
+  const normalized = normalizeRounds(rounds, env.runtime);
   const rows = flattenBracketRows(tournamentId, normalized);
   const existingPlan = await env.DB.prepare(
     `
@@ -214,7 +218,7 @@ export async function saveTournamentBracket(
           updated_at = excluded.updated_at
       `,
     ).bind(
-      existingPlan?.id ?? randomId("plan"),
+      existingPlan?.id ?? randomId("plan", env.runtime),
       tournamentId,
       JSON.stringify(participantIds),
       JSON.stringify(normalized),
@@ -296,6 +300,6 @@ export async function rebuildTournamentBracket(env: Env, tournamentId: string): 
     participants,
     rebuilt,
     owner?.created_by_user_id ?? "",
-    new Date().toISOString(),
+    isoNow(env.runtime),
   );
 }

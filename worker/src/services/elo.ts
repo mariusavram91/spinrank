@@ -1,4 +1,5 @@
 import { dateOnly, isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
+import type { WorkerRuntimeDeps } from "../runtime";
 import type { Env, MatchType, SeasonRow, UserRow, WinnerTeam } from "../types";
 
 const STARTING_ELO = 1200;
@@ -550,8 +551,9 @@ function buildRatingSnapshots(
   tournaments: TournamentSeasonRow[],
   participantRows: SegmentParticipantRow[],
   matches: MatchDeltaRow[],
+  runtime?: Partial<WorkerRuntimeDeps>,
 ): RatingSnapshot {
-  const nowIso = isoNow();
+  const nowIso = isoNow(runtime);
   const globalState = Object.fromEntries(
     users.map((user) => [user.id, createBlankRatingState(nowIso)]),
   ) as Record<string, RatingState>;
@@ -736,8 +738,9 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
     tournaments.results,
     participantRows,
     matches.results,
+    env.runtime,
   );
-  const nowIso = isoNow();
+  const nowIso = isoNow(env.runtime);
   const seasonMetadataById = new Map<string, SeasonSeedState>(
     seasons.results.map((season) => [
       season.id,
@@ -799,7 +802,7 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
             )
           `,
         ).bind(
-          randomId("seg"),
+          randomId("seg", env.runtime),
           segmentType,
           segmentId,
           userId,

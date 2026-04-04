@@ -1,8 +1,9 @@
 import { parseJsonArray } from "../db";
+import type { WorkerRuntimeDeps } from "../runtime";
 import type { Env, SeasonRow, TournamentRow } from "../types";
 
-export const getRecentCompletionCutoffDate = (): string => {
-  const date = new Date();
+export const getRecentCompletionCutoffDate = (runtime?: Partial<WorkerRuntimeDeps>): string => {
+  const date = new Date(runtime?.now ? runtime.now() : Date.now());
   date.setMonth(date.getMonth() - 2);
   return date.toISOString().slice(0, 10);
 };

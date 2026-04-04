@@ -165,7 +165,10 @@ export async function handleCreateMatch(
     if (season && !canAccessSeason(season, sessionUser.id)) {
       return errorResponse(request.requestId, "FORBIDDEN", "You do not have access to this season.");
     }
-    if (season && (season.status === "completed" || (season.end_date && dateOnly(isoNow()) > season.end_date))) {
+    if (
+      season &&
+      (season.status === "completed" || (season.end_date && dateOnly(isoNow(env.runtime)) > season.end_date))
+    ) {
       return errorResponse(request.requestId, "CONFLICT", "This season is completed and no further matches can be added.");
     }
 
@@ -200,7 +203,7 @@ export async function handleCreateMatch(
 
     await validatePlayers(env, allPlayerIds);
     const snapshots = await recomputeAllRankings(env);
-    const nowIso = isoNow();
+    const nowIso = isoNow(env.runtime);
     const globalDelta = computeEloDeltaForTeams(
       teamAPlayerIds,
       teamBPlayerIds,
@@ -236,7 +239,7 @@ export async function handleCreateMatch(
       );
     }
 
-    const matchId = randomId("match");
+    const matchId = randomId("match", env.runtime);
     await env.DB.batch([
       env.DB.prepare(
         `
@@ -292,7 +295,7 @@ export async function handleCreateMatch(
           INSERT INTO audit_log (id, action, actor_user_id, target_id, payload_json, created_at)
           VALUES (?1, 'createMatch', ?2, ?3, ?4, ?5)
         `,
-      ).bind(randomId("audit"), sessionUser.id, matchId, JSON.stringify(payload), nowIso),
+      ).bind(randomId("audit", env.runtime), sessionUser.id, matchId, JSON.stringify(payload), nowIso),
     ]);
 
     if (tournamentId && payload.tournamentBracketMatchId) {

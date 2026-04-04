@@ -1,3 +1,6 @@
+import type { WorkerRuntimeDeps } from "./runtime";
+import { resolveWorkerRuntime } from "./runtime";
+
 export function parseJsonArray<T>(value: string | null | undefined): T[] {
   if (!value) {
     return [];
@@ -28,14 +31,14 @@ export function decodeCursor(
   return JSON.parse(atob(cursor)) as { playedAt: string; createdAt: string; id: string };
 }
 
-export function isoNow(): string {
-  return new Date().toISOString();
+export function isoNow(runtime?: Partial<WorkerRuntimeDeps>): string {
+  return resolveWorkerRuntime(runtime).nowIso();
 }
 
 export function dateOnly(value: string): string {
   return value.slice(0, 10);
 }
 
-export function randomId(prefix: string): string {
-  return `${prefix}_${crypto.randomUUID()}`;
+export function randomId(prefix: string, runtime?: Partial<WorkerRuntimeDeps>): string {
+  return `${prefix}_${resolveWorkerRuntime(runtime).randomUUID()}`;
 }

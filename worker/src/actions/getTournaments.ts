@@ -49,7 +49,7 @@ export async function handleGetTournaments(
       ORDER BY v.date DESC, v.id DESC
     `,
   )
-    .bind(sessionUser.id, getRecentCompletionCutoffDate(), seasonId)
+    .bind(sessionUser.id, getRecentCompletionCutoffDate(env.runtime), seasonId)
     .all<{
       id: string;
       name: string;

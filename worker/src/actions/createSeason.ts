@@ -80,13 +80,13 @@ export async function handleCreateSeason(
     existing &&
     (existing.status === "deleted" ||
       existing.status === "completed" ||
-      (existing.end_date && dateOnly(isoNow()) > existing.end_date))
+      (existing.end_date && dateOnly(isoNow(env.runtime)) > existing.end_date))
   ) {
     return errorResponse(request.requestId, "CONFLICT", "This season can no longer be edited.");
   }
 
-  const nowIso = isoNow();
-  const seasonId = existing?.id ?? payload.seasonId ?? randomId("season");
+  const nowIso = isoNow(env.runtime);
+  const seasonId = existing?.id ?? payload.seasonId ?? randomId("season", env.runtime);
   const isActive = Boolean(payload.isActive);
 
   const batch = [];
@@ -135,7 +135,7 @@ export async function handleCreateSeason(
         INSERT INTO audit_log (id, action, actor_user_id, target_id, payload_json, created_at)
         VALUES (?1, 'createSeason', ?2, ?3, ?4, ?5)
       `,
-    ).bind(randomId("audit"), sessionUser.id, seasonId, JSON.stringify(payload), nowIso),
+    ).bind(randomId("audit", env.runtime), sessionUser.id, seasonId, JSON.stringify(payload), nowIso),
   );
 
   await env.DB.batch(batch);
