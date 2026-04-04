@@ -522,12 +522,20 @@ export const createParticipantEditors = (args: {
 
           cardNode.append(leftSelect, rightSelect);
         } else {
+          const previousRound = args.tournamentPlannerState.rounds[roundIndex - 1];
+          const previousLeftMatch = previousRound?.matches[matchIndex * 2];
+          const previousRightMatch = previousRound?.matches[matchIndex * 2 + 1];
+          const canRevealLeft = Boolean(previousLeftMatch?.winnerPlayerId);
+          const canRevealRight = Boolean(previousRightMatch?.winnerPlayerId);
+          const visibleLeftPlayerId = canRevealLeft ? match.leftPlayerId : null;
+          const visibleRightPlayerId = canRevealRight ? match.rightPlayerId : null;
+
           const left = document.createElement("p");
           left.className = "match-subline";
-          const leftText = match.leftPlayerId
-            ? getParticipantLabel(match.leftPlayerId)
+          const leftText = visibleLeftPlayerId
+            ? getParticipantLabel(visibleLeftPlayerId)
             : `Winner ${args.tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 1}`;
-          const leftPlayer = getKnownParticipant(match.leftPlayerId || "");
+          const leftPlayer = getKnownParticipant(visibleLeftPlayerId || "");
           const leftAvatar = document.createElement("img");
           leftAvatar.className = "player-avatar player-avatar-small";
           setAvatarImage(
@@ -539,20 +547,20 @@ export const createParticipantEditors = (args: {
           );
           const leftLabel = document.createElement("span");
           leftLabel.textContent =
-            round.title === "Final" && match.winnerPlayerId === match.leftPlayerId
+            round.title === "Final" && visibleLeftPlayerId && match.winnerPlayerId === visibleLeftPlayerId
               ? `🏆 ${leftText}`
               : leftText;
-          if (round.title === "Final" && match.winnerPlayerId === match.leftPlayerId) {
+          if (round.title === "Final" && visibleLeftPlayerId && match.winnerPlayerId === visibleLeftPlayerId) {
             left.classList.add("tournament-winner");
           }
           left.append(leftAvatar, leftLabel);
 
           const right = document.createElement("p");
           right.className = "match-subline";
-          const rightText = match.rightPlayerId
-            ? getParticipantLabel(match.rightPlayerId)
+          const rightText = visibleRightPlayerId
+            ? getParticipantLabel(visibleRightPlayerId)
             : `Winner ${args.tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 2}`;
-          const rightPlayer = getKnownParticipant(match.rightPlayerId || "");
+          const rightPlayer = getKnownParticipant(visibleRightPlayerId || "");
           const rightAvatar = document.createElement("img");
           rightAvatar.className = "player-avatar player-avatar-small";
           setAvatarImage(
@@ -564,10 +572,10 @@ export const createParticipantEditors = (args: {
           );
           const rightLabel = document.createElement("span");
           rightLabel.textContent =
-            round.title === "Final" && match.winnerPlayerId === match.rightPlayerId
+            round.title === "Final" && visibleRightPlayerId && match.winnerPlayerId === visibleRightPlayerId
               ? `🏆 ${rightText}`
               : rightText;
-          if (round.title === "Final" && match.winnerPlayerId === match.rightPlayerId) {
+          if (round.title === "Final" && visibleRightPlayerId && match.winnerPlayerId === visibleRightPlayerId) {
             right.classList.add("tournament-winner");
           }
           right.append(rightAvatar, rightLabel);
@@ -586,7 +594,13 @@ export const createParticipantEditors = (args: {
             void args.advanceTournamentBye(roundIndex, matchIndex);
           });
           cardNode.append(advanceButton);
-        } else if (match.leftPlayerId && match.rightPlayerId) {
+        } else if (
+          match.leftPlayerId &&
+          match.rightPlayerId &&
+          (roundIndex === 0 ||
+            (Boolean(args.tournamentPlannerState.rounds[roundIndex - 1]?.matches[matchIndex * 2]?.winnerPlayerId) &&
+              Boolean(args.tournamentPlannerState.rounds[roundIndex - 1]?.matches[matchIndex * 2 + 1]?.winnerPlayerId)))
+        ) {
           const createMatchButton = document.createElement("button");
           createMatchButton.type = "button";
           createMatchButton.className = "secondary-button bracket-action";
