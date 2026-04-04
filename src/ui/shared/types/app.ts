@@ -4,6 +4,7 @@ import type {
   LeaderboardEntry,
   MatchFeedFilter,
   MatchRecord,
+  ParticipantSearchEntry,
   SeasonRecord,
   SegmentLeaderboardStats,
   SegmentType,
@@ -47,6 +48,10 @@ export interface DashboardState {
   seasonSubmitting: boolean;
   seasonFormError: string;
   seasonFormMessage: string;
+  seasonParticipantQuery: string;
+  seasonParticipantResults: ParticipantSearchEntry[];
+  seasonParticipantSearchLoading: boolean;
+  seasonParticipantSearchError: string;
   tournamentSubmitting: boolean;
   tournamentFormMessage: string;
   editingSeasonId: string;
@@ -114,6 +119,10 @@ export interface TournamentPlannerState {
   name: string;
   tournamentId: string;
   participantIds: string[];
+  participantQuery: string;
+  participantResults: ParticipantSearchEntry[];
+  participantSearchLoading: boolean;
+  participantSearchError: string;
   firstRoundMatches: TournamentPlannerMatch[];
   rounds: TournamentPlannerRound[];
   error: string;

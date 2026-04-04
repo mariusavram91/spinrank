@@ -69,7 +69,8 @@ export const assembleAppScreens = (args: {
   tournamentQuickBar: HTMLElement;
   participantSection: HTMLElement;
   participantLabel: HTMLElement;
-  tournamentSelectAllParticipantsField: HTMLElement;
+  participantSearchInput: HTMLInputElement;
+  participantSearchResults: HTMLElement;
   participantList: HTMLElement;
   suggestTournamentButton: HTMLButtonElement;
   saveTournamentButton: HTMLButtonElement;
@@ -98,7 +99,8 @@ export const assembleAppScreens = (args: {
   seasonEndDateInput: HTMLInputElement;
   seasonParticipantSection: HTMLElement;
   seasonParticipantLabel: HTMLElement;
-  seasonSelectAllParticipantsField: HTMLElement;
+  seasonParticipantSearchInput: HTMLInputElement;
+  seasonParticipantResults: HTMLElement;
   seasonParticipantList: HTMLElement;
   submitSeasonButton: HTMLButtonElement;
   deleteSeasonButton: HTMLButtonElement;
@@ -173,7 +175,8 @@ export const assembleAppScreens = (args: {
     tournamentQuickBar: args.tournamentQuickBar,
     participantSection: args.participantSection,
     participantLabel: args.participantLabel,
-    tournamentSelectAllParticipantsField: args.tournamentSelectAllParticipantsField,
+    participantSearchInput: args.participantSearchInput,
+    participantSearchResults: args.participantSearchResults,
     participantList: args.participantList,
     suggestTournamentButton: args.suggestTournamentButton,
     saveTournamentButton: args.saveTournamentButton,
@@ -205,7 +208,8 @@ export const assembleAppScreens = (args: {
     seasonEndDateInput: args.seasonEndDateInput,
     seasonParticipantSection: args.seasonParticipantSection,
     seasonParticipantLabel: args.seasonParticipantLabel,
-    seasonSelectAllParticipantsField: args.seasonSelectAllParticipantsField,
+    seasonParticipantSearchInput: args.seasonParticipantSearchInput,
+    seasonParticipantResults: args.seasonParticipantResults,
     seasonParticipantList: args.seasonParticipantList,
     seasonBaseEloSelect: args.seasonBaseEloSelect,
     seasonActiveField,

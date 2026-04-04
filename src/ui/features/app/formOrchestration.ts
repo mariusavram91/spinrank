@@ -417,6 +417,9 @@ export const createFormOrchestration = (args: {
     if (new Set(allPlayerIds).size !== allPlayerIds.length) {
       throw new Error("Each selected player must be unique across both teams.");
     }
+    if (!allPlayerIds.includes(args.getCurrentUserId())) {
+      throw new Error("You can only create a match if you are one of the participants.");
+    }
 
     const visibleGames = args.formatTypeSelect.value === "best_of_3" ? 3 : 1;
     const score = args.scoreInputs
@@ -484,6 +487,10 @@ export const createFormOrchestration = (args: {
     args.dashboardState.editingSeasonId = "";
     args.dashboardState.editingSeasonParticipantIds = args.isAuthedState(state) ? [state.session.user.id] : [];
     args.dashboardState.seasonDraftMode = "create";
+    args.dashboardState.seasonParticipantQuery = "";
+    args.dashboardState.seasonParticipantResults = [];
+    args.dashboardState.seasonParticipantSearchLoading = false;
+    args.dashboardState.seasonParticipantSearchError = "";
     args.seasonNameInput.value = "";
     args.seasonStartDateInput.value = getTodayDateValue();
     args.seasonEndDateInput.value = "";
@@ -499,6 +506,10 @@ export const createFormOrchestration = (args: {
     args.tournamentPlannerState.name = "";
     args.tournamentPlannerState.tournamentId = "";
     args.tournamentPlannerState.participantIds = [];
+    args.tournamentPlannerState.participantQuery = "";
+    args.tournamentPlannerState.participantResults = [];
+    args.tournamentPlannerState.participantSearchLoading = false;
+    args.tournamentPlannerState.participantSearchError = "";
     args.tournamentPlannerState.firstRoundMatches = [];
     args.tournamentPlannerState.rounds = [];
     args.tournamentPlannerState.error = "";

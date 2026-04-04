@@ -1,4 +1,6 @@
+import type { ParticipantSearchEntry } from "../../../api/contract";
 import type { DashboardState, TournamentPlannerMatch, TournamentPlannerState } from "../../shared/types/app";
+import type { RunAuthedAction } from "../../shared/types/actions";
 import type { TextKey } from "../../shared/i18n/translations";
 import { setAvatarImage } from "../../shared/utils/avatar";
 
@@ -11,14 +13,17 @@ export const createParticipantEditors = (args: {
   isLockedSeason: (season: DashboardState["seasons"][number] | undefined) => boolean;
   isLockedTournament: (tournament: DashboardState["tournaments"][number] | undefined) => boolean;
   seasonParticipantList: HTMLElement;
-  seasonSelectAllParticipantsInput: HTMLInputElement;
+  seasonParticipantSearchInput: HTMLInputElement;
+  seasonParticipantResults: HTMLElement;
   participantList: HTMLElement;
-  tournamentSelectAllParticipantsInput: HTMLInputElement;
+  participantSearchInput: HTMLInputElement;
+  participantSearchResults: HTMLElement;
   bracketBoard: HTMLElement;
   tournamentSeasonSelect: HTMLSelectElement;
   loadTournamentSelect: HTMLSelectElement;
   setTournamentSharePanelTargetId: (segmentId: string) => void;
   syncDashboardState: () => void;
+  runAuthedAction: RunAuthedAction;
   renderPlayerNames: (playerIds: string[], players: DashboardState["players"]) => string;
   findPlayer: (playerId: string | null | undefined, players: DashboardState["players"]) => DashboardState["players"][number] | undefined;
   advanceTournamentBye: (roundIndex: number, matchIndex: number) => Promise<void>;
@@ -26,117 +31,365 @@ export const createParticipantEditors = (args: {
   assetsBaseUrl: string;
   t: (key: TextKey) => string;
 }) => {
-  const getSelectableSeasonParticipantIds = (): string[] => {
-    const locked = args.isLockedSeason(args.getEditingSeason());
-    if (locked) {
-      return [];
-    }
-    const sessionUserId = args.getSessionUserId();
-    return args.dashboardState.players
-      .filter((player) => player.userId !== sessionUserId)
-      .map((player) => player.userId);
+  const knownParticipants = new Map<string, ParticipantSearchEntry>();
+  let seasonSearchToken = 0;
+  let tournamentSearchToken = 0;
+
+  const syncKnownParticipants = (): void => {
+    args.dashboardState.players.forEach((player) => {
+      knownParticipants.set(player.userId, {
+        userId: player.userId,
+        displayName: player.displayName,
+        avatarUrl: player.avatarUrl,
+        elo: player.elo,
+        isSuggested: false,
+      });
+    });
   };
 
-  const updateSeasonSelectAllState = (): void => {
-    const selectableIds = getSelectableSeasonParticipantIds();
-    const locked = args.isLockedSeason(args.getEditingSeason());
-    args.seasonSelectAllParticipantsInput.disabled = locked || selectableIds.length === 0;
+  const rememberParticipants = (participants: ParticipantSearchEntry[]): void => {
+    participants.forEach((participant) => {
+      knownParticipants.set(participant.userId, participant);
+    });
+  };
 
-    if (selectableIds.length === 0) {
-      args.seasonSelectAllParticipantsInput.checked = false;
-      args.seasonSelectAllParticipantsInput.indeterminate = false;
+  const getKnownParticipant = (userId: string): ParticipantSearchEntry | null => {
+    syncKnownParticipants();
+    return knownParticipants.get(userId) ?? null;
+  };
+
+  const getParticipantLabel = (userId: string | null | undefined): string => {
+    if (!userId) {
+      return "";
+    }
+    const participant = getKnownParticipant(userId);
+    if (participant) {
+      return `${participant.displayName} (${participant.elo})`;
+    }
+    const fallback = args.findPlayer(userId, args.dashboardState.players);
+    return fallback ? `${fallback.displayName} (${fallback.elo})` : "Unknown player";
+  };
+
+  const buildSelectedParticipantChip = (participantId: string, locked: boolean, onRemove: () => void): HTMLElement => {
+    const participant = getKnownParticipant(participantId);
+    const chip = document.createElement("article");
+    chip.className = "participant-chip participant-chip--selected";
+
+    const avatar = document.createElement("img");
+    avatar.className = "player-avatar player-avatar-small";
+    setAvatarImage(
+      avatar,
+      participant?.userId,
+      participant?.avatarUrl,
+      `${args.assetsBaseUrl}assets/logo.png`,
+      participant?.displayName || "Participant",
+    );
+
+    const content = document.createElement("div");
+    content.className = "participant-chip__content";
+
+    const name = document.createElement("strong");
+    name.className = "participant-chip__name";
+    name.textContent = participant?.displayName || "Unknown player";
+
+    const meta = document.createElement("span");
+    meta.className = "participant-chip__meta";
+    meta.textContent = participant ? `Elo ${participant.elo}` : "";
+
+    content.append(name, meta);
+
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "secondary-button participant-chip__action";
+    action.textContent = locked ? args.t("participantLockedLabel") : args.t("participantRemove");
+    action.disabled = locked;
+    action.addEventListener("click", onRemove);
+
+    chip.append(avatar, content, action);
+    return chip;
+  };
+
+  const buildSearchResultRow = (
+    participant: ParticipantSearchEntry,
+    selected: boolean,
+    locked: boolean,
+    onAdd: () => void,
+  ): HTMLElement => {
+    const row = document.createElement("article");
+    row.className = "participant-chip participant-chip--search";
+
+    const avatar = document.createElement("img");
+    avatar.className = "player-avatar player-avatar-small";
+    setAvatarImage(
+      avatar,
+      participant.userId,
+      participant.avatarUrl,
+      `${args.assetsBaseUrl}assets/logo.png`,
+      participant.displayName,
+    );
+
+    const content = document.createElement("div");
+    content.className = "participant-chip__content";
+
+    const name = document.createElement("strong");
+    name.className = "participant-chip__name";
+    name.textContent = participant.displayName;
+
+    const meta = document.createElement("span");
+    meta.className = "participant-chip__meta";
+    meta.textContent = participant.isSuggested
+      ? `${args.t("participantSuggestedLabel")} • Elo ${participant.elo}`
+      : `Elo ${participant.elo}`;
+
+    content.append(name, meta);
+
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "primary-button participant-chip__action";
+    action.textContent = selected ? args.t("participantAddedLabel") : args.t("participantAdd");
+    action.disabled = selected || locked;
+    action.addEventListener("click", onAdd);
+
+    row.append(avatar, content, action);
+    return row;
+  };
+
+  const renderEmptyState = (label: string): HTMLElement => {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = label;
+    return empty;
+  };
+
+  const getSeasonSearchLimit = (): number => 12;
+
+  const getTournamentSearchLimit = (): number => 12;
+
+  const refreshSeasonParticipantResults = async (): Promise<void> => {
+    const requestToken = ++seasonSearchToken;
+    args.dashboardState.seasonParticipantSearchLoading = true;
+    args.dashboardState.seasonParticipantSearchError = "";
+    renderSeasonSearchResults();
+    args.syncDashboardState();
+
+    try {
+      const data = await args.runAuthedAction("searchParticipants", {
+        segmentType: "season",
+        query: args.dashboardState.seasonParticipantQuery,
+        limit: getSeasonSearchLimit(),
+      });
+      if (requestToken !== seasonSearchToken) {
+        return;
+      }
+      rememberParticipants(data.participants);
+      args.dashboardState.seasonParticipantResults = data.participants;
+      args.dashboardState.seasonParticipantSearchError = "";
+    } catch (error) {
+      if (requestToken !== seasonSearchToken) {
+        return;
+      }
+      args.dashboardState.seasonParticipantResults = [];
+      args.dashboardState.seasonParticipantSearchError =
+        error instanceof Error ? error.message : args.t("participantSearchError");
+    } finally {
+      if (requestToken === seasonSearchToken) {
+        args.dashboardState.seasonParticipantSearchLoading = false;
+        renderSeasonSearchResults();
+        args.syncDashboardState();
+      }
+    }
+  };
+
+  const refreshTournamentParticipantResults = async (): Promise<void> => {
+    const requestToken = ++tournamentSearchToken;
+    args.tournamentPlannerState.participantSearchLoading = true;
+    args.tournamentPlannerState.participantSearchError = "";
+    renderTournamentSearchResults();
+    args.syncDashboardState();
+
+    try {
+      const data = await args.runAuthedAction("searchParticipants", {
+        segmentType: "tournament",
+        query: args.tournamentPlannerState.participantQuery,
+        seasonId: args.tournamentSeasonSelect.value || null,
+        limit: getTournamentSearchLimit(),
+      });
+      if (requestToken !== tournamentSearchToken) {
+        return;
+      }
+      rememberParticipants(data.participants);
+      args.tournamentPlannerState.participantResults = data.participants;
+      args.tournamentPlannerState.participantSearchError = "";
+    } catch (error) {
+      if (requestToken !== tournamentSearchToken) {
+        return;
+      }
+      args.tournamentPlannerState.participantResults = [];
+      args.tournamentPlannerState.participantSearchError =
+        error instanceof Error ? error.message : args.t("participantSearchError");
+    } finally {
+      if (requestToken === tournamentSearchToken) {
+        args.tournamentPlannerState.participantSearchLoading = false;
+        renderTournamentSearchResults();
+        args.syncDashboardState();
+      }
+    }
+  };
+
+  const renderSeasonSearchResults = (): void => {
+    const locked = args.isLockedSeason(args.getEditingSeason());
+    const selected = new Set(args.dashboardState.editingSeasonParticipantIds);
+    const visibleResults = args.dashboardState.seasonParticipantResults.filter(
+      (participant) => !selected.has(participant.userId),
+    );
+
+    if (args.dashboardState.seasonParticipantSearchLoading) {
+      args.seasonParticipantResults.replaceChildren(renderEmptyState(args.t("participantSearchLoading")));
       return;
     }
 
-    const selectedSet = new Set(args.dashboardState.editingSeasonParticipantIds);
-    const selectedCount = selectableIds.filter((id) => selectedSet.has(id)).length;
-    args.seasonSelectAllParticipantsInput.checked = selectedCount === selectableIds.length;
-    args.seasonSelectAllParticipantsInput.indeterminate = selectedCount > 0 && selectedCount < selectableIds.length;
-  };
-
-  const getSelectableTournamentParticipantIds = (): string[] => {
-    const locked = args.isLockedTournament(args.getEditingTournament());
-    if (locked) {
-      return [];
-    }
-    const seasonId = args.tournamentSeasonSelect.value;
-    if (!seasonId) {
-      return args.dashboardState.players.map((player) => player.userId);
-    }
-    const season = args.dashboardState.seasons.find((entry) => entry.id === seasonId);
-    return season ? [...season.participantIds] : [];
-  };
-
-  const updateTournamentSelectAllState = (): void => {
-    const selectableIds = getSelectableTournamentParticipantIds();
-    const locked = args.isLockedTournament(args.getEditingTournament());
-    args.tournamentSelectAllParticipantsInput.disabled = locked || selectableIds.length === 0;
-
-    if (selectableIds.length === 0) {
-      args.tournamentSelectAllParticipantsInput.checked = false;
-      args.tournamentSelectAllParticipantsInput.indeterminate = false;
+    if (args.dashboardState.seasonParticipantSearchError) {
+      const error = document.createElement("p");
+      error.className = "form-status";
+      error.dataset.status = "error";
+      error.textContent = args.dashboardState.seasonParticipantSearchError;
+      args.seasonParticipantResults.replaceChildren(error);
       return;
     }
 
-    const selectedSet = new Set(args.tournamentPlannerState.participantIds);
-    const selectedCount = selectableIds.filter((id) => selectedSet.has(id)).length;
-    args.tournamentSelectAllParticipantsInput.checked = selectedCount === selectableIds.length;
-    args.tournamentSelectAllParticipantsInput.indeterminate =
-      selectedCount > 0 && selectedCount < selectableIds.length;
+    if (visibleResults.length === 0) {
+      const emptyKey = args.dashboardState.seasonParticipantQuery
+        ? "participantNoSearchResults"
+        : "participantNoSuggestions";
+      args.seasonParticipantResults.replaceChildren(renderEmptyState(args.t(emptyKey)));
+      return;
+    }
+
+    const rows = visibleResults.map((participant) =>
+      buildSearchResultRow(
+        participant,
+        false,
+        locked,
+        () => {
+          if (locked || selected.has(participant.userId)) {
+            return;
+          }
+          args.dashboardState.editingSeasonParticipantIds = [
+            ...args.dashboardState.editingSeasonParticipantIds,
+            participant.userId,
+          ];
+          args.dashboardState.seasonFormError = "";
+          args.dashboardState.seasonFormMessage = "";
+          renderSeasonEditor();
+          args.syncDashboardState();
+        },
+      ),
+    );
+    args.seasonParticipantResults.replaceChildren(...rows);
+  };
+
+  const renderTournamentSearchResults = (): void => {
+    const locked = args.isLockedTournament(args.getEditingTournament());
+    const selected = new Set(args.tournamentPlannerState.participantIds);
+    const visibleResults = args.tournamentPlannerState.participantResults.filter(
+      (participant) => !selected.has(participant.userId),
+    );
+
+    if (args.tournamentPlannerState.participantSearchLoading) {
+      args.participantSearchResults.replaceChildren(renderEmptyState(args.t("participantSearchLoading")));
+      return;
+    }
+
+    if (args.tournamentPlannerState.participantSearchError) {
+      const error = document.createElement("p");
+      error.className = "form-status";
+      error.dataset.status = "error";
+      error.textContent = args.tournamentPlannerState.participantSearchError;
+      args.participantSearchResults.replaceChildren(error);
+      return;
+    }
+
+    if (visibleResults.length === 0) {
+      const emptyKey = args.tournamentPlannerState.participantQuery
+        ? "participantNoSearchResults"
+        : "participantNoSuggestions";
+      args.participantSearchResults.replaceChildren(renderEmptyState(args.t(emptyKey)));
+      return;
+    }
+
+    const rows = visibleResults.map((participant) =>
+      buildSearchResultRow(
+        participant,
+        false,
+        locked,
+        () => {
+          if (locked || selected.has(participant.userId)) {
+            return;
+          }
+          args.tournamentPlannerState.participantIds = [...args.tournamentPlannerState.participantIds, participant.userId];
+          args.tournamentPlannerState.tournamentId = "";
+          args.setTournamentSharePanelTargetId("");
+          args.tournamentPlannerState.error = "";
+          args.tournamentPlannerState.rounds = [];
+          args.tournamentPlannerState.firstRoundMatches = [];
+          args.loadTournamentSelect.value = "";
+          renderTournamentPlanner();
+          args.syncDashboardState();
+        },
+      ),
+    );
+    args.participantSearchResults.replaceChildren(...rows);
   };
 
   const renderSeasonEditor = (): void => {
-    const selectedParticipants = new Set(args.dashboardState.editingSeasonParticipantIds);
+    syncKnownParticipants();
+    args.seasonParticipantSearchInput.value = args.dashboardState.seasonParticipantQuery;
+    args.seasonParticipantSearchInput.disabled = args.isLockedSeason(args.getEditingSeason());
+
     const sessionUserId = args.getSessionUserId();
     const locked = args.isLockedSeason(args.getEditingSeason());
+    const selectedIds = args.dashboardState.editingSeasonParticipantIds;
 
-    const participantCards = args.dashboardState.players.map((player) => {
-      const label = document.createElement("label");
-      label.className = "participant-chip";
-
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = selectedParticipants.has(player.userId);
-      input.disabled = player.userId === sessionUserId || locked;
-      input.addEventListener("change", () => {
-        if (input.checked) {
-          args.dashboardState.editingSeasonParticipantIds = [
-            ...args.dashboardState.editingSeasonParticipantIds,
-            player.userId,
-          ];
-        } else {
+    if (selectedIds.length === 0) {
+      args.seasonParticipantList.replaceChildren(renderEmptyState(args.t("participantSelectedEmpty")));
+    } else {
+      const chips = selectedIds.map((participantId) =>
+        buildSelectedParticipantChip(participantId, locked || participantId === sessionUserId, () => {
+          if (locked || participantId === sessionUserId) {
+            return;
+          }
           args.dashboardState.editingSeasonParticipantIds = args.dashboardState.editingSeasonParticipantIds.filter(
-            (participantId) => participantId !== player.userId,
+            (currentId) => currentId !== participantId,
           );
-        }
-        args.dashboardState.seasonFormError = "";
-        args.dashboardState.seasonFormMessage = "";
-        renderSeasonEditor();
-        args.syncDashboardState();
-      });
+          args.dashboardState.seasonFormError = "";
+          args.dashboardState.seasonFormMessage = "";
+          renderSeasonEditor();
+          args.syncDashboardState();
+        }),
+      );
+      args.seasonParticipantList.replaceChildren(...chips);
+    }
 
-      const text = document.createElement("span");
-      text.textContent = `${player.displayName} (${player.elo})`;
-
-      label.append(input, text);
-      return label;
-    });
-
-    args.seasonParticipantList.replaceChildren(...participantCards);
-    updateSeasonSelectAllState();
+    renderSeasonSearchResults();
+    if (
+      !args.dashboardState.seasonParticipantSearchLoading &&
+      args.dashboardState.seasonParticipantResults.length === 0 &&
+      !args.dashboardState.seasonParticipantSearchError
+    ) {
+      void refreshSeasonParticipantResults();
+    }
   };
 
   const renderTournamentPlanner = (): void => {
-    const selectedParticipants = new Set(args.tournamentPlannerState.participantIds);
+    syncKnownParticipants();
+    args.participantSearchInput.value = args.tournamentPlannerState.participantQuery;
+
     const seasonId = args.tournamentSeasonSelect.value;
     const seasonParticipantIds = seasonId
       ? new Set(
           args.dashboardState.seasons.find((entry) => entry.id === seasonId)?.participantIds || [],
         )
       : null;
-    const playerOptions = seasonParticipantIds
-      ? args.dashboardState.players.filter((player) => seasonParticipantIds.has(player.userId))
-      : args.dashboardState.players;
     const editingTournament = args.getEditingTournament();
     const tournamentLocked = args.isLockedTournament(editingTournament);
 
@@ -146,49 +399,53 @@ export const createParticipantEditors = (args: {
       );
     }
 
-    const participantCards = playerOptions.map((player) => {
-      const label = document.createElement("label");
-      label.className = "participant-chip";
+    args.participantSearchInput.disabled = tournamentLocked;
 
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = selectedParticipants.has(player.userId);
-      input.disabled = tournamentLocked;
-      input.addEventListener("change", () => {
-        if (input.checked) {
-          args.tournamentPlannerState.participantIds = [...args.tournamentPlannerState.participantIds, player.userId];
-        } else {
+    if (args.tournamentPlannerState.participantIds.length === 0) {
+      args.participantList.replaceChildren(renderEmptyState(args.t("participantSelectedEmpty")));
+    } else {
+      const chips = args.tournamentPlannerState.participantIds.map((participantId) =>
+        buildSelectedParticipantChip(participantId, tournamentLocked, () => {
+          if (tournamentLocked) {
+            return;
+          }
           args.tournamentPlannerState.participantIds = args.tournamentPlannerState.participantIds.filter(
-            (participantId) => participantId !== player.userId,
+            (currentId) => currentId !== participantId,
           );
-        }
-        args.tournamentPlannerState.tournamentId = "";
-        args.setTournamentSharePanelTargetId("");
-        args.tournamentPlannerState.error = "";
-        args.tournamentPlannerState.rounds = [];
-        args.tournamentPlannerState.firstRoundMatches = [];
-        args.loadTournamentSelect.value = "";
-        renderTournamentPlanner();
-        args.syncDashboardState();
-      });
+          args.tournamentPlannerState.tournamentId = "";
+          args.setTournamentSharePanelTargetId("");
+          args.tournamentPlannerState.error = "";
+          args.tournamentPlannerState.rounds = [];
+          args.tournamentPlannerState.firstRoundMatches = [];
+          args.loadTournamentSelect.value = "";
+          renderTournamentPlanner();
+          args.syncDashboardState();
+        }),
+      );
+      args.participantList.replaceChildren(...chips);
+    }
 
-      const text = document.createElement("span");
-      text.textContent = `${player.displayName} (${player.elo})`;
-
-      label.append(input, text);
-      return label;
-    });
-
-    args.participantList.replaceChildren(...participantCards);
+    renderTournamentSearchResults();
+    if (
+      !args.tournamentPlannerState.participantSearchLoading &&
+      args.tournamentPlannerState.participantResults.length === 0 &&
+      !args.tournamentPlannerState.participantSearchError
+    ) {
+      void refreshTournamentParticipantResults();
+    }
 
     if (args.tournamentPlannerState.rounds.length === 0) {
       const empty = document.createElement("p");
       empty.className = "empty-state";
       empty.textContent = args.t("bracketPreviewEmpty");
       args.bracketBoard.replaceChildren(empty);
-      updateTournamentSelectAllState();
       return;
     }
+
+    const selectedParticipants = new Set(args.tournamentPlannerState.participantIds);
+    const playerOptions = args.tournamentPlannerState.participantIds
+      .map((participantId) => getKnownParticipant(participantId))
+      .filter((participant): participant is ParticipantSearchEntry => Boolean(participant));
 
     const roundColumns = args.tournamentPlannerState.rounds.map((round, roundIndex) => {
       const column = document.createElement("section");
@@ -268,9 +525,9 @@ export const createParticipantEditors = (args: {
           const left = document.createElement("p");
           left.className = "match-subline";
           const leftText = match.leftPlayerId
-            ? args.renderPlayerNames([match.leftPlayerId], args.dashboardState.players)
+            ? getParticipantLabel(match.leftPlayerId)
             : `Winner ${args.tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 1}`;
-          const leftPlayer = args.findPlayer(match.leftPlayerId, args.dashboardState.players);
+          const leftPlayer = getKnownParticipant(match.leftPlayerId || "");
           const leftAvatar = document.createElement("img");
           leftAvatar.className = "player-avatar player-avatar-small";
           setAvatarImage(
@@ -293,9 +550,9 @@ export const createParticipantEditors = (args: {
           const right = document.createElement("p");
           right.className = "match-subline";
           const rightText = match.rightPlayerId
-            ? args.renderPlayerNames([match.rightPlayerId], args.dashboardState.players)
+            ? getParticipantLabel(match.rightPlayerId)
             : `Winner ${args.tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 2}`;
-          const rightPlayer = args.findPlayer(match.rightPlayerId, args.dashboardState.players);
+          const rightPlayer = getKnownParticipant(match.rightPlayerId || "");
           const rightAvatar = document.createElement("img");
           rightAvatar.className = "player-avatar player-avatar-small";
           setAvatarImage(
@@ -350,57 +607,36 @@ export const createParticipantEditors = (args: {
     });
 
     args.bracketBoard.replaceChildren(...roundColumns);
-    updateTournamentSelectAllState();
   };
 
-  const onSeasonSelectAllChange = (): void => {
-    if (args.seasonSelectAllParticipantsInput.disabled) {
-      return;
-    }
-    const selectableIds = getSelectableSeasonParticipantIds();
-    if (args.seasonSelectAllParticipantsInput.checked) {
-      const nextIds = new Set(args.dashboardState.editingSeasonParticipantIds);
-      selectableIds.forEach((id) => nextIds.add(id));
-      args.dashboardState.editingSeasonParticipantIds = Array.from(nextIds);
-    } else {
-      args.dashboardState.editingSeasonParticipantIds = args.dashboardState.editingSeasonParticipantIds.filter(
-        (participantId) => !selectableIds.includes(participantId),
-      );
-    }
-    args.dashboardState.seasonFormError = "";
-    args.dashboardState.seasonFormMessage = "";
+  args.seasonParticipantSearchInput.addEventListener("input", () => {
+    seasonSearchToken += 1;
+    args.dashboardState.seasonParticipantQuery = args.seasonParticipantSearchInput.value.trim();
+    args.dashboardState.seasonParticipantResults = [];
+    args.dashboardState.seasonParticipantSearchLoading = false;
+    args.dashboardState.seasonParticipantSearchError = "";
     renderSeasonEditor();
-    args.syncDashboardState();
-  };
+  });
 
-  const onTournamentSelectAllChange = (): void => {
-    if (args.tournamentSelectAllParticipantsInput.disabled) {
-      return;
-    }
-    const selectableIds = getSelectableTournamentParticipantIds();
-    if (args.tournamentSelectAllParticipantsInput.checked) {
-      const nextIds = new Set(args.tournamentPlannerState.participantIds);
-      selectableIds.forEach((id) => nextIds.add(id));
-      args.tournamentPlannerState.participantIds = Array.from(nextIds);
-    } else {
-      args.tournamentPlannerState.participantIds = args.tournamentPlannerState.participantIds.filter(
-        (participantId) => !selectableIds.includes(participantId),
-      );
-    }
-    args.tournamentPlannerState.tournamentId = "";
-    args.setTournamentSharePanelTargetId("");
-    args.tournamentPlannerState.error = "";
-    args.tournamentPlannerState.rounds = [];
-    args.tournamentPlannerState.firstRoundMatches = [];
-    args.loadTournamentSelect.value = "";
+  args.participantSearchInput.addEventListener("input", () => {
+    tournamentSearchToken += 1;
+    args.tournamentPlannerState.participantQuery = args.participantSearchInput.value.trim();
+    args.tournamentPlannerState.participantResults = [];
+    args.tournamentPlannerState.participantSearchLoading = false;
+    args.tournamentPlannerState.participantSearchError = "";
     renderTournamentPlanner();
-    args.syncDashboardState();
-  };
+  });
+
+  args.tournamentSeasonSelect.addEventListener("change", () => {
+    tournamentSearchToken += 1;
+    args.tournamentPlannerState.participantResults = [];
+    args.tournamentPlannerState.participantSearchLoading = false;
+    args.tournamentPlannerState.participantSearchError = "";
+    renderTournamentPlanner();
+  });
 
   return {
     renderSeasonEditor,
     renderTournamentPlanner,
-    onSeasonSelectAllChange,
-    onTournamentSelectAllChange,
   };
 };

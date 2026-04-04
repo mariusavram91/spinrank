@@ -62,6 +62,9 @@ export const createTournamentActions = (args: {
       args.tournamentDateInput.value = data.tournament.date;
       args.tournamentSeasonSelect.value = data.tournament.seasonId || "";
       args.tournamentPlannerState.participantIds = data.participantIds;
+      args.tournamentPlannerState.participantQuery = "";
+      args.tournamentPlannerState.participantResults = [];
+      args.tournamentPlannerState.participantSearchError = "";
       args.tournamentPlannerState.rounds = data.rounds.map((round) => ({
         title: round.title,
         matches: round.matches.map((match) => ({

@@ -10,6 +10,7 @@ import { handleDeactivateTournament } from "./actions/deactivateTournament";
 import { handleGetDashboard } from "./actions/getDashboard";
 import { handleGetLeaderboard } from "./actions/getLeaderboard";
 import { handleGetMatches } from "./actions/getMatches";
+import { handleSearchParticipants } from "./actions/searchParticipants";
 import { handleGetSeasons } from "./actions/getSeasons";
 import { handleGetSegmentLeaderboard } from "./actions/getSegmentLeaderboard";
 import { handleGetTournamentBracket } from "./actions/getTournamentBracket";
@@ -27,6 +28,7 @@ import type {
   CreateTournamentPayload,
   DeactivateEntityPayload,
   GetMatchesPayload,
+  SearchParticipantsPayload,
   GetSegmentLeaderboardPayload,
   GetTournamentBracketPayload,
   GetTournamentsPayload,
@@ -91,6 +93,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
       );
     case "getLeaderboard":
       return handleGetLeaderboard(apiRequest as ApiRequest<"getLeaderboard">, sessionUser, env);
+    case "searchParticipants":
+      return handleSearchParticipants(
+        apiRequest as ApiRequest<"searchParticipants", SearchParticipantsPayload>,
+        sessionUser,
+        env,
+      );
     case "getMatches":
       return handleGetMatches(apiRequest as ApiRequest<"getMatches", GetMatchesPayload>, sessionUser, env);
     case "getSeasons":

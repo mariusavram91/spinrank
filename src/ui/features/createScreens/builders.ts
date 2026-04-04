@@ -315,7 +315,8 @@ export const buildTournamentScreen = (args: {
   tournamentQuickBar: HTMLElement;
   participantSection: HTMLElement;
   participantLabel: HTMLElement;
-  tournamentSelectAllParticipantsField: HTMLElement;
+  participantSearchInput: HTMLInputElement;
+  participantSearchResults: HTMLElement;
   participantList: HTMLElement;
   suggestTournamentButton: HTMLButtonElement;
   saveTournamentButton: HTMLButtonElement;
@@ -331,7 +332,8 @@ export const buildTournamentScreen = (args: {
   args.tournamentHeading.append(args.tournamentTitle, args.tournamentMeta);
   args.tournamentTop.append(args.tournamentHeading, args.closeCreateTournamentButton);
   args.participantSection.append(
-    args.tournamentSelectAllParticipantsField,
+    args.participantSearchInput,
+    args.participantSearchResults,
     args.participantList,
   );
 
@@ -419,7 +421,8 @@ export const buildSeasonScreen = (args: {
   seasonEndDateInput: HTMLInputElement;
   seasonParticipantSection: HTMLElement;
   seasonParticipantLabel: HTMLElement;
-  seasonSelectAllParticipantsField: HTMLElement;
+  seasonParticipantSearchInput: HTMLInputElement;
+  seasonParticipantResults: HTMLElement;
   seasonParticipantList: HTMLElement;
   seasonBaseEloSelect: HTMLSelectElement;
   seasonActiveField: HTMLElement;
@@ -428,7 +431,8 @@ export const buildSeasonScreen = (args: {
   deleteSeasonButton: HTMLButtonElement;
 }): SeasonScreenElements => {
   args.seasonParticipantSection.append(
-    args.seasonSelectAllParticipantsField,
+    args.seasonParticipantSearchInput,
+    args.seasonParticipantResults,
     args.seasonParticipantList,
   );
 

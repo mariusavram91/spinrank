@@ -75,6 +75,7 @@ import { createComposerActions } from "./features/app/composerActions";
 import { createFormOrchestration } from "./features/app/formOrchestration";
 import { createHelpNavigation } from "./features/app/navigation";
 import { createLockHelpers } from "./features/app/locks";
+import { createMatchPlayerSearchInputs } from "./features/app/matchPlayerSearchInputs";
 import { createParticipantEditors } from "./features/app/participantEditors";
 import { assembleAppScreens } from "./features/app/screenAssembly";
 import { createShareRuntime } from "./features/app/shareRuntime";
@@ -235,6 +236,8 @@ export const buildApp = (): HTMLElement => {
     seasonParticipantSection,
     seasonParticipantLabel,
     seasonParticipantList,
+    seasonParticipantSearchInput,
+    seasonParticipantResults,
     seasonSelectAllParticipantsField,
     seasonSelectAllParticipantsInput,
     seasonIsActiveInput,
@@ -251,6 +254,8 @@ export const buildApp = (): HTMLElement => {
     participantSection,
     participantLabel,
     participantList,
+    participantSearchInput,
+    participantSearchResults,
     tournamentSelectAllParticipantsField,
     tournamentSelectAllParticipantsInput,
     suggestTournamentButton,
@@ -409,6 +414,7 @@ export const buildApp = (): HTMLElement => {
   let seasonVisibilityToggle: HTMLElement | null = null;
   let tournamentActionsWrapper: HTMLElement;
   let seasonActionsWrapper: HTMLElement;
+  let syncMatchPlayerSearchInputs = (): void => {};
 
   const {
     replaceOptions,
@@ -693,6 +699,7 @@ export const buildApp = (): HTMLElement => {
 
   const syncDashboardState = (): void => {
     dashboardSync.syncDashboardState();
+    syncMatchPlayerSearchInputs();
     syncScoreCard();
     const syncSegmentedToggle = (toggle: HTMLElement | null, value: string): void => {
       if (!toggle) {
@@ -713,36 +720,6 @@ export const buildApp = (): HTMLElement => {
     }
     shareAlert.classList.toggle("share-alert--visible", visible);
   };
-
-  const {
-    renderSeasonEditor,
-    renderTournamentPlanner,
-    onSeasonSelectAllChange,
-    onTournamentSelectAllChange,
-  } = createParticipantEditors({
-    dashboardState,
-    tournamentPlannerState,
-    getEditingSeason,
-    getEditingTournament,
-    getSessionUserId: () => getCurrentUserId(state.current),
-    isLockedSeason,
-    isLockedTournament,
-    seasonParticipantList,
-    seasonSelectAllParticipantsInput,
-    participantList,
-    tournamentSelectAllParticipantsInput,
-    bracketBoard,
-    tournamentSeasonSelect,
-    loadTournamentSelect,
-    setTournamentSharePanelTargetId,
-    syncDashboardState,
-    renderPlayerNames,
-    findPlayer: (playerId, players) => findPlayer(playerId ?? null, players) ?? undefined,
-    advanceTournamentBye: (roundIndex, matchIndex) => advanceTournamentBye(roundIndex, matchIndex),
-    prefillMatchFromTournamentPairing: (match) => prefillMatchFromTournamentPairing(match),
-    assetsBaseUrl: import.meta.env.BASE_URL,
-    t: (key) => t(key),
-  });
 
   if (dashboardState.pendingShareToken && !isAuthedState(state.current)) {
     showShareAlert(t("shareSignInPrompt"));
@@ -775,8 +752,33 @@ export const buildApp = (): HTMLElement => {
     isAuthedState,
   });
 
-  seasonSelectAllParticipantsInput.addEventListener("change", onSeasonSelectAllChange);
-  tournamentSelectAllParticipantsInput.addEventListener("change", onTournamentSelectAllChange);
+  const { renderSeasonEditor, renderTournamentPlanner } = createParticipantEditors({
+    dashboardState,
+    tournamentPlannerState,
+    getEditingSeason,
+    getEditingTournament,
+    getSessionUserId: () => getCurrentUserId(state.current),
+    isLockedSeason,
+    isLockedTournament,
+    seasonParticipantList,
+    seasonParticipantSearchInput,
+    seasonParticipantResults,
+    participantList,
+    participantSearchInput,
+    participantSearchResults,
+    bracketBoard,
+    tournamentSeasonSelect,
+    loadTournamentSelect,
+    setTournamentSharePanelTargetId,
+    syncDashboardState,
+    runAuthedAction,
+    renderPlayerNames,
+    findPlayer: (playerId, players) => findPlayer(playerId ?? null, players) ?? undefined,
+    advanceTournamentBye: (roundIndex, matchIndex) => advanceTournamentBye(roundIndex, matchIndex),
+    prefillMatchFromTournamentPairing: (match) => prefillMatchFromTournamentPairing(match),
+    assetsBaseUrl: import.meta.env.BASE_URL,
+    t: (key) => t(key),
+  });
 
   const {
     loadDashboard,
@@ -1156,7 +1158,8 @@ export const buildApp = (): HTMLElement => {
     tournamentQuickBar,
     participantSection,
     participantLabel,
-    tournamentSelectAllParticipantsField,
+    participantSearchInput,
+    participantSearchResults,
     participantList,
     suggestTournamentButton,
     saveTournamentButton,
@@ -1185,7 +1188,8 @@ export const buildApp = (): HTMLElement => {
     seasonEndDateInput,
     seasonParticipantSection,
     seasonParticipantLabel,
-    seasonSelectAllParticipantsField,
+    seasonParticipantSearchInput,
+    seasonParticipantResults,
     seasonParticipantList,
     submitSeasonButton,
     deleteSeasonButton,
@@ -1195,6 +1199,18 @@ export const buildApp = (): HTMLElement => {
   seasonBaseEloToggle = nextSeasonBaseEloToggle;
   seasonStateToggle = nextSeasonStateToggle;
   seasonVisibilityToggle = nextSeasonVisibilityToggle;
+  syncMatchPlayerSearchInputs = createMatchPlayerSearchInputs({
+    dashboardState,
+    getCurrentUserId: () => getCurrentUserId(state.current),
+    teamA1Field,
+    teamA2Field,
+    teamB1Field,
+    teamB2Field,
+    teamA1Select,
+    teamA2Select,
+    teamB1Select,
+    teamB2Select,
+  }).sync;
   seasonSharePanelElements = seasonSharePanelInstance;
   tournamentSharePanelElements = tournamentSharePanelInstance;
   bindSharePanelHandlers({

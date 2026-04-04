@@ -1723,24 +1723,68 @@ button:disabled,
   align-self: center;
 }
 
+.match-player-select--hidden {
+  display: none;
+}
+
+.match-player-search-input {
+  margin-top: 6px;
+}
+
 .participant-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 10px;
 }
 
 .participant-chip {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 12px;
   border-radius: 16px;
   background: var(--surface-strong);
   border: 1px solid rgba(82, 61, 36, 0.08);
 }
 
-.participant-chip input {
-  margin: 0;
+.participant-chip__content {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.participant-chip__name {
+  font-size: 0.95rem;
+  color: var(--text-strong);
+}
+
+.participant-chip__meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.participant-chip__action {
+  padding: 6px 10px;
+  min-width: 78px;
+}
+
+.participant-search-input {
+  margin-bottom: 10px;
+}
+
+.participant-search-results {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.participant-chip--search {
+  background: rgba(255, 248, 238, 0.9);
+}
+
+.participant-chip--selected {
+  background: rgba(245, 235, 221, 0.92);
 }
 
 .bracket-board {
@@ -2626,9 +2670,13 @@ button:disabled,
 
 .score-card__toggle-button[aria-pressed="true"] {
   background: var(--surface-strong);
-  color: #1d2432;
+  color: #ffffff;
   border-color: rgba(82, 61, 36, 0.14);
   box-shadow: 0 4px 12px rgba(64, 38, 14, 0.08);
+}
+
+.score-card__toggle-button[aria-pressed="true"]:hover:enabled {
+  color: #ffffff;
 }
 
 .score-card__toggle-icon {
@@ -2776,6 +2824,10 @@ button:disabled,
 .score-card__player-selects {
   display: grid;
   gap: 4px;
+}
+
+.score-card__player-search {
+  width: 100%;
 }
 
 .score-card__serve-balls {
@@ -3121,6 +3173,14 @@ body.app-busy * {
 
   .participant-list {
     grid-template-columns: 1fr;
+  }
+
+  .participant-chip {
+    align-items: flex-start;
+  }
+
+  .participant-chip__action {
+    min-width: 64px;
   }
 
   .score-row {

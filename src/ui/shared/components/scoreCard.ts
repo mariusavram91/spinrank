@@ -25,6 +25,12 @@ type TeamSelections = {
   teamB2: string;
 };
 
+type PlayerSearchControl = {
+  input: HTMLInputElement;
+  list: HTMLDataListElement;
+  optionsByLabel: Map<string, string>;
+};
+
 type SaveMatchHandler = (payload: CreateMatchPayload) => Promise<void> | void;
 
 type ToggleIcon =
@@ -446,35 +452,62 @@ export const buildScoreCard = (args: {
     }
   };
 
-  const createPlayerSelect = (team: ScoreKey, slot: 1 | 2): HTMLSelectElement => {
-    const select = document.createElement("select");
-    select.className = "select-input score-card__player-select";
-    select.dataset.team = team;
-    select.dataset.slot = String(slot);
-    select.addEventListener("change", () => {
-      setSelectionValue(team, slot, select.value);
-      handleSelectionChange();
-    });
-    return select;
+  const getSelectionValue = (team: ScoreKey, slot: 1 | 2): string => {
+    if (team === "teamA") {
+      return slot === 1 ? selections.teamA1 : selections.teamA2;
+    }
+    return slot === 1 ? selections.teamB1 : selections.teamB2;
   };
 
-  const teamSelects: Record<
+  let playerSearchListId = 0;
+  const createPlayerSearchControl = (team: ScoreKey, slot: 1 | 2): PlayerSearchControl => {
+    const input = document.createElement("input");
+    input.type = "search";
+    input.className = "text-input score-card__player-search";
+    input.dataset.team = team;
+    input.dataset.slot = String(slot);
+    input.autocomplete = "off";
+    input.spellcheck = false;
+
+    const list = document.createElement("datalist");
+    list.id = `score-card-player-search-${++playerSearchListId}`;
+    input.setAttribute("list", list.id);
+
+    input.addEventListener("focus", () => {
+      populatePlayerSearchOptions(team, slot, input.value);
+    });
+    input.addEventListener("input", () => {
+      populatePlayerSearchOptions(team, slot, input.value);
+    });
+    input.addEventListener("change", () => {
+      commitPlayerSearchValue(team, slot);
+    });
+    input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        syncPlayerSearchControl(team, slot);
+      }, 0);
+    });
+
+    return { input, list, optionsByLabel: new Map<string, string>() };
+  };
+
+  const teamSearchControls: Record<
     ScoreKey,
-    { primary: HTMLSelectElement; secondary: HTMLSelectElement }
+    { primary: PlayerSearchControl; secondary: PlayerSearchControl }
   > = {
     teamA: {
-      primary: createPlayerSelect("teamA", 1),
-      secondary: createPlayerSelect("teamA", 2),
+      primary: createPlayerSearchControl("teamA", 1),
+      secondary: createPlayerSearchControl("teamA", 2),
     },
     teamB: {
-      primary: createPlayerSelect("teamB", 1),
-      secondary: createPlayerSelect("teamB", 2),
+      primary: createPlayerSearchControl("teamB", 1),
+      secondary: createPlayerSearchControl("teamB", 2),
     },
   };
   const buildTeamWrapper = (
     key: ScoreKey,
     tile: HTMLButtonElement,
-    selects: { primary: HTMLSelectElement; secondary: HTMLSelectElement },
+    controls: { primary: PlayerSearchControl; secondary: PlayerSearchControl },
   ): {
     wrapper: HTMLDivElement;
     serveBalls: HTMLSpanElement;
@@ -484,7 +517,7 @@ export const buildScoreCard = (args: {
     wrapper.className = `score-card__team-wrapper score-card__team-wrapper--${key}`;
     const selectContainer = document.createElement("div");
     selectContainer.className = "score-card__player-selects";
-    selectContainer.append(selects.primary, selects.secondary);
+    selectContainer.append(controls.primary.input, controls.primary.list, controls.secondary.input, controls.secondary.list);
     const playerPicker = document.createElement("div");
     playerPicker.className = "score-card__player-picker";
     const pickerToggle = document.createElement("button");
@@ -499,7 +532,7 @@ export const buildScoreCard = (args: {
       playerPicker.classList.toggle("score-card__player-picker--visible", shouldShow);
       pickerToggle.setAttribute("aria-expanded", String(shouldShow));
     });
-    playerPicker.append(selectContainer);
+      playerPicker.append(selectContainer);
     playerPickers.push(playerPicker);
     playerPickerToggles.push(pickerToggle);
     const serveBalls = document.createElement("span");
@@ -599,50 +632,110 @@ export const buildScoreCard = (args: {
     );
   };
 
+  const getBlockedIds = (team: ScoreKey, slot: 1 | 2): string[] => {
+    return [
+      team === "teamA" && slot === 1 ? "" : selections.teamA1,
+      team === "teamA" && slot === 2 ? "" : selections.teamA2,
+      team === "teamB" && slot === 1 ? "" : selections.teamB1,
+      team === "teamB" && slot === 2 ? "" : selections.teamB2,
+    ].filter(Boolean);
+  };
+
+  const getPlayerOptionLabel = (player: LeaderboardEntry, currentUserId: string): string =>
+    `${player.displayName} (${player.elo})${player.userId === currentUserId ? " (You)" : ""}`;
+
+  const populatePlayerSearchOptions = (team: ScoreKey, slot: 1 | 2, query: string): void => {
+    const currentUserId = args.getCurrentUserId();
+    const control = team === "teamA"
+      ? (slot === 1 ? teamSearchControls.teamA.primary : teamSearchControls.teamA.secondary)
+      : (slot === 1 ? teamSearchControls.teamB.primary : teamSearchControls.teamB.secondary);
+    const currentValue = getSelectionValue(team, slot);
+    const blockedIds = new Set(getBlockedIds(team, slot).filter((value) => value !== currentValue));
+    const filtered = args.getPlayers()
+      .filter((player) => !blockedIds.has(player.userId) || player.userId === currentValue)
+      .filter((player) => {
+        if (!query.trim()) {
+          return true;
+        }
+        const normalized = query.trim().toLowerCase();
+        const optionLabel = getPlayerOptionLabel(player, currentUserId).toLowerCase();
+        return (
+          player.displayName.toLowerCase().includes(normalized) ||
+          optionLabel.includes(normalized)
+        );
+      })
+      .sort((left, right) => {
+        if (!query.trim()) {
+          if (left.userId === currentUserId) {
+            return -1;
+          }
+          if (right.userId === currentUserId) {
+            return 1;
+          }
+        }
+        return left.rank - right.rank;
+      })
+      .slice(0, query.trim() ? 12 : 8);
+
+    control.optionsByLabel = new Map(
+      filtered.map((player) => [getPlayerOptionLabel(player, currentUserId), player.userId]),
+    );
+    control.list.replaceChildren(
+      ...filtered.map((player) => {
+        const option = document.createElement("option");
+        option.value = getPlayerOptionLabel(player, currentUserId);
+        return option;
+      }),
+    );
+  };
+
+  const syncPlayerSearchControl = (team: ScoreKey, slot: 1 | 2): void => {
+    const currentUserId = args.getCurrentUserId();
+    const control = team === "teamA"
+      ? (slot === 1 ? teamSearchControls.teamA.primary : teamSearchControls.teamA.secondary)
+      : (slot === 1 ? teamSearchControls.teamB.primary : teamSearchControls.teamB.secondary);
+    const player = args.getPlayers().find((entry) => entry.userId === getSelectionValue(team, slot));
+    control.input.value = player ? getPlayerOptionLabel(player, currentUserId) : "";
+  };
+
+  const commitPlayerSearchValue = (team: ScoreKey, slot: 1 | 2): void => {
+    const control = team === "teamA"
+      ? (slot === 1 ? teamSearchControls.teamA.primary : teamSearchControls.teamA.secondary)
+      : (slot === 1 ? teamSearchControls.teamB.primary : teamSearchControls.teamB.secondary);
+    const value = control.input.value.trim();
+    if (!value) {
+      setSelectionValue(team, slot, "");
+      handleSelectionChange();
+      return;
+    }
+    populatePlayerSearchOptions(team, slot, value);
+    const nextSelection = control.optionsByLabel.get(value);
+    if (!nextSelection) {
+      syncPlayerSearchControl(team, slot);
+      return;
+    }
+    setSelectionValue(team, slot, nextSelection);
+    handleSelectionChange();
+  };
+
   const syncPlayerControls = (): void => {
     const currentUserId = args.getCurrentUserId();
-    const playerOptions = args.getPlayers().map((player) => ({
-      value: player.userId,
-      label: `${player.displayName} (${player.elo})${player.userId === currentUserId ? " (You)" : ""}`,
-    }));
-
     const selectedValues = getSelectedValues();
     if (currentUserId && !selectedValues.includes(currentUserId) && !selections.teamA1) {
       selections.teamA1 = currentUserId;
     }
-
-    const blockedA1 = [selections.teamA2, selections.teamB1, selections.teamB2].filter(Boolean);
-    const blockedA2 = [selections.teamA1, selections.teamB1, selections.teamB2].filter(Boolean);
-    const blockedB1 = [selections.teamA1, selections.teamA2, selections.teamB2].filter(Boolean);
-    const blockedB2 = [selections.teamA1, selections.teamA2, selections.teamB1].filter(Boolean);
-
-    const populateSelect = (
-      select: HTMLSelectElement,
-      currentValue: string,
-      blocked: string[],
-    ): void => {
-      replaceOptions(
-        select,
-        [
-          { value: "", label: t("scoreCardAnonymous") },
-          ...playerOptions.map((player) => ({
-            value: player.value,
-            label: player.label,
-            disabled: blocked.includes(player.value) && player.value !== currentValue,
-          })),
-        ],
-        currentValue,
-        t("scoreCardAnonymous"),
-      );
-    };
-
-    populateSelect(teamSelects.teamA.primary, selections.teamA1, blockedA1);
-    populateSelect(teamSelects.teamA.secondary, selections.teamA2, blockedA2);
-    populateSelect(teamSelects.teamB.primary, selections.teamB1, blockedB1);
-    populateSelect(teamSelects.teamB.secondary, selections.teamB2, blockedB2);
-
-    teamSelects.teamA.secondary.hidden = matchType === "singles";
-    teamSelects.teamB.secondary.hidden = matchType === "singles";
+    populatePlayerSearchOptions("teamA", 1, teamSearchControls.teamA.primary.input.value);
+    populatePlayerSearchOptions("teamA", 2, teamSearchControls.teamA.secondary.input.value);
+    populatePlayerSearchOptions("teamB", 1, teamSearchControls.teamB.primary.input.value);
+    populatePlayerSearchOptions("teamB", 2, teamSearchControls.teamB.secondary.input.value);
+    syncPlayerSearchControl("teamA", 1);
+    syncPlayerSearchControl("teamA", 2);
+    syncPlayerSearchControl("teamB", 1);
+    syncPlayerSearchControl("teamB", 2);
+    teamSearchControls.teamA.secondary.input.hidden = matchType === "singles";
+    teamSearchControls.teamA.secondary.list.hidden = matchType === "singles";
+    teamSearchControls.teamB.secondary.input.hidden = matchType === "singles";
+    teamSearchControls.teamB.secondary.list.hidden = matchType === "singles";
 
   };
 
@@ -982,8 +1075,8 @@ export const buildScoreCard = (args: {
 
   const leftTile = createScoreTile("teamA");
   const rightTile = createScoreTile("teamB");
-  const leftWrapper = buildTeamWrapper("teamA", leftTile, teamSelects.teamA);
-  const rightWrapper = buildTeamWrapper("teamB", rightTile, teamSelects.teamB);
+  const leftWrapper = buildTeamWrapper("teamA", leftTile, teamSearchControls.teamA);
+  const rightWrapper = buildTeamWrapper("teamB", rightTile, teamSearchControls.teamB);
   const serveBalls: Record<ScoreKey, HTMLSpanElement> = {
     teamA: leftWrapper.serveBalls,
     teamB: rightWrapper.serveBalls,

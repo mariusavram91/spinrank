@@ -6,7 +6,7 @@ import { buildLanguageSwitch } from "../../shared/components/languageSwitch";
 import { buildLoginView } from "../../shared/components/loginView";
 import { buildScoreCard } from "../../shared/components/scoreCard";
 import { buildDeleteWarning } from "../../shared/components/deleteWarning";
-import { bindLocalizedText, t } from "../../shared/i18n/runtime";
+import { bindLocalizedAttribute, bindLocalizedText, t } from "../../shared/i18n/runtime";
 import type { TextKey } from "../../shared/i18n/translations";
 import { getTodayDateValue } from "../../shared/utils/format";
 
@@ -401,6 +401,14 @@ export const createAppDom = (args: {
   const seasonParticipantList = document.createElement("div");
   seasonParticipantList.className = "participant-list";
 
+  const seasonParticipantSearchInput = document.createElement("input");
+  seasonParticipantSearchInput.className = "text-input participant-search-input";
+  seasonParticipantSearchInput.type = "search";
+  bindLocalizedAttribute(seasonParticipantSearchInput, "placeholder", "participantSearchPlaceholder");
+
+  const seasonParticipantResults = document.createElement("div");
+  seasonParticipantResults.className = "participant-search-results";
+
   const seasonSelectAllParticipantsField = document.createElement("label");
   seasonSelectAllParticipantsField.className = "checkbox-field";
   const seasonSelectAllParticipantsInput = document.createElement("input");
@@ -468,6 +476,14 @@ export const createAppDom = (args: {
 
   const participantList = document.createElement("div");
   participantList.className = "participant-list";
+
+  const participantSearchInput = document.createElement("input");
+  participantSearchInput.className = "text-input participant-search-input";
+  participantSearchInput.type = "search";
+  bindLocalizedAttribute(participantSearchInput, "placeholder", "participantSearchPlaceholder");
+
+  const participantSearchResults = document.createElement("div");
+  participantSearchResults.className = "participant-search-results";
 
   const tournamentSelectAllParticipantsField = document.createElement("label");
   tournamentSelectAllParticipantsField.className = "checkbox-field";
@@ -620,6 +636,8 @@ export const createAppDom = (args: {
     seasonParticipantSection,
     seasonParticipantLabel,
     seasonParticipantList,
+    seasonParticipantSearchInput,
+    seasonParticipantResults,
     seasonSelectAllParticipantsField,
     seasonSelectAllParticipantsInput,
     seasonIsActiveInput,
@@ -636,6 +654,8 @@ export const createAppDom = (args: {
     participantSection,
     participantLabel,
     participantList,
+    participantSearchInput,
+    participantSearchResults,
     tournamentSelectAllParticipantsField,
     tournamentSelectAllParticipantsInput,
     suggestTournamentButton,

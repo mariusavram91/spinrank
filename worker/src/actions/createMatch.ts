@@ -139,6 +139,13 @@ export async function handleCreateMatch(
     if (new Set(allPlayerIds).size !== allPlayerIds.length) {
       return errorResponse(request.requestId, "VALIDATION_ERROR", "A player cannot appear on both teams.");
     }
+    if (!allPlayerIds.includes(sessionUser.id)) {
+      return errorResponse(
+        request.requestId,
+        "FORBIDDEN",
+        "You can only create a match if you are one of the participants.",
+      );
+    }
 
     validateMatchScore(formatType, pointsToWin, score, winnerTeam);
 

@@ -3,6 +3,7 @@ export const apiActions = [
   "bootstrapUser",
   "getDashboard",
   "getLeaderboard",
+  "searchParticipants",
   "getUserProgress",
   "getSegmentLeaderboard",
   "getMatches",
@@ -159,6 +160,25 @@ export interface GetLeaderboardPayload {}
 export interface GetLeaderboardData {
   leaderboard: LeaderboardEntry[];
   updatedAt: string;
+}
+
+export interface SearchParticipantsPayload {
+  query?: string;
+  segmentType: "season" | "tournament";
+  seasonId?: string | null;
+  limit?: number;
+}
+
+export interface ParticipantSearchEntry {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  elo: number;
+  isSuggested: boolean;
+}
+
+export interface SearchParticipantsData {
+  participants: ParticipantSearchEntry[];
 }
 
 export interface GetUserProgressPayload {}
@@ -417,6 +437,10 @@ export interface ApiActionMap {
   getLeaderboard: {
     payload: GetLeaderboardPayload;
     data: GetLeaderboardData;
+  };
+  searchParticipants: {
+    payload: SearchParticipantsPayload;
+    data: SearchParticipantsData;
   };
   getUserProgress: {
     payload: GetUserProgressPayload;

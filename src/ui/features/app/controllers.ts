@@ -183,6 +183,9 @@ export const createSelectionAndFormHandlers = (args: {
     seasonDraftMode: "create" | "edit";
     seasonFormError: string;
     seasonFormMessage: string;
+    seasonParticipantQuery: string;
+    seasonParticipantResults: Array<unknown>;
+    seasonParticipantSearchError: string;
     selectedSeasonId: string;
     selectedTournamentId: string;
     seasons: Array<{
@@ -273,6 +276,9 @@ export const createSelectionAndFormHandlers = (args: {
     args.dashboardState.editingSeasonId = season.id;
     args.dashboardState.seasonDraftMode = "edit";
     args.dashboardState.editingSeasonParticipantIds = [...season.participantIds];
+    args.dashboardState.seasonParticipantQuery = "";
+    args.dashboardState.seasonParticipantResults = [];
+    args.dashboardState.seasonParticipantSearchError = "";
     args.seasonNameInput.value = season.name;
     args.seasonStartDateInput.value = season.startDate;
     args.seasonEndDateInput.value = season.endDate || "";
