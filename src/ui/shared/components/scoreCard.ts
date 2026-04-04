@@ -26,9 +26,13 @@ type TeamSelections = {
 };
 
 type PlayerSearchControl = {
+  field: HTMLDivElement;
   input: HTMLInputElement;
-  list: HTMLDataListElement;
+  clearButton: HTMLButtonElement;
+  menu: HTMLDivElement;
   optionsByLabel: Map<string, string>;
+  visible: boolean;
+  ignoreBlur: boolean;
 };
 
 type SaveMatchHandler = (payload: CreateMatchPayload) => Promise<void> | void;
@@ -417,6 +421,17 @@ export const buildScoreCard = (args: {
         toggle.setAttribute("aria-expanded", "false");
       }
     });
+    [
+      teamSearchControls.teamA.primary,
+      teamSearchControls.teamA.secondary,
+      teamSearchControls.teamB.primary,
+      teamSearchControls.teamB.secondary,
+    ].forEach((control) => {
+      control.menu.hidden = true;
+      control.field.classList.remove("score-card__player-search-field--open");
+      control.input.setAttribute("aria-expanded", "false");
+      control.visible = false;
+    });
   };
   let currentServeStartTeam: TeamKey = randomTeam();
   let visible = false;
@@ -427,6 +442,7 @@ export const buildScoreCard = (args: {
   let statusKind: "idle" | "error" = "idle";
   const getSelectedValues = (): string[] =>
     [selections.teamA1, selections.teamA2, selections.teamB1, selections.teamB2].filter(Boolean);
+  let keepPlayerPickersOpenOnNextSync = false;
   const handleSelectionChange = (): void => {
     statusMessage = "";
     statusKind = "idle";
@@ -459,36 +475,89 @@ export const buildScoreCard = (args: {
     return slot === 1 ? selections.teamB1 : selections.teamB2;
   };
 
-  let playerSearchListId = 0;
   const createPlayerSearchControl = (team: ScoreKey, slot: 1 | 2): PlayerSearchControl => {
+    const field = document.createElement("div");
+    field.className = "score-card__player-search-field";
     const input = document.createElement("input");
-    input.type = "search";
+    input.type = "text";
     input.className = "text-input score-card__player-search";
     input.dataset.team = team;
     input.dataset.slot = String(slot);
     input.autocomplete = "off";
     input.spellcheck = false;
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("role", "combobox");
 
-    const list = document.createElement("datalist");
-    list.id = `score-card-player-search-${++playerSearchListId}`;
-    input.setAttribute("list", list.id);
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.className = "score-card__player-search-clear";
+    clearButton.setAttribute("aria-label", t("clearSearch"));
+    clearButton.textContent = "x";
+
+    const menu = document.createElement("div");
+    menu.className = "score-card__player-search-menu";
+    menu.hidden = true;
+
+    let control!: PlayerSearchControl;
+    const setMenuVisibility = (visible: boolean): void => {
+      menu.hidden = !visible;
+      field.classList.toggle("score-card__player-search-field--open", visible);
+      input.setAttribute("aria-expanded", String(visible));
+      control.visible = visible;
+    };
+
+    const updateClearButtonVisibility = (): void => {
+      clearButton.hidden = input.value.trim().length === 0;
+    };
 
     input.addEventListener("focus", () => {
       populatePlayerSearchOptions(team, slot, input.value);
+      setMenuVisibility(true);
     });
     input.addEventListener("input", () => {
       populatePlayerSearchOptions(team, slot, input.value);
+      updateClearButtonVisibility();
+      setMenuVisibility(true);
     });
     input.addEventListener("change", () => {
       commitPlayerSearchValue(team, slot);
     });
     input.addEventListener("blur", () => {
       window.setTimeout(() => {
+        if (control.ignoreBlur) {
+          control.ignoreBlur = false;
+          return;
+        }
+        setMenuVisibility(false);
         syncPlayerSearchControl(team, slot);
       }, 0);
     });
 
-    return { input, list, optionsByLabel: new Map<string, string>() };
+    clearButton.addEventListener("click", () => {
+      control.ignoreBlur = true;
+      input.value = "";
+      updateClearButtonVisibility();
+      setSelectionValue(team, slot, "");
+      keepPlayerPickersOpenOnNextSync = true;
+      handleSelectionChange();
+      populatePlayerSearchOptions(team, slot, "");
+      setMenuVisibility(true);
+      input.focus();
+    });
+
+    field.append(input, clearButton, menu);
+    control = {
+      field,
+      input,
+      clearButton,
+      menu,
+      optionsByLabel: new Map<string, string>(),
+      visible: false,
+      ignoreBlur: false,
+    };
+    updateClearButtonVisibility();
+    return control;
   };
 
   const teamSearchControls: Record<
@@ -517,7 +586,7 @@ export const buildScoreCard = (args: {
     wrapper.className = `score-card__team-wrapper score-card__team-wrapper--${key}`;
     const selectContainer = document.createElement("div");
     selectContainer.className = "score-card__player-selects";
-    selectContainer.append(controls.primary.input, controls.primary.list, controls.secondary.input, controls.secondary.list);
+    selectContainer.append(controls.primary.field, controls.secondary.field);
     const playerPicker = document.createElement("div");
     playerPicker.className = "score-card__player-picker";
     const pickerToggle = document.createElement("button");
@@ -644,11 +713,14 @@ export const buildScoreCard = (args: {
   const getPlayerOptionLabel = (player: LeaderboardEntry, currentUserId: string): string =>
     `${player.displayName} (${player.elo})${player.userId === currentUserId ? " (You)" : ""}`;
 
-  const populatePlayerSearchOptions = (team: ScoreKey, slot: 1 | 2, query: string): void => {
-    const currentUserId = args.getCurrentUserId();
-    const control = team === "teamA"
+  const getPlayerSearchControl = (team: ScoreKey, slot: 1 | 2): PlayerSearchControl =>
+    team === "teamA"
       ? (slot === 1 ? teamSearchControls.teamA.primary : teamSearchControls.teamA.secondary)
       : (slot === 1 ? teamSearchControls.teamB.primary : teamSearchControls.teamB.secondary);
+
+  const populatePlayerSearchOptions = (team: ScoreKey, slot: 1 | 2, query: string): void => {
+    const currentUserId = args.getCurrentUserId();
+    const control = getPlayerSearchControl(team, slot);
     const currentValue = getSelectionValue(team, slot);
     const blockedIds = new Set(getBlockedIds(team, slot).filter((value) => value !== currentValue));
     const filtered = args.getPlayers()
@@ -680,28 +752,47 @@ export const buildScoreCard = (args: {
     control.optionsByLabel = new Map(
       filtered.map((player) => [getPlayerOptionLabel(player, currentUserId), player.userId]),
     );
-    control.list.replaceChildren(
-      ...filtered.map((player) => {
-        const option = document.createElement("option");
-        option.value = getPlayerOptionLabel(player, currentUserId);
-        return option;
-      }),
+    control.menu.replaceChildren(
+      ...(
+        filtered.length > 0
+          ? filtered.map((player) => {
+            const option = document.createElement("button");
+            option.type = "button";
+            option.className = "score-card__player-search-option";
+            option.textContent = getPlayerOptionLabel(player, currentUserId);
+            option.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              control.input.value = getPlayerOptionLabel(player, currentUserId);
+              setSelectionValue(team, slot, player.userId);
+              control.clearButton.hidden = false;
+              control.menu.hidden = true;
+              control.field.classList.remove("score-card__player-search-field--open");
+              control.input.setAttribute("aria-expanded", "false");
+              control.visible = false;
+              handleSelectionChange();
+            });
+            return option;
+          })
+          : [(() => {
+            const emptyState = document.createElement("div");
+            emptyState.className = "score-card__player-search-empty";
+            emptyState.textContent = t("scoreCardNoPlayersFound");
+            return emptyState;
+          })()]
+      ),
     );
   };
 
   const syncPlayerSearchControl = (team: ScoreKey, slot: 1 | 2): void => {
     const currentUserId = args.getCurrentUserId();
-    const control = team === "teamA"
-      ? (slot === 1 ? teamSearchControls.teamA.primary : teamSearchControls.teamA.secondary)
-      : (slot === 1 ? teamSearchControls.teamB.primary : teamSearchControls.teamB.secondary);
+    const control = getPlayerSearchControl(team, slot);
     const player = args.getPlayers().find((entry) => entry.userId === getSelectionValue(team, slot));
     control.input.value = player ? getPlayerOptionLabel(player, currentUserId) : "";
+    control.clearButton.hidden = control.input.value.trim().length === 0;
   };
 
   const commitPlayerSearchValue = (team: ScoreKey, slot: 1 | 2): void => {
-    const control = team === "teamA"
-      ? (slot === 1 ? teamSearchControls.teamA.primary : teamSearchControls.teamA.secondary)
-      : (slot === 1 ? teamSearchControls.teamB.primary : teamSearchControls.teamB.secondary);
+    const control = getPlayerSearchControl(team, slot);
     const value = control.input.value.trim();
     if (!value) {
       setSelectionValue(team, slot, "");
@@ -732,10 +823,8 @@ export const buildScoreCard = (args: {
     syncPlayerSearchControl("teamA", 2);
     syncPlayerSearchControl("teamB", 1);
     syncPlayerSearchControl("teamB", 2);
-    teamSearchControls.teamA.secondary.input.hidden = matchType === "singles";
-    teamSearchControls.teamA.secondary.list.hidden = matchType === "singles";
-    teamSearchControls.teamB.secondary.input.hidden = matchType === "singles";
-    teamSearchControls.teamB.secondary.list.hidden = matchType === "singles";
+    teamSearchControls.teamA.secondary.field.hidden = matchType === "singles";
+    teamSearchControls.teamB.secondary.field.hidden = matchType === "singles";
 
   };
 
@@ -897,7 +986,10 @@ export const buildScoreCard = (args: {
   };
 
   const sync = (): void => {
-    closePlayerPickers();
+    if (!keepPlayerPickersOpenOnNextSync) {
+      closePlayerPickers();
+    }
+    keepPlayerPickersOpenOnNextSync = false;
     syncPlayerControls();
     syncContextControls();
     renderTeamLabels();

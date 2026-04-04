@@ -2991,7 +2991,8 @@ button:disabled,
 }
 
 .score-card__player-picker--visible {
-  max-height: 140px;
+  max-height: 240px;
+  overflow: visible;
 }
 
 .score-card__player-picker-toggle {
@@ -3021,8 +3022,78 @@ button:disabled,
   gap: 4px;
 }
 
+.score-card__player-search-field {
+  position: relative;
+}
+
+.score-card__player-search-field--open {
+  z-index: 2;
+}
+
 .score-card__player-search {
   width: 100%;
+  padding-right: 44px;
+}
+
+.score-card__player-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: #4f3c22;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-card__player-search-clear:hover:enabled {
+  transform: translateY(-50%);
+  background: rgba(15, 23, 42, 0.14);
+}
+
+.score-card__player-search-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  padding: 6px;
+  overflow-y: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(82, 61, 36, 0.12);
+  background: rgba(255, 252, 247, 0.98);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.16);
+}
+
+.score-card__player-search-option {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: transparent;
+  color: #24324a;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.score-card__player-search-option:hover:enabled,
+.score-card__player-search-option:focus-visible {
+  transform: none;
+  background: rgba(239, 228, 210, 0.88);
+  outline: none;
+}
+
+.score-card__player-search-empty {
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
 }
 
 .score-card__serve-balls {
