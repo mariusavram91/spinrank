@@ -10,6 +10,7 @@ export default defineConfig({
       reporter: ["text", "html", "lcov"],
       include: ["src/**/*.ts", "worker/src/**/*.ts"],
     },
+    exclude: ["tests/e2e/**", "node_modules/**", "worker/node_modules/**"],
   },
   projects: [
     {
