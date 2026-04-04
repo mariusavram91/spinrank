@@ -47,16 +47,16 @@ export const faqEntries: FaqEntry[] = [
         de: "Die globale Bestenliste zeigt deine gesamte Elo aus allen gerankten Matches, auf die du Zugriff hast.",
       },
       {
-        en: "Season leaderboards use a season score, so active players can be ranked ahead of someone with the same Elo who has been away for a while.",
-        de: "Saison-Listen nutzen einen Season-Score, damit aktive Spieler vor jemandem mit derselben Elo landen können, der länger nicht gespielt hat.",
+        en: "Season leaderboards use Glicko-2. The displayed season score is conservative skill, meaning rating minus two times rating deviation.",
+        de: "Saison-Listen nutzen Glicko-2. Der angezeigte Season-Score ist konservative Stärke, also Rating minus zweimal Rating Deviation.",
       },
       {
-        en: "That means a player can be ahead with fewer wins if they were more active recently or had less inactivity penalty.",
-        de: "Das heißt: Ein Spieler kann trotz weniger Siegen vorne liegen, wenn er zuletzt aktiver war oder weniger Inaktivitätsabzug hatte.",
+        en: "Attendance matters a little too: after two missed season weeks, each extra missed week applies a small penalty capped at 16 points.",
+        de: "Auch Anwesenheit zählt ein wenig: Nach zwei verpassten Saisonwochen kostet jede weitere verpasste Woche ein paar Punkte, maximal 16.",
       },
       {
-        en: "If a tournament belongs to a season, its matches also count toward that season's score. Open tournaments only affect the tournament itself.",
-        de: "Gehört ein Turnier zu einer Saison, zählen seine Matches auch für den Season-Score dieser Saison. Offene Turniere beeinflussen nur das Turnier selbst.",
+        en: "If a tournament belongs to a season, its matches also count toward that season's rating and attendance. Open tournaments only affect the tournament itself.",
+        de: "Gehört ein Turnier zu einer Saison, zählen seine Matches auch für Rating und Anwesenheit dieser Saison. Offene Turniere beeinflussen nur das Turnier selbst.",
       },
     ],
   },

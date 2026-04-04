@@ -704,44 +704,4 @@ INSERT INTO match_players (match_id, user_id, team) VALUES
   ('match_060', 'user_alex', 'A'),
   ('match_060', 'user_pia', 'B');
 
-INSERT INTO elo_segments (
-  id, segment_type, segment_id, user_id, elo, matches_played, matches_played_equivalent, wins, losses, streak, last_match_at, updated_at
-) VALUES
-  ('seg_season_alex', 'season', 'season_spring_2026', 'user_alex', 1278, 6, 6, 5, 1, 3, '2026-03-20T20:05:00.000Z', '2026-03-20T20:05:00.000Z'),
-  ('seg_season_bea', 'season', 'season_spring_2026', 'user_bea', 1260, 6, 6, 4, 2, 2, '2026-03-20T20:05:00.000Z', '2026-03-20T20:05:00.000Z'),
-  ('seg_season_cruz', 'season', 'season_spring_2026', 'user_cruz', 1238, 6, 6, 4, 2, 1, '2026-03-20T20:05:00.000Z', '2026-03-20T20:05:00.000Z'),
-  ('seg_season_daya', 'season', 'season_spring_2026', 'user_daya', 1218, 6, 6, 3, 3, -1, '2026-03-20T20:05:00.000Z', '2026-03-20T20:05:00.000Z'),
-  ('seg_season_eli', 'season', 'season_spring_2026', 'user_eli', 1196, 6, 6, 1, 5, -2, '2026-03-20T20:05:00.000Z', '2026-03-20T20:05:00.000Z'),
-  ('seg_season_finn', 'season', 'season_spring_2026', 'user_finn', 1184, 6, 6, 1, 5, -3, '2026-03-20T20:05:00.000Z', '2026-03-20T20:05:00.000Z'),
-  ('seg_tournament_alex', 'tournament', 'tournament_berlin_open_2026', 'user_alex', 1268, 3, 3, 2, 1, 1, '2026-03-15T18:00:00.000Z', '2026-03-15T18:00:00.000Z'),
-  ('seg_tournament_bea', 'tournament', 'tournament_berlin_open_2026', 'user_bea', 1272, 3, 3, 3, 0, 3, '2026-03-15T18:00:00.000Z', '2026-03-15T18:00:00.000Z'),
-  ('seg_tournament_cruz', 'tournament', 'tournament_berlin_open_2026', 'user_cruz', 1226, 3, 3, 1, 2, -1, '2026-03-15T18:00:00.000Z', '2026-03-15T18:00:00.000Z'),
-  ('seg_tournament_daya', 'tournament', 'tournament_berlin_open_2026', 'user_daya', 1210, 3, 3, 1, 2, -2, '2026-03-15T18:00:00.000Z', '2026-03-15T18:00:00.000Z'),
-  ('seg_tournament_eli', 'tournament', 'tournament_berlin_open_2026', 'user_eli', 1202, 3, 3, 1, 2, 1, '2026-03-15T18:00:00.000Z', '2026-03-15T18:00:00.000Z'),
-  ('seg_tournament_finn', 'tournament', 'tournament_berlin_open_2026', 'user_finn', 1188, 3, 3, 1, 2, -1, '2026-03-15T18:00:00.000Z', '2026-03-15T18:00:00.000Z');
-
-INSERT INTO elo_segments (
-  id, segment_type, segment_id, user_id, elo, matches_played, matches_played_equivalent, wins, losses, streak, last_match_at, updated_at
-) VALUES
-  ('seg_season_summer_alex', 'season', 'season_summer_2026', 'user_alex', 1294, 6, 6, 5, 1, 2, '2026-04-25T19:00:00.000Z', '2026-04-28T19:00:00.000Z'),
-  ('seg_season_summer_bea', 'season', 'season_summer_2026', 'user_bea', 1236, 3, 3, 1, 2, -2, '2026-04-27T18:30:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_season_summer_gina', 'season', 'season_summer_2026', 'user_gina', 1418, 5, 5, 5, 0, 5, '2026-04-28T19:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_season_summer_hans', 'season', 'season_summer_2026', 'user_hans', 1022, 4, 4, 0, 4, -4, '2026-04-27T18:30:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_season_summer_ivy', 'season', 'season_summer_2026', 'user_ivy', 1248, 2, 2, 1, 1, 1, '2026-04-28T19:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_season_summer_jules', 'season', 'season_summer_2026', 'user_jules', 1186, 2, 2, 0, 2, -2, '2026-04-25T19:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_season_summer_kai', 'season', 'season_summer_2026', 'user_kai', 1298, 5, 5, 4, 1, 3, '2026-04-27T18:30:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_season_summer_lina', 'season', 'season_summer_2026', 'user_lina', 1240, 3, 3, 1, 2, 1, '2026-04-27T18:30:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_alex', 'tournament', 'tournament_summer_cup_2026', 'user_alex', 1274, 3, 3, 2, 1, 1, '2026-04-28T18:20:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_bea', 'tournament', 'tournament_summer_cup_2026', 'user_bea', 1224, 1, 1, 0, 1, -1, '2026-04-18T15:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_gina', 'tournament', 'tournament_summer_cup_2026', 'user_gina', 1432, 3, 3, 3, 0, 3, '2026-04-28T19:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_hans', 'tournament', 'tournament_summer_cup_2026', 'user_hans', 1014, 3, 3, 0, 3, -3, '2026-04-28T10:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_ivy', 'tournament', 'tournament_summer_cup_2026', 'user_ivy', 1266, 2, 2, 1, 1, -1, '2026-04-28T17:30:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_jules', 'tournament', 'tournament_summer_cup_2026', 'user_jules', 1190, 1, 1, 0, 1, -1, '2026-04-18T11:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_kai', 'tournament', 'tournament_summer_cup_2026', 'user_kai', 1310, 3, 3, 2, 1, -1, '2026-04-28T19:30:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_summer_lina', 'tournament', 'tournament_summer_cup_2026', 'user_lina', 1252, 1, 1, 0, 1, -1, '2026-04-18T16:00:00.000Z', '2026-04-28T20:00:00.000Z'),
-  ('seg_tournament_open_ivy', 'tournament', 'tournament_open_clash_2026', 'user_ivy', 1258, 1, 1, 1, 0, 1, '2026-04-20T19:00:00.000Z', '2026-04-20T20:00:00.000Z'),
-  ('seg_tournament_open_jules', 'tournament', 'tournament_open_clash_2026', 'user_jules', 1184, 1, 1, 0, 1, -1, '2026-04-20T19:00:00.000Z', '2026-04-20T20:00:00.000Z'),
-  ('seg_tournament_open_milo', 'tournament', 'tournament_open_clash_2026', 'user_milo', 1150, 1, 1, 0, 1, -1, '2026-04-20T20:00:00.000Z', '2026-04-20T20:00:00.000Z'),
-  ('seg_tournament_open_nora', 'tournament', 'tournament_open_clash_2026', 'user_nora', 1318, 1, 1, 1, 0, 1, '2026-04-20T20:00:00.000Z', '2026-04-20T20:00:00.000Z');
-
 PRAGMA foreign_keys = OFF;

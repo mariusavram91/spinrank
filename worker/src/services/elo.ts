@@ -4,8 +4,17 @@ import type { Env, MatchType, SeasonRow, UserRow, WinnerTeam } from "../types";
 const STARTING_ELO = 1200;
 const SINGLES_WEIGHT = 1;
 const DOUBLES_WEIGHT = 0.7;
-const WEEKLY_INACTIVITY_PENALTY = 5;
 export const MINIMUM_MATCHES_TO_QUALIFY = 10;
+
+const GLICKO_DEFAULT_RATING = 1200;
+const GLICKO_DEFAULT_RD = 350;
+const GLICKO_DEFAULT_VOLATILITY = 0.06;
+const GLICKO_TAU = 0.5;
+const GLICKO_SCALE = 173.7178;
+
+const ATTENDANCE_FREE_MISSES = 2;
+const ATTENDANCE_PENALTY_PER_WEEK = 4;
+const ATTENDANCE_PENALTY_CAP = 16;
 const WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
 
 interface RatingState {
@@ -18,6 +27,15 @@ interface RatingState {
   lastMatchAt: string;
   updatedAt: string;
 }
+
+interface SeasonRatingState extends RatingState {
+  glickoRating: number;
+  glickoRd: number;
+  glickoVolatility: number;
+  attendedWeekKeys: Set<number>;
+}
+
+type AnyRatingState = RatingState | SeasonRatingState;
 
 interface MatchDeltaRow {
   id: string;
@@ -39,19 +57,35 @@ interface SegmentParticipantRow {
   user_id: string;
 }
 
+interface TournamentSeasonRow {
+  id: string;
+  season_id: string | null;
+}
+
 interface SeasonSeedState {
   id: string;
   startDate: string;
+  endDate: string;
+  status: SeasonRow["status"];
   baseEloMode: SeasonRow["base_elo_mode"];
   participantIds: string[];
   initialized: boolean;
 }
 
-type SeasonSeedRow = Pick<SeasonRow, "id" | "start_date" | "base_elo_mode" | "participant_ids_json">;
+type SeasonSeedRow = Pick<
+  SeasonRow,
+  "id" | "start_date" | "end_date" | "status" | "base_elo_mode" | "participant_ids_json"
+>;
+
+type TeamGlickoState = {
+  rating: number;
+  rd: number;
+  volatility: number;
+};
 
 export interface RatingSnapshot {
   globalState: Record<string, RatingState>;
-  segmentStates: Map<string, Record<string, RatingState>>;
+  segmentStates: Map<string, Record<string, AnyRatingState>>;
 }
 
 function getSegmentKey(segmentType: "season" | "tournament", segmentId: string): string {
@@ -68,21 +102,25 @@ function getKFactor(matchEquivalentPlayed: number): number {
   return 16;
 }
 
+function calculateSeasonConservativeRating(rating: number, rd: number): number {
+  return Math.round(rating - 2 * rd);
+}
+
+function calculateAttendancePenalty(attendedWeeks: number, totalWeeks: number): number {
+  const missedWeeks = Math.max(0, totalWeeks - attendedWeeks);
+  return Math.min(
+    ATTENDANCE_PENALTY_CAP,
+    Math.max(0, missedWeeks - ATTENDANCE_FREE_MISSES) * ATTENDANCE_PENALTY_PER_WEEK,
+  );
+}
+
 export function calculateSeasonScore(args: {
-  elo: number;
-  lastMatchAt: string | null;
-  matchEquivalentPlayed: number;
-  nowIso: string;
+  rating: number;
+  rd: number;
+  attendedWeeks: number;
+  totalWeeks: number;
 }): number {
-  const lastMatchAtMs = args.lastMatchAt ? Date.parse(args.lastMatchAt) : NaN;
-  const nowMs = Date.parse(args.nowIso);
-  const inactiveWeeks =
-    Number.isFinite(lastMatchAtMs) && Number.isFinite(nowMs)
-      ? Math.max(0, Math.floor((nowMs - lastMatchAtMs) / WEEK_IN_MS))
-      : 0;
-  const inactivityPenalty = inactiveWeeks * WEEKLY_INACTIVITY_PENALTY;
-  const activityBonus = Math.min(Math.floor(args.matchEquivalentPlayed / 3), 20);
-  return args.elo - inactivityPenalty + activityBonus;
+  return calculateSeasonConservativeRating(args.rating, args.rd) - calculateAttendancePenalty(args.attendedWeeks, args.totalWeeks);
 }
 
 function getPlayerElo(state: RatingState | UserRow | undefined): number {
@@ -104,18 +142,6 @@ function getPlayerMatchEquivalentPlayed(state: RatingState | UserRow | undefined
 
   if ("matchEquivalentPlayed" in state) {
     return Number(state.matchEquivalentPlayed || 0);
-  }
-
-  if ("matchesPlayed" in state) {
-    return Number(state.matchesPlayed || 0);
-  }
-
-  return Number(state.wins || 0) + Number(state.losses || 0);
-}
-
-function getPlayerMatchesPlayed(state: RatingState | UserRow | undefined): number {
-  if (!state) {
-    return 0;
   }
 
   if ("matchesPlayed" in state) {
@@ -185,6 +211,21 @@ function ensureRatingState(
   return blank;
 }
 
+function ensureSeasonRatingState(
+  stateMap: Record<string, SeasonRatingState>,
+  playerId: string,
+  nowIso: string,
+): SeasonRatingState {
+  const state = stateMap[playerId];
+  if (state) {
+    return state;
+  }
+
+  const blank = createBlankSeasonRatingState(nowIso);
+  stateMap[playerId] = blank;
+  return blank;
+}
+
 function seedRatingStates(
   stateMap: Record<string, RatingState>,
   playerIds: string[],
@@ -195,21 +236,32 @@ function seedRatingStates(
   });
 }
 
+function seedSeasonRatingStates(
+  stateMap: Record<string, SeasonRatingState>,
+  playerIds: string[],
+  nowIso: string,
+): void {
+  playerIds.forEach((playerId) => {
+    ensureSeasonRatingState(stateMap, playerId, nowIso);
+  });
+}
+
 function initializeSeasonRatingState(
   season: SeasonSeedState,
   globalState: Record<string, RatingState>,
-  segmentStates: Map<string, Record<string, RatingState>>,
+  segmentStates: Map<string, Record<string, AnyRatingState>>,
   nowIso: string,
 ): void {
   if (season.initialized) {
     return;
   }
 
-  const state: Record<string, RatingState> = {};
+  const state: Record<string, SeasonRatingState> = {};
   season.participantIds.forEach((playerId) => {
-    const blank = createBlankRatingState(nowIso);
+    const blank = createBlankSeasonRatingState(nowIso);
     if (season.baseEloMode === "carry_over") {
       blank.elo = globalState[playerId]?.elo ?? STARTING_ELO;
+      blank.glickoRating = blank.elo;
     }
     state[playerId] = blank;
   });
@@ -268,6 +320,210 @@ function updateTeamState(
   });
 }
 
+function updateSeasonTeamState(
+  teamPlayerIds: string[],
+  stateMap: Record<string, SeasonRatingState>,
+  nextTeamState: TeamGlickoState,
+  currentTeamState: TeamGlickoState,
+  nowIso: string,
+  playedAt: string,
+  matchEquivalentPlayed: number,
+  isWinner: boolean,
+  weekIndex: number,
+  matchWeight: number,
+): void {
+  teamPlayerIds.forEach((playerId) => {
+    const state = ensureSeasonRatingState(stateMap, playerId, nowIso);
+    state.glickoRating += (nextTeamState.rating - currentTeamState.rating) * matchWeight;
+    state.glickoRd = Math.max(30, state.glickoRd + (nextTeamState.rd - currentTeamState.rd) * matchWeight);
+    state.glickoVolatility = Math.max(
+      0.01,
+      state.glickoVolatility + (nextTeamState.volatility - currentTeamState.volatility) * matchWeight,
+    );
+    state.elo = Math.round(state.glickoRating);
+    state.matchesPlayed += 1;
+    state.matchEquivalentPlayed = addMatchEquivalent(state.matchEquivalentPlayed, matchEquivalentPlayed);
+    state.lastMatchAt = playedAt;
+    state.updatedAt = nowIso;
+    state.attendedWeekKeys.add(weekIndex);
+    if (isWinner) {
+      state.wins += 1;
+      state.streak = state.streak >= 0 ? state.streak + 1 : 1;
+    } else {
+      state.losses += 1;
+      state.streak = state.streak <= 0 ? state.streak - 1 : -1;
+    }
+  });
+}
+
+function toGlickoScale(rating: number): number {
+  return (rating - GLICKO_DEFAULT_RATING) / GLICKO_SCALE;
+}
+
+function fromGlickoScale(mu: number): number {
+  return mu * GLICKO_SCALE + GLICKO_DEFAULT_RATING;
+}
+
+function toGlickoDeviation(rd: number): number {
+  return rd / GLICKO_SCALE;
+}
+
+function fromGlickoDeviation(phi: number): number {
+  return phi * GLICKO_SCALE;
+}
+
+function g(phi: number): number {
+  return 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
+}
+
+function expectedScore(mu: number, opponentMu: number, opponentPhi: number): number {
+  return 1 / (1 + Math.exp(-g(opponentPhi) * (mu - opponentMu)));
+}
+
+function computeVariance(mu: number, opponentMu: number, opponentPhi: number): number {
+  const expectation = expectedScore(mu, opponentMu, opponentPhi);
+  const opponentG = g(opponentPhi);
+  return 1 / (opponentG * opponentG * expectation * (1 - expectation));
+}
+
+function computeDelta(mu: number, opponentMu: number, opponentPhi: number, score: number, variance: number): number {
+  return variance * g(opponentPhi) * (score - expectedScore(mu, opponentMu, opponentPhi));
+}
+
+function solveVolatility(phi: number, delta: number, variance: number, volatility: number): number {
+  const a = Math.log(volatility * volatility);
+  const f = (x: number): number => {
+    const expX = Math.exp(x);
+    const numerator = expX * (delta * delta - phi * phi - variance - expX);
+    const denominator = 2 * (phi * phi + variance + expX) * (phi * phi + variance + expX);
+    return numerator / denominator - (x - a) / (GLICKO_TAU * GLICKO_TAU);
+  };
+
+  let lower = 0;
+  let upper = 0;
+  if (delta * delta > phi * phi + variance) {
+    upper = Math.log(delta * delta - phi * phi - variance);
+  } else {
+    let k = 1;
+    upper = a - k * GLICKO_TAU;
+    while (f(upper) < 0) {
+      k += 1;
+      upper = a - k * GLICKO_TAU;
+    }
+  }
+  lower = a;
+
+  let fLower = f(lower);
+  let fUpper = f(upper);
+
+  while (Math.abs(upper - lower) > 0.000001) {
+    const midpoint = lower + ((lower - upper) * fLower) / (fUpper - fLower);
+    const fMid = f(midpoint);
+    if (fMid * fUpper < 0) {
+      lower = upper;
+      fLower = fUpper;
+    } else {
+      fLower /= 2;
+    }
+    upper = midpoint;
+    fUpper = fMid;
+  }
+
+  return Math.exp(lower / 2);
+}
+
+function applyGlickoResult(player: TeamGlickoState, opponent: TeamGlickoState, score: number): TeamGlickoState {
+  const mu = toGlickoScale(player.rating);
+  const phi = toGlickoDeviation(player.rd);
+  const opponentMu = toGlickoScale(opponent.rating);
+  const opponentPhi = toGlickoDeviation(opponent.rd);
+  const variance = computeVariance(mu, opponentMu, opponentPhi);
+  const delta = computeDelta(mu, opponentMu, opponentPhi, score, variance);
+  const nextVolatility = solveVolatility(phi, delta, variance, player.volatility);
+  const phiStar = Math.sqrt(phi * phi + nextVolatility * nextVolatility);
+  const nextPhi = 1 / Math.sqrt((1 / (phiStar * phiStar)) + (1 / variance));
+  const nextMu = mu + nextPhi * nextPhi * g(opponentPhi) * (score - expectedScore(mu, opponentMu, opponentPhi));
+
+  return {
+    rating: fromGlickoScale(nextMu),
+    rd: fromGlickoDeviation(nextPhi),
+    volatility: nextVolatility,
+  };
+}
+
+function buildTeamGlickoState(playerIds: string[], seasonState: Record<string, SeasonRatingState>): TeamGlickoState {
+  const players = playerIds.map((playerId) => seasonState[playerId]);
+  return {
+    rating: average(players.map((player) => player.glickoRating)),
+    rd: Math.sqrt(average(players.map((player) => player.glickoRd * player.glickoRd))),
+    volatility: average(players.map((player) => player.glickoVolatility)),
+  };
+}
+
+function getSeasonWeekIndex(seasonStartDate: string, playedAtIso: string): number {
+  const startMs = Date.parse(`${seasonStartDate}T00:00:00.000Z`);
+  const playedMs = Date.parse(playedAtIso);
+  return Math.max(0, Math.floor((playedMs - startMs) / WEEK_IN_MS));
+}
+
+function calculateSeasonTotalWeeks(season: SeasonSeedState, nowIso: string): number {
+  const seasonStartMs = Date.parse(`${season.startDate}T00:00:00.000Z`);
+  const seasonEndDate = season.status === "completed" && season.endDate ? season.endDate : "";
+  const cutoffDate = seasonEndDate || dateOnly(nowIso);
+  const cutoffMs = Date.parse(`${cutoffDate}T00:00:00.000Z`);
+  if (!Number.isFinite(seasonStartMs) || !Number.isFinite(cutoffMs) || cutoffMs < seasonStartMs) {
+    return 0;
+  }
+  return Math.floor((cutoffMs - seasonStartMs) / WEEK_IN_MS) + 1;
+}
+
+function updateSeasonGlickoMatch(args: {
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
+  seasonState: Record<string, SeasonRatingState>;
+  seasonStartDate: string;
+  winnerTeam: WinnerTeam;
+  matchType: MatchType;
+  playedAt: string;
+  updatedAt: string;
+}): void {
+  const matchEquivalentPlayed = getMatchEquivalent(args.matchType);
+  const matchWeight = matchEquivalentPlayed;
+  const weekIndex = getSeasonWeekIndex(args.seasonStartDate, args.playedAt);
+
+  seedSeasonRatingStates(args.seasonState, [...args.teamAPlayerIds, ...args.teamBPlayerIds], args.updatedAt);
+
+  const currentTeamA = buildTeamGlickoState(args.teamAPlayerIds, args.seasonState);
+  const currentTeamB = buildTeamGlickoState(args.teamBPlayerIds, args.seasonState);
+  const nextTeamA = applyGlickoResult(currentTeamA, currentTeamB, args.winnerTeam === "A" ? 1 : 0);
+  const nextTeamB = applyGlickoResult(currentTeamB, currentTeamA, args.winnerTeam === "B" ? 1 : 0);
+
+  updateSeasonTeamState(
+    args.teamAPlayerIds,
+    args.seasonState,
+    nextTeamA,
+    currentTeamA,
+    args.updatedAt,
+    args.playedAt,
+    matchEquivalentPlayed,
+    args.winnerTeam === "A",
+    weekIndex,
+    matchWeight,
+  );
+  updateSeasonTeamState(
+    args.teamBPlayerIds,
+    args.seasonState,
+    nextTeamB,
+    currentTeamB,
+    args.updatedAt,
+    args.playedAt,
+    matchEquivalentPlayed,
+    args.winnerTeam === "B",
+    weekIndex,
+    matchWeight,
+  );
+}
+
 export function computeEloDeltaForTeams(
   teamAPlayerIds: string[],
   teamBPlayerIds: string[],
@@ -291,6 +547,7 @@ export function computeEloDeltaForTeams(
 function buildRatingSnapshots(
   users: UserRow[],
   seasons: SeasonSeedRow[],
+  tournaments: TournamentSeasonRow[],
   participantRows: SegmentParticipantRow[],
   matches: MatchDeltaRow[],
 ): RatingSnapshot {
@@ -299,18 +556,23 @@ function buildRatingSnapshots(
     users.map((user) => [user.id, createBlankRatingState(nowIso)]),
   ) as Record<string, RatingState>;
 
-  const segmentStates = new Map<string, Record<string, RatingState>>();
+  const segmentStates = new Map<string, Record<string, AnyRatingState>>();
   const seasonStateById = new Map<string, SeasonSeedState>(
     seasons.map((season) => [
       season.id,
       {
         id: season.id,
         startDate: season.start_date,
+        endDate: season.end_date,
+        status: season.status,
         baseEloMode: season.base_elo_mode,
         participantIds: parseJsonArray<string>(season.participant_ids_json),
         initialized: false,
       },
     ]),
+  );
+  const tournamentSeasonIdByTournamentId = new Map<string, string | null>(
+    tournaments.map((tournament) => [tournament.id, tournament.season_id]),
   );
   const orderedSeasons = [...seasonStateById.values()].sort((left, right) =>
     left.startDate === right.startDate ? left.id.localeCompare(right.id) : left.startDate.localeCompare(right.startDate),
@@ -321,7 +583,7 @@ function buildRatingSnapshots(
       return;
     }
     const segmentKey = getSegmentKey(row.segment_type, row.segment_id);
-    const segmentState = segmentStates.get(segmentKey) ?? {};
+    const segmentState = (segmentStates.get(segmentKey) ?? {}) as Record<string, RatingState>;
     ensureRatingState(segmentState, row.user_id, nowIso);
     segmentStates.set(segmentKey, segmentState);
   });
@@ -340,6 +602,7 @@ function buildRatingSnapshots(
     const teamA = parseJsonArray<string>(match.team_a_player_ids_json);
     const teamB = parseJsonArray<string>(match.team_b_player_ids_json);
     const globalDelta = parseJsonObject<Record<string, number>>(match.global_elo_delta_json, {});
+    const segmentDelta = parseJsonObject<Record<string, Record<string, number>>>(match.segment_elo_delta_json, {});
     const playedAt = match.played_at || match.created_at || nowIso;
     const updatedAt = match.created_at || match.played_at || nowIso;
     const matchEquivalentPlayed = getMatchEquivalent(match.match_type);
@@ -348,27 +611,38 @@ function buildRatingSnapshots(
     updateTeamState(teamA, globalState, globalDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "A");
     updateTeamState(teamB, globalState, globalDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "B");
 
-    const segmentDelta = parseJsonObject<Record<string, Record<string, number>>>(match.segment_elo_delta_json, {});
-    Object.entries(segmentDelta).forEach(([segmentId, deltaMap]) => {
-      const segmentType =
-        segmentId === match.season_id ? "season" : segmentId === match.tournament_id ? "tournament" : null;
-      if (!segmentType) {
-        return;
+    const targetSeasonId = match.season_id ?? tournamentSeasonIdByTournamentId.get(match.tournament_id ?? "") ?? null;
+    if (targetSeasonId) {
+      const season = seasonStateById.get(targetSeasonId);
+      if (season) {
+        initializeSeasonRatingState(season, globalState, segmentStates, nowIso);
+        const segmentKey = getSegmentKey("season", targetSeasonId);
+        const seasonState = (segmentStates.get(segmentKey) ?? {}) as Record<string, SeasonRatingState>;
+        updateSeasonGlickoMatch({
+          teamAPlayerIds: teamA,
+          teamBPlayerIds: teamB,
+          seasonState,
+          seasonStartDate: season.startDate,
+          winnerTeam: match.winner_team,
+          matchType: match.match_type,
+          playedAt,
+          updatedAt,
+        });
+        segmentStates.set(segmentKey, seasonState);
       }
+    }
 
-      const segmentKey = getSegmentKey(segmentType, segmentId);
-      if (segmentType === "season") {
-        const season = seasonStateById.get(segmentId);
-        if (season) {
-          initializeSeasonRatingState(season, globalState, segmentStates, nowIso);
-        }
+    if (match.tournament_id) {
+      const tournamentDelta = segmentDelta[match.tournament_id];
+      if (tournamentDelta) {
+        const segmentKey = getSegmentKey("tournament", match.tournament_id);
+        const tournamentState = (segmentStates.get(segmentKey) ?? {}) as Record<string, RatingState>;
+        seedRatingStates(tournamentState, [...teamA, ...teamB], nowIso);
+        updateTeamState(teamA, tournamentState, tournamentDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "A");
+        updateTeamState(teamB, tournamentState, tournamentDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "B");
+        segmentStates.set(segmentKey, tournamentState);
       }
-      const segmentState = segmentStates.get(segmentKey) ?? {};
-      seedRatingStates(segmentState, [...teamA, ...teamB], nowIso);
-      updateTeamState(teamA, segmentState, deltaMap, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "A");
-      updateTeamState(teamB, segmentState, deltaMap, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "B");
-      segmentStates.set(segmentKey, segmentState);
-    });
+    }
   });
 
   initializeSeasonsUpTo("9999-12-31");
@@ -392,15 +666,37 @@ export function createBlankRatingState(nowIso: string): RatingState {
   };
 }
 
+function createBlankSeasonRatingState(nowIso: string): SeasonRatingState {
+  return {
+    ...createBlankRatingState(nowIso),
+    glickoRating: GLICKO_DEFAULT_RATING,
+    glickoRd: GLICKO_DEFAULT_RD,
+    glickoVolatility: GLICKO_DEFAULT_VOLATILITY,
+    attendedWeekKeys: new Set<number>(),
+  };
+}
+
+function isSeasonRatingState(state: AnyRatingState): state is SeasonRatingState {
+  return "glickoRating" in state;
+}
+
 export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
   const seasons = await env.DB.prepare(
     `
-      SELECT id, start_date, base_elo_mode, participant_ids_json
+      SELECT id, start_date, end_date, status, base_elo_mode, participant_ids_json
       FROM seasons
       WHERE status != 'deleted'
       ORDER BY start_date ASC, id ASC
     `,
   ).all<SeasonSeedRow>();
+
+  const tournaments = await env.DB.prepare(
+    `
+      SELECT id, season_id
+      FROM tournaments
+      WHERE status != 'deleted'
+    `,
+  ).all<TournamentSeasonRow>();
 
   const users = await env.DB.prepare(
     `
@@ -437,10 +733,25 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
   const snapshots = buildRatingSnapshots(
     users.results,
     seasons.results,
+    tournaments.results,
     participantRows,
     matches.results,
   );
   const nowIso = isoNow();
+  const seasonMetadataById = new Map<string, SeasonSeedState>(
+    seasons.results.map((season) => [
+      season.id,
+      {
+        id: season.id,
+        startDate: season.start_date,
+        endDate: season.end_date,
+        status: season.status,
+        baseEloMode: season.base_elo_mode,
+        participantIds: parseJsonArray<string>(season.participant_ids_json),
+        initialized: true,
+      },
+    ]),
+  );
 
   await env.DB.batch([
     ...users.results.map((user) =>
@@ -465,14 +776,27 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
     ),
     env.DB.prepare(`DELETE FROM elo_segments`),
     ...[...snapshots.segmentStates.entries()].flatMap(([segmentKey, state]) => {
-      const [segmentType, segmentId] = segmentKey.split(":");
-      return Object.entries(state).map(([userId, value]) =>
-        env.DB.prepare(
+      const [segmentType, segmentId] = segmentKey.split(":") as ["season" | "tournament", string];
+      const seasonMetadata = segmentType === "season" ? seasonMetadataById.get(segmentId) : null;
+      const totalWeeks = seasonMetadata ? calculateSeasonTotalWeeks(seasonMetadata, nowIso) : 0;
+      return Object.entries(state).map(([userId, value]) => {
+        const seasonState = segmentType === "season" && isSeasonRatingState(value) ? value : null;
+        const conservativeRating = seasonState
+          ? calculateSeasonConservativeRating(seasonState.glickoRating, seasonState.glickoRd)
+          : null;
+        const attendedWeeks = seasonState ? seasonState.attendedWeekKeys.size : 0;
+        const attendancePenalty = seasonState ? calculateAttendancePenalty(attendedWeeks, totalWeeks) : 0;
+
+        return env.DB.prepare(
           `
             INSERT INTO elo_segments (
               id, segment_type, segment_id, user_id, elo, matches_played, matches_played_equivalent,
-              wins, losses, streak, last_match_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+              wins, losses, streak, last_match_at, updated_at, season_glicko_rating, season_glicko_rd,
+              season_glicko_volatility, season_conservative_rating, season_attended_weeks, season_total_weeks,
+              season_attendance_penalty
+            ) VALUES (
+              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
+            )
           `,
         ).bind(
           randomId("seg"),
@@ -487,8 +811,15 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
           value.streak,
           value.lastMatchAt,
           value.updatedAt,
-        ),
-      );
+          seasonState ? seasonState.glickoRating : null,
+          seasonState ? seasonState.glickoRd : null,
+          seasonState ? seasonState.glickoVolatility : null,
+          conservativeRating,
+          attendedWeeks,
+          totalWeeks,
+          attendancePenalty,
+        );
+      });
     }),
   ]);
 

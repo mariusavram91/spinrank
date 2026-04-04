@@ -114,7 +114,7 @@ export async function handleCreateMatch(
     const score = normalizeScore(payload.score || []);
     const winnerTeam = payload.winnerTeam;
     const playedAt = String(payload.playedAt || "");
-    const seasonId = payload.seasonId || null;
+    const requestedSeasonId = payload.seasonId || null;
     const tournamentId = payload.tournamentId || null;
 
     if (matchType !== "singles" && matchType !== "doubles") {
@@ -149,14 +149,6 @@ export async function handleCreateMatch(
 
     validateMatchScore(formatType, pointsToWin, score, winnerTeam);
 
-    const season = seasonId ? await getSeasonById(env, seasonId) : null;
-    if (season && !canAccessSeason(season, sessionUser.id)) {
-      return errorResponse(request.requestId, "FORBIDDEN", "You do not have access to this season.");
-    }
-    if (season && (season.status === "completed" || (season.end_date && dateOnly(isoNow()) > season.end_date))) {
-      return errorResponse(request.requestId, "CONFLICT", "This season is completed and no further matches can be added.");
-    }
-
     const tournament = tournamentId ? await getTournamentById(env, tournamentId) : null;
     if (tournament && !(await canAccessTournament(env, tournament, sessionUser.id))) {
       return errorResponse(request.requestId, "FORBIDDEN", "You do not have access to this tournament.");
@@ -164,8 +156,17 @@ export async function handleCreateMatch(
     if (tournament && (tournament.status === "completed" || (await isTournamentBracketCompleted(env, tournament.id)))) {
       return errorResponse(request.requestId, "CONFLICT", "This tournament is completed and no further matches can be added.");
     }
-    if (seasonId && tournament?.season_id && tournament.season_id !== seasonId) {
+    if (requestedSeasonId && tournament?.season_id && tournament.season_id !== requestedSeasonId) {
       return errorResponse(request.requestId, "VALIDATION_ERROR", "Selected tournament does not belong to the selected season.");
+    }
+
+    const seasonId = tournament?.season_id ?? requestedSeasonId ?? null;
+    const season = seasonId ? await getSeasonById(env, seasonId) : null;
+    if (season && !canAccessSeason(season, sessionUser.id)) {
+      return errorResponse(request.requestId, "FORBIDDEN", "You do not have access to this season.");
+    }
+    if (season && (season.status === "completed" || (season.end_date && dateOnly(isoNow()) > season.end_date))) {
+      return errorResponse(request.requestId, "CONFLICT", "This season is completed and no further matches can be added.");
     }
 
     if (season) {
@@ -221,14 +222,8 @@ export async function handleCreateMatch(
     };
 
     if (seasonId) {
-      const segmentUsers = ensureSegmentState("season", seasonId);
-      segmentDelta[seasonId] = computeEloDeltaForTeams(
-        teamAPlayerIds,
-        teamBPlayerIds,
-        segmentUsers,
-        winnerTeam,
-        matchType,
-      );
+      ensureSegmentState("season", seasonId);
+      segmentDelta[seasonId] = {};
     }
     if (tournamentId) {
       const segmentUsers = ensureSegmentState("tournament", tournamentId);

@@ -111,6 +111,12 @@ export interface LeaderboardEntry {
   streak: number;
   rank: number;
   seasonScore?: number;
+  seasonGlickoRating?: number;
+  seasonGlickoRd?: number;
+  seasonConservativeRating?: number;
+  seasonAttendancePenalty?: number;
+  seasonAttendedWeeks?: number;
+  seasonTotalWeeks?: number;
   matchEquivalentPlayed?: number;
   lastMatchAt?: string | null;
   isQualified?: boolean;

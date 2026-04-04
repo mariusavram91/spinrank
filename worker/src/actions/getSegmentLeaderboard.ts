@@ -118,7 +118,9 @@ export async function handleGetSegmentLeaderboard(
   const rows = await env.DB.prepare(
     `
       SELECT es.user_id, es.elo, es.matches_played, es.matches_played_equivalent, es.wins, es.losses,
-             es.streak, es.last_match_at, es.updated_at, u.display_name, u.avatar_url
+             es.streak, es.last_match_at, es.updated_at, es.season_glicko_rating, es.season_glicko_rd,
+             es.season_conservative_rating, es.season_attended_weeks, es.season_total_weeks,
+             es.season_attendance_penalty, u.display_name, u.avatar_url
       FROM elo_segments es
       JOIN users u ON u.id = es.user_id
       WHERE es.segment_type = ?1 AND es.segment_id = ?2
@@ -135,19 +137,32 @@ export async function handleGetSegmentLeaderboard(
       streak: number;
       last_match_at: string;
       updated_at: string;
+      season_glicko_rating: number | null;
+      season_glicko_rd: number | null;
+      season_conservative_rating: number | null;
+      season_attended_weeks: number;
+      season_total_weeks: number;
+      season_attendance_penalty: number;
       display_name: string;
       avatar_url: string | null;
     }>();
 
-  const nowIso = new Date().toISOString();
   const tournamentRounds =
     segmentType === "tournament" ? await getBracketRounds(env, segmentId) : ([] as TournamentBracketRound[]);
   const tournamentPlacementMetrics =
     segmentType === "tournament" ? buildTournamentPlacementMetrics(tournamentRounds) : null;
+  const nowIso = new Date().toISOString();
 
   const leaderboard = rows.results
     .map<LeaderboardEntry>((row) => {
       const matchEquivalentPlayed = Number(row.matches_played_equivalent ?? row.matches_played ?? 0);
+      const seasonGlickoRating = row.season_glicko_rating === null ? undefined : Number(row.season_glicko_rating);
+      const seasonGlickoRd = row.season_glicko_rd === null ? undefined : Number(row.season_glicko_rd);
+      const seasonAttendedWeeks = Number(row.season_attended_weeks ?? 0);
+      const seasonTotalWeeks = Number(row.season_total_weeks ?? 0);
+      const seasonAttendancePenalty = Number(row.season_attendance_penalty ?? 0);
+      const seasonConservativeRating =
+        row.season_conservative_rating === null ? undefined : Number(row.season_conservative_rating);
       return {
         userId: row.user_id,
         displayName: row.display_name,
@@ -158,13 +173,19 @@ export async function handleGetSegmentLeaderboard(
         streak: Number(row.streak),
         matchEquivalentPlayed,
         lastMatchAt: row.last_match_at || null,
+        seasonGlickoRating,
+        seasonGlickoRd,
+        seasonConservativeRating,
+        seasonAttendancePenalty: segmentType === "season" ? seasonAttendancePenalty : undefined,
+        seasonAttendedWeeks: segmentType === "season" ? seasonAttendedWeeks : undefined,
+        seasonTotalWeeks: segmentType === "season" ? seasonTotalWeeks : undefined,
         seasonScore:
           segmentType === "season"
             ? calculateSeasonScore({
-                elo: Number(row.elo),
-                lastMatchAt: row.last_match_at || null,
-                matchEquivalentPlayed,
-                nowIso,
+                rating: seasonGlickoRating ?? Number(row.elo),
+                rd: seasonGlickoRd ?? 0,
+                attendedWeeks: seasonAttendedWeeks,
+                totalWeeks: seasonTotalWeeks,
               })
             : undefined,
         isQualified: segmentType === "season" ? matchEquivalentPlayed >= MINIMUM_MATCHES_TO_QUALIFY : undefined,
@@ -190,8 +211,11 @@ export async function handleGetSegmentLeaderboard(
         if (rightSeasonScore !== leftSeasonScore) {
           return rightSeasonScore - leftSeasonScore;
         }
-        if ((right.matchEquivalentPlayed ?? 0) !== (left.matchEquivalentPlayed ?? 0)) {
-          return (right.matchEquivalentPlayed ?? 0) - (left.matchEquivalentPlayed ?? 0);
+        if ((right.seasonConservativeRating ?? 0) !== (left.seasonConservativeRating ?? 0)) {
+          return (right.seasonConservativeRating ?? 0) - (left.seasonConservativeRating ?? 0);
+        }
+        if ((right.seasonGlickoRating ?? 0) !== (left.seasonGlickoRating ?? 0)) {
+          return (right.seasonGlickoRating ?? 0) - (left.seasonGlickoRating ?? 0);
         }
         if (right.elo !== left.elo) {
           return right.elo - left.elo;

@@ -161,6 +161,10 @@ export const buildMatchScreen = (args: {
 
   const seasonField = buildField("matchFieldSeason", args.formSeasonSelect);
   seasonField.classList.add("match-context-field");
+  const seasonFieldHint = document.createElement("span");
+  seasonFieldHint.className = "field-hint";
+  bindLocalizedText(seasonFieldHint, "matchFieldSeasonLockedHint");
+  seasonField.append(seasonFieldHint);
 
   const tournamentField = buildField("matchFieldTournament", args.formTournamentSelect);
   tournamentField.classList.add("match-context-field");

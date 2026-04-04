@@ -81,3 +81,10 @@ Payload summary:
 - `getTournaments`: `{ seasonId? }`
 - `getTournamentBracket`: `{ tournamentId }`
 - `deactivate*`: `{ id, reason? }`
+
+`LeaderboardEntry` notes:
+
+- Global and tournament leaderboards continue to use `elo`, `wins`, `losses`, `streak`, and `rank`.
+- Season leaderboards now also expose `seasonScore`, `seasonGlickoRating`, `seasonGlickoRd`, `seasonConservativeRating`, `seasonAttendancePenalty`, `seasonAttendedWeeks`, and `seasonTotalWeeks`.
+- Season score is based on conservative Glicko skill (`rating - 2 * rd`) with a small attendance penalty for missed season weeks.
+- Tournament matches linked to a season count toward both the tournament leaderboard and the parent season leaderboard.

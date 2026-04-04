@@ -408,6 +408,15 @@ export const createLeaderboardRenderer = (args: {
       const rating = document.createElement("span");
       rating.className = "leaderboard-elo";
       rating.textContent = `(${ratingValue} ${ratingLabel})`;
+      if (args.dashboardState.segmentMode === "season") {
+        const detailParts = [
+          `${args.t("leaderboardSeasonRating")} ${Math.round(entry.seasonGlickoRating ?? entry.elo)}`,
+          `${args.t("leaderboardSeasonRd")} ${Math.round(entry.seasonGlickoRd ?? 0)}`,
+          `${args.t("leaderboardAttendancePenalty")} -${entry.seasonAttendancePenalty ?? 0}`,
+          `${args.t("leaderboardAttendanceWeeks")} ${entry.seasonAttendedWeeks ?? 0}/${entry.seasonTotalWeeks ?? 0}`,
+        ];
+        rating.title = detailParts.join(" • ");
+      }
 
       const metaRow = document.createElement("div");
       metaRow.className = "leaderboard-row__meta-row";
