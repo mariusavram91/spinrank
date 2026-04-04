@@ -90,6 +90,15 @@ async function validatePlayers(env: Env, playerIds: string[]): Promise<Record<st
   return byId;
 }
 
+function ensureSubset(memberIds: string[], playerIds: string[], label: string): string | null {
+  const members = new Set(memberIds);
+  const missing = playerIds.filter((playerId) => !members.has(playerId));
+  if (missing.length > 0) {
+    return `All selected players must belong to the selected ${label}.`;
+  }
+  return null;
+}
+
 export async function handleCreateMatch(
   request: ApiRequest<"createMatch", CreateMatchPayload>,
   sessionUser: UserRow,
@@ -150,6 +159,35 @@ export async function handleCreateMatch(
     }
     if (seasonId && tournament?.season_id && tournament.season_id !== seasonId) {
       return errorResponse(request.requestId, "VALIDATION_ERROR", "Selected tournament does not belong to the selected season.");
+    }
+
+    if (season) {
+      const seasonParticipantIds = parseJsonArray<string>(season.participant_ids_json);
+      const seasonMembershipError = ensureSubset(seasonParticipantIds, allPlayerIds, "season");
+      if (seasonMembershipError) {
+        return errorResponse(request.requestId, "VALIDATION_ERROR", seasonMembershipError);
+      }
+    }
+
+    if (tournament) {
+      const tournamentParticipantIds = await env.DB.prepare(
+        `
+          SELECT user_id
+          FROM tournament_participants
+          WHERE tournament_id = ?1
+          ORDER BY user_id ASC
+        `,
+      )
+        .bind(tournament.id)
+        .all<{ user_id: string }>();
+      const tournamentMembershipError = ensureSubset(
+        tournamentParticipantIds.results.map((row) => row.user_id),
+        allPlayerIds,
+        "tournament",
+      );
+      if (tournamentMembershipError) {
+        return errorResponse(request.requestId, "VALIDATION_ERROR", tournamentMembershipError);
+      }
     }
 
     await validatePlayers(env, allPlayerIds);

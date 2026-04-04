@@ -215,6 +215,7 @@ export const createSelectionAndFormHandlers = (args: {
   syncLoadControlsVisibility: () => void;
   syncDashboardState: () => void;
   renderSeasonEditor: () => void;
+  renderTournamentPlanner: () => void;
   resetSeasonForm: () => void;
   resetTournamentForm: () => void;
   setSeasonSharePanelTargetId: (seasonId: string) => void;
@@ -373,6 +374,7 @@ export const createSelectionAndFormHandlers = (args: {
     },
     onTournamentDraftChange: () => {
       args.renderTournamentDraftSummary();
+      args.renderTournamentPlanner();
       args.syncDashboardState();
     },
     onScoreInputChange: () => {

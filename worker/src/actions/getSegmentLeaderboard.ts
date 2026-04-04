@@ -269,6 +269,26 @@ export async function handleGetSegmentLeaderboard(
       avatar_url: string | null;
     }>();
 
+  const topWinsRow = await env.DB.prepare(
+    `
+      SELECT es.user_id, es.matches_played, es.wins, es.losses, u.display_name, u.avatar_url
+      FROM elo_segments es
+      JOIN users u ON u.id = es.user_id
+      WHERE es.segment_type = ?1 AND es.segment_id = ?2
+      ORDER BY es.wins DESC, es.matches_played DESC, es.losses ASC, u.display_name ASC
+      LIMIT 1
+    `,
+  )
+    .bind(segmentType, segmentId)
+    .first<{
+      user_id: string;
+      matches_played: number;
+      wins: number;
+      losses: number;
+      display_name: string;
+      avatar_url: string | null;
+    }>();
+
   const tournamentWinnerRow =
     segmentType === "tournament"
       ? await env.DB.prepare(
@@ -300,6 +320,16 @@ export async function handleGetSegmentLeaderboard(
           matchesPlayed: Number(topMatchesRow.matches_played ?? 0),
           wins: Number(topMatchesRow.wins ?? 0),
           losses: Number(topMatchesRow.losses ?? 0),
+        }
+      : null,
+    mostWinsPlayer: topWinsRow
+      ? {
+          userId: topWinsRow.user_id,
+          displayName: topWinsRow.display_name,
+          avatarUrl: topWinsRow.avatar_url,
+          matchesPlayed: Number(topWinsRow.matches_played ?? 0),
+          wins: Number(topWinsRow.wins ?? 0),
+          losses: Number(topWinsRow.losses ?? 0),
         }
       : null,
     tournamentWinnerPlayer: tournamentWinnerRow

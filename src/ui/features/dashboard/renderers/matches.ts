@@ -20,7 +20,7 @@ export type MatchesRendererArgs = {
     seasons: DashboardState["seasons"],
     tournaments: DashboardState["tournaments"],
     bracketContext: MatchBracketContext | null,
-    options?: { includeRound?: boolean },
+    options?: { includeRound?: boolean; includeTournamentTrophy?: boolean },
   ) => string;
   formatDateTime: (value: string) => string;
   getCurrentUserId: () => string;
@@ -122,7 +122,7 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
         args.dashboardState.seasons,
         args.dashboardState.tournaments,
         args.dashboardState.matchBracketContextByMatchId[match.id] || null,
-        { includeRound: false },
+        { includeRound: false, includeTournamentTrophy: false },
       );
 
       detailLine.append(matchTypeLabel, contextLabel);
@@ -153,7 +153,7 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
         deleteMatchButton.addEventListener("click", () => {
           void args.onDeleteMatch(match);
         });
-        cardNode.append(deleteMatchButton);
+        footer.append(deleteMatchButton);
       }
 
       cardNode.append(meta, footer);

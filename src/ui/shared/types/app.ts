@@ -7,6 +7,7 @@ import type {
   SeasonRecord,
   SegmentLeaderboardStats,
   SegmentType,
+  TournamentBracketRound,
   TournamentRecord,
 } from "../../../api/contract";
 
@@ -26,6 +27,7 @@ export interface DashboardState {
   players: LeaderboardEntry[];
   leaderboardUpdatedAt: string;
   leaderboardStats: SegmentLeaderboardStats | null;
+  tournamentBracket: TournamentBracketRound[];
   userProgress: GetUserProgressData | null;
   segmentMode: SegmentMode;
   selectedSeasonId: string;

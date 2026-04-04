@@ -132,6 +132,15 @@ export interface SegmentMostMatchesPlayer {
   losses: number;
 }
 
+export interface SegmentMostWinsPlayer {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+}
+
 export interface SegmentTournamentWinner {
   userId: string;
   displayName: string;
@@ -141,6 +150,7 @@ export interface SegmentTournamentWinner {
 export interface SegmentLeaderboardStats {
   totalMatches: number;
   mostMatchesPlayer: SegmentMostMatchesPlayer | null;
+  mostWinsPlayer: SegmentMostWinsPlayer | null;
   tournamentWinnerPlayer: SegmentTournamentWinner | null;
 }
 

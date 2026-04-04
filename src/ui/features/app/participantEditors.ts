@@ -15,6 +15,7 @@ export const createParticipantEditors = (args: {
   participantList: HTMLElement;
   tournamentSelectAllParticipantsInput: HTMLInputElement;
   bracketBoard: HTMLElement;
+  tournamentSeasonSelect: HTMLSelectElement;
   loadTournamentSelect: HTMLSelectElement;
   setTournamentSharePanelTargetId: (segmentId: string) => void;
   syncDashboardState: () => void;
@@ -58,7 +59,12 @@ export const createParticipantEditors = (args: {
     if (locked) {
       return [];
     }
-    return args.dashboardState.players.map((player) => player.userId);
+    const seasonId = args.tournamentSeasonSelect.value;
+    if (!seasonId) {
+      return args.dashboardState.players.map((player) => player.userId);
+    }
+    const season = args.dashboardState.seasons.find((entry) => entry.id === seasonId);
+    return season ? [...season.participantIds] : [];
   };
 
   const updateTournamentSelectAllState = (): void => {
@@ -122,9 +128,23 @@ export const createParticipantEditors = (args: {
 
   const renderTournamentPlanner = (): void => {
     const selectedParticipants = new Set(args.tournamentPlannerState.participantIds);
-    const playerOptions = args.dashboardState.players;
+    const seasonId = args.tournamentSeasonSelect.value;
+    const seasonParticipantIds = seasonId
+      ? new Set(
+          args.dashboardState.seasons.find((entry) => entry.id === seasonId)?.participantIds || [],
+        )
+      : null;
+    const playerOptions = seasonParticipantIds
+      ? args.dashboardState.players.filter((player) => seasonParticipantIds.has(player.userId))
+      : args.dashboardState.players;
     const editingTournament = args.getEditingTournament();
     const tournamentLocked = args.isLockedTournament(editingTournament);
+
+    if (seasonParticipantIds) {
+      args.tournamentPlannerState.participantIds = args.tournamentPlannerState.participantIds.filter((participantId) =>
+        seasonParticipantIds.has(participantId),
+      );
+    }
 
     const participantCards = playerOptions.map((player) => {
       const label = document.createElement("label");

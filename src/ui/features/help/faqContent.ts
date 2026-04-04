@@ -11,108 +11,108 @@ export interface FaqEntry {
 
 export const faqEntries: FaqEntry[] = [
   {
-    titleEn: "How Elo works",
-    titleDe: "Wie Elo funktioniert",
+    titleEn: "How ranking works",
+    titleDe: "Wie das Ranking funktioniert",
     details: [
       {
-        en: "Every ranked match updates both players: winners gain Elo, losers drop Elo, and the size of the change depends on the pre-match rating gap and whether you played singles or doubles.",
-        de: "Jedes gerankte Match verändert beide Spieler: Gewinner bekommen Elo, Verlierer verlieren Elo, und die Höhe der Änderung richtet sich nach dem Rating-Unterschied vor dem Spiel und danach, ob Singles oder Doubles gespielt wurden.",
+        en: "Every ranked match changes both players' Elo. The winner gains points and the loser loses points.",
+        de: "Jedes gerankte Match verändert die Elo beider Spieler. Der Sieger gewinnt Punkte und der Verlierer verliert Punkte.",
       },
       {
-        en: "SpinRank uses a higher K-factor for newer players and steps it down after 10 and 30 equivalent matches, so fresh accounts move faster than established ones.",
-        de: "SpinRank nutzt für neue Spieler einen höheren K-Faktor und senkt ihn nach 10 und 30 äquivalenten Matches ab, damit frische Accounts schneller reagieren als etablierte.",
-      },
-      {
-        en: "Doubles count as a smaller match weight than singles, so the team change is slightly softer before it is split across teammates.",
-        de: "Doubles zählen mit geringerem Gewicht als Singles, daher fällt die Teamänderung etwas sanfter aus, bevor sie auf die Teammitglieder verteilt wird.",
+        en: "The size of the change depends on how close the two sides were before the match started.",
+        de: "Wie groß die Änderung ist, hängt davon ab, wie nah die beiden Seiten vor dem Match beieinander lagen.",
       },
     ],
   },
   {
-    titleEn: "Soft deletes & recalculations",
-    titleDe: "Soft Deletes & Nachberechnungen",
+    titleEn: "Removed items",
+    titleDe: "Gelöschte Einträge",
     details: [
       {
-        en: "Deleted matches, tournaments, or seasons stay visible in your history but stop counting toward rankings, and the backend reruns the remaining results so leaderboards and streaks adjust to the removal.",
-        de: "Gelöschte Matches, Turniere oder Saisons bleiben im Verlauf sichtbar, zählen aber nicht mehr für Ranglisten; das System blickt die übrigen Ergebnisse nochmal durch, damit Listen und Serien sich entsprechend anpassen.",
+        en: "Deleted matches, tournaments, or seasons stay visible in your history, but they stop counting toward rankings.",
+        de: "Gelöschte Matches, Turniere oder Saisons bleiben in deinem Verlauf sichtbar, zählen aber nicht mehr für die Ranglisten.",
       },
       {
-        en: "Because the same Elo math runs again without the deleted result, everyone in that season or tournament can drift a few points up or down depending on how that match influenced expectations.",
-        de: "Weil nach dem Entfernen eines Ergebnisses die gleiche Elo-Rechnung nochmal durchläuft, können sich alle Beteiligten in der jeweiligen Saison oder dem Turnier je nach Einfluss der entfernten Partie um ein paar Punkte nach oben oder unten bewegen.",
+        en: "If you delete a result, everyone affected by that result can move a little up or down again once the standings are recalculated.",
+        de: "Wenn du ein Ergebnis löschst, können sich alle Beteiligten nach der Neuberechnung wieder ein Stück nach oben oder unten bewegen.",
       },
     ],
   },
   {
-    titleEn: "Global, Season & Tournament Rankings",
-    titleDe: "Globale, Saison- & Turnier-Rankings",
+    titleEn: "Ranking types",
+    titleDe: "Ranking-Arten",
     details: [
       {
-        en: "The global leaderboard aggregates every ranked match you can access; season leaderboards use season score, and tournament leaderboards rank players by how far they advanced through the bracket, with placement labels like Winner or Semifinal.",
-        de: "Die globale Bestenliste fasst alle gerankten Matches zusammen; Saison-Listen nutzen den Season-Score, und Turnier-Listen ordnen nach der im Bracket erreichten Runde, mit Platzierungslabels wie Winner oder Semifinal.",
+        en: "The global leaderboard shows your overall Elo from every ranked match you can access.",
+        de: "Die globale Bestenliste zeigt deine gesamte Elo aus allen gerankten Matches, auf die du Zugriff hast.",
       },
       {
-        en: "Tournaments can be tied to a season; when linked, their matches impact both the tournament leaderboard and the parent season.",
-        de: "Turniere lassen sich einer Saison zuordnen; sind sie verknüpft, beeinflussen ihre Matches sowohl das Turnier-Ranking als auch die übergeordnete Saison.",
+        en: "Season leaderboards use a season score, so active players can be ranked ahead of someone with the same Elo who has been away for a while.",
+        de: "Saison-Listen nutzen einen Season-Score, damit aktive Spieler vor jemandem mit derselben Elo landen können, der länger nicht gespielt hat.",
       },
       {
-        en: "Global leaderboards still sort by raw Elo, but season leaderboards use a visible season score that adds a small activity bonus and subtracts inactivity over time; tournaments keep the raw Elo order.",
-        de: "Die globale Bestenliste sortiert weiter nach roher Elo, aber Saison-Listen nutzen einen sichtbaren Season-Score mit Aktivitätsbonus und Inaktivitätsabzug; Turniere bleiben bei der rohen Elo-Reihenfolge.",
+        en: "That means a player can be ahead with fewer wins if they were more active recently or had less inactivity penalty.",
+        de: "Das heißt: Ein Spieler kann trotz weniger Siegen vorne liegen, wenn er zuletzt aktiver war oder weniger Inaktivitätsabzug hatte.",
+      },
+      {
+        en: "If a tournament belongs to a season, its matches also count toward that season's score. Open tournaments only affect the tournament itself.",
+        de: "Gehört ein Turnier zu einer Saison, zählen seine Matches auch für den Season-Score dieser Saison. Offene Turniere beeinflussen nur das Turnier selbst.",
       },
     ],
   },
   {
-    titleEn: "Match contexts & types",
-    titleDe: "Match-Kontexte & Typen",
+    titleEn: "Match types",
+    titleDe: "Match-Typen",
     details: [
       {
         en: "Matches can be singles or doubles, played as single games or best-of-3, and you can choose the number of points needed for victory.",
         de: "Matches können Einzel- oder Doppelpartien sein, als Einzelspiel oder Best-of-3 ausgetragen werden, und du legst fest, wie viele Punkte den Sieg entscheiden.",
       },
       {
-        en: "You can leave the season or tournament fields empty to log open-play matches; they still count toward the global Elo.",
-        de: "Lässt du Saison- oder Turnierfelder frei, bleibt das Match ein freies Spiel und wirkt sich dennoch auf die globale Elo aus.",
+        en: "Open-play matches do not need a season or tournament. They still count toward your global Elo.",
+        de: "Freie Matches brauchen keine Saison oder kein Turnier. Sie zählen trotzdem für deine globale Elo.",
       },
     ],
   },
   {
-    titleEn: "Seasons, tournaments & matches",
-    titleDe: "Saisons, Turniere & Matches",
+    titleEn: "Organizing games",
+    titleDe: "Spiele ordnen",
     details: [
       {
-        en: "Seasons group matches and tournaments over a span of time; save them once and reuse them whenever you want to drop results under that season.",
-        de: "Saisons bündeln Matches und Turniere in einem Zeitraum; speichere sie einmal und verwende sie immer wieder, wenn du Ergebnisse dieser Saison zuordnen willst.",
+        en: "Seasons group your games over time, so it is easy to look back at one stretch of play later.",
+        de: "Saisons bündeln deine Spiele über einen Zeitraum, damit du später leicht auf eine bestimmte Spielphase schauen kannst.",
       },
       {
-        en: "You can record matches that don't belong to any season or tournament—great for pickup games or practice—while tournaments can live inside a season without forcing every match to carry the season tag.",
-        de: "Du kannst auch Matches protokollieren, die keiner Saison oder keinem Turnier angehören, etwa für spontane Spiele oder Training, und Turniere dürfen einer Saison angehören, ohne dass jede Partie automatisch den Saison-Tag braucht.",
+        en: "You can attach a match to a season, a tournament, both, or neither.",
+        de: "Du kannst ein Match einer Saison, einem Turnier, beidem oder auch gar nichts zuordnen.",
       },
     ],
   },
   {
-    titleEn: "Season Elo modes",
-    titleDe: "Saison-Elo-Modi",
+    titleEn: "Season settings",
+    titleDe: "Saison-Einstellungen",
     details: [
       {
-        en: "Choosing ‘Carry over Elo’ keeps everyone’s current rating, streaks, and win/loss record in the new season, while ‘Reset Elo to 1200’ gives everyone a fresh 1200 rating so the leaderboard starts from scratch.",
-        de: "Mit „Carry over Elo“ übernimmt die neue Saison alle bisherigen Ratings, Serien und Siege/Niederlagen; „Reset Elo to 1200“ startet mit 1200 Punkten und behandelt die Saison wie einen sauberen Neustart.",
+        en: "Choosing ‘Carry over Elo’ keeps everyone’s current rating, streaks, and win/loss record in the new season.",
+        de: "Mit „Carry over Elo“ übernimmt die neue Saison alle bisherigen Ratings, Serien und Siege/Niederlagen.",
       },
       {
-        en: "Either way, every match still shows up in the global history; resetting is useful if you want a new league or throwback event without past streaks or hot runs dominating the standings.",
-        de: "Beide Modi behalten die Matches in der globalen Historie; ein Reset eignet sich, wenn du eine neue Liga oder Retro-Veranstaltung willst, ohne dass alte Serien die Tabelle dominieren.",
+        en: "‘Reset Elo to 1200’ gives everyone a fresh 1200 rating so the season starts from the same place.",
+        de: "„Reset Elo to 1200“ gibt allen 1200 Punkte, damit die Saison am gleichen Startpunkt beginnt.",
       },
     ],
   },
   {
-    titleEn: "Suggest helpers",
-    titleDe: "Vorschlagshelfer",
+    titleEn: "Helpful buttons",
+    titleDe: "Hilfreiche Buttons",
     details: [
       {
-        en: "“Suggest fair teams” looks at Elo plus win rate to balance you with the closest-matched opponents, then fills the match form for you so you can just confirm the score.",
-        de: "„Faire Teams vorschlagen“ verwendet Elo und Siegquote, um dich mit einem ähnlich starken Gegner zu kombinieren, und trägt die Auswahl direkt ins Match-Formular ein.",
+        en: "“Suggest fair matchup” picks players with similar strength and fills the match form for you.",
+        de: "„Faires Matchup vorschlagen“ wählt Spieler mit ähnlicher Stärke aus und füllt das Match-Formular für dich aus.",
       },
       {
-        en: "“Suggest tournament” seeds a bracket by ranking players with a strength score (Elo + win rate + recent activity) and separating top seeds, so the planner panels update with those placements and you can immediately generate matches.",
-        de: "„Turnier vorschlagen“ ordnet die Teilnehmenden nach einem Strength-Score (Elo + Siegquote + Aktivität), verteilt die Top-Seeds und aktualisiert das Bracket-Panel, damit du direkt Matches erzeugen kannst.",
+        en: "“Suggest tournament” builds a bracket from the selected players and places stronger players apart near the top of the draw.",
+        de: "„Turnier vorschlagen“ baut ein Bracket aus den ausgewählten Spielern und verteilt stärkere Spieler im oberen Teil des Turniers.",
       },
     ],
   },

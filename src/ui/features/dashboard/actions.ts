@@ -31,18 +31,25 @@ export const createDashboardActions = (args: {
   t: TranslationFn;
   getMatchLimitForFilter: (filter: MatchFeedFilter) => number;
 }) => {
+  const isVisibleSeasonId = (seasonId: string): boolean =>
+    Boolean(seasonId && args.dashboardState.seasons.some((season) => season.id === seasonId));
+
+  const isVisibleTournamentId = (tournamentId: string): boolean =>
+    Boolean(tournamentId && args.dashboardState.tournaments.some((tournament) => tournament.id === tournamentId));
+
   const loadLeaderboard = async (): Promise<void> => {
     if (args.dashboardState.segmentMode === "global") {
       const data = await args.runAuthedAction("getLeaderboard", {});
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
       args.dashboardState.leaderboardStats = null;
+      args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       return;
     }
 
     if (args.dashboardState.segmentMode === "season") {
-      if (!args.dashboardState.selectedSeasonId) {
+      if (!isVisibleSeasonId(args.dashboardState.selectedSeasonId)) {
         args.dashboardState.leaderboard = [];
         args.dashboardState.leaderboardUpdatedAt = "";
         args.dashboardState.leaderboardStats = null;
@@ -57,25 +64,33 @@ export const createDashboardActions = (args: {
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
       args.dashboardState.leaderboardStats = data.stats;
+      args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       return;
     }
 
-    if (!args.dashboardState.selectedTournamentId) {
+    if (!isVisibleTournamentId(args.dashboardState.selectedTournamentId)) {
       args.dashboardState.leaderboard = [];
       args.dashboardState.leaderboardUpdatedAt = "";
       args.dashboardState.leaderboardStats = null;
+      args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       return;
     }
 
-    const data = await args.runAuthedAction("getSegmentLeaderboard", {
-      segmentType: "tournament",
-      segmentId: args.dashboardState.selectedTournamentId,
-    });
-    args.dashboardState.leaderboard = data.leaderboard;
-    args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
-    args.dashboardState.leaderboardStats = data.stats;
+    const [leaderboardData, bracketData] = await Promise.all([
+      args.runAuthedAction("getSegmentLeaderboard", {
+        segmentType: "tournament",
+        segmentId: args.dashboardState.selectedTournamentId,
+      }),
+      args.runAuthedAction("getTournamentBracket", {
+        tournamentId: args.dashboardState.selectedTournamentId,
+      }),
+    ]);
+    args.dashboardState.leaderboard = leaderboardData.leaderboard;
+    args.dashboardState.leaderboardUpdatedAt = leaderboardData.updatedAt;
+    args.dashboardState.leaderboardStats = leaderboardData.stats;
+    args.dashboardState.tournamentBracket = bracketData.rounds;
     args.markLeaderboardDirty();
   };
 
@@ -93,16 +108,18 @@ export const createDashboardActions = (args: {
 
       args.dashboardState.seasons = data.seasons;
       args.dashboardState.tournaments = data.tournaments;
-      args.dashboardState.selectedSeasonId =
-        args.dashboardState.selectedSeasonId ||
-        data.seasons.find((season) => season.isActive)?.id ||
-        data.seasons[0]?.id ||
-        "";
-      args.dashboardState.selectedTournamentId =
-        args.dashboardState.selectedTournamentId || data.tournaments[0]?.id || "";
+      const visibleSeasonIds = new Set(data.seasons.map((season) => season.id));
+      const visibleTournamentIds = new Set(data.tournaments.map((tournament) => tournament.id));
+      args.dashboardState.selectedSeasonId = visibleSeasonIds.has(args.dashboardState.selectedSeasonId)
+        ? args.dashboardState.selectedSeasonId
+        : data.seasons.find((season) => season.isActive)?.id || data.seasons[0]?.id || "";
+      args.dashboardState.selectedTournamentId = visibleTournamentIds.has(args.dashboardState.selectedTournamentId)
+        ? args.dashboardState.selectedTournamentId
+        : data.tournaments[0]?.id || "";
       args.dashboardState.players = data.leaderboard;
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.leaderboardUpdatedAt;
+      args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       args.dashboardState.userProgress = data.userProgress;
       args.dashboardState.matches = data.matches;

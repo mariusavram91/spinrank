@@ -43,10 +43,19 @@ export const createTournamentActions = (args: {
       return;
     }
 
+    const requestedTournamentId = args.tournamentPlannerState.tournamentId;
+
     try {
       const data: GetTournamentBracketData = await args.runAuthedAction("getTournamentBracket", {
-        tournamentId: args.tournamentPlannerState.tournamentId,
+        tournamentId: requestedTournamentId,
       });
+
+      if (
+        args.tournamentPlannerState.tournamentId !== requestedTournamentId ||
+        args.dashboardState.screen !== "createTournament"
+      ) {
+        return;
+      }
 
       args.tournamentPlannerState.name = data.tournament.name;
       args.tournamentNameInput.value = data.tournament.name;

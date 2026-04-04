@@ -30,6 +30,9 @@ export interface DashboardOverviewElements {
   leaderboardStatLongestStreakLabel: HTMLSpanElement;
   leaderboardStatLongestStreakPlayer: HTMLSpanElement;
   leaderboardStatLongestStreakMeta: HTMLSpanElement;
+  leaderboardStatMostWins: HTMLDivElement;
+  leaderboardStatMostWinsPlayer: HTMLSpanElement;
+  leaderboardStatMostWinsMeta: HTMLSpanElement;
   leaderboardList: HTMLDivElement;
   leaderboardAvatarFallback: string;
 }
@@ -203,9 +206,34 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   leaderboardStatLongestStreakDetails.append(leaderboardStatLongestStreakLabel, leaderboardStatLongestStreakName);
   leaderboardStatLongestStreak.append(leaderboardStatLongestStreakDetails);
 
+  const leaderboardStatMostWins = document.createElement("div");
+  leaderboardStatMostWins.className = "leaderboard-stat";
+  leaderboardStatMostWins.hidden = true;
+
+  const leaderboardStatMostWinsDetails = document.createElement("div");
+  leaderboardStatMostWinsDetails.className = "leaderboard-stat__details";
+
+  const leaderboardStatMostWinsLabel = document.createElement("span");
+  leaderboardStatMostWinsLabel.className = "leaderboard-stat__label";
+  bindLocalizedText(leaderboardStatMostWinsLabel, "leaderboardMostWinsLabel");
+
+  const leaderboardStatMostWinsName = document.createElement("p");
+  leaderboardStatMostWinsName.className = "leaderboard-stat__name";
+
+  const leaderboardStatMostWinsPlayer = document.createElement("span");
+  leaderboardStatMostWinsPlayer.className = "leaderboard-stat__player";
+
+  const leaderboardStatMostWinsMeta = document.createElement("span");
+  leaderboardStatMostWinsMeta.className = "leaderboard-stat__meta";
+
+  leaderboardStatMostWinsName.append(leaderboardStatMostWinsPlayer, leaderboardStatMostWinsMeta);
+  leaderboardStatMostWinsDetails.append(leaderboardStatMostWinsLabel, leaderboardStatMostWinsName);
+  leaderboardStatMostWins.append(leaderboardStatMostWinsDetails);
+
   leaderboardStatsGroup.append(
     leaderboardMatchesSummary,
     leaderboardStatMostActive,
+    leaderboardStatMostWins,
     leaderboardStatLongestStreak,
   );
 
@@ -246,6 +274,9 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatLongestStreakLabel,
     leaderboardStatLongestStreakPlayer,
     leaderboardStatLongestStreakMeta,
+    leaderboardStatMostWins,
+    leaderboardStatMostWinsPlayer,
+    leaderboardStatMostWinsMeta,
     leaderboardList,
     leaderboardAvatarFallback: `${baseUrl}assets/logo.png`,
   };

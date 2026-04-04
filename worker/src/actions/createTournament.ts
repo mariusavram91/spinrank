@@ -1,4 +1,4 @@
-import { dateOnly, isoNow, randomId } from "../db";
+import { dateOnly, isoNow, parseJsonArray, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { isTournamentBracketCompleted, normalizeRounds, saveTournamentBracket } from "../services/brackets";
 import { getSeasonById, getTournamentById } from "../services/visibility";
@@ -57,6 +57,17 @@ export async function handleCreateTournament(
       (season.end_date && dateOnly(isoNow()) > season.end_date))
   ) {
     return errorResponse(request.requestId, "CONFLICT", "The selected season can no longer be used.");
+  }
+  if (season) {
+    const seasonParticipantIds = parseJsonArray<string>(season.participant_ids_json);
+    const missingPlayers = participantIds.filter((participantId) => !seasonParticipantIds.includes(participantId));
+    if (missingPlayers.length > 0) {
+      return errorResponse(
+        request.requestId,
+        "VALIDATION_ERROR",
+        "All selected tournament participants must belong to the selected season.",
+      );
+    }
   }
 
   const existing = payload.tournamentId ? await getTournamentById(env, payload.tournamentId) : null;

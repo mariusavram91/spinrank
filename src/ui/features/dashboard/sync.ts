@@ -75,6 +75,9 @@ type DashboardSyncDom = {
   leaderboardStatLongestStreakLabel: HTMLElement;
   leaderboardStatLongestStreakPlayer: HTMLElement;
   leaderboardStatLongestStreakMeta: HTMLElement;
+  leaderboardStatMostWins: HTMLElement;
+  leaderboardStatMostWinsPlayer: HTMLElement;
+  leaderboardStatMostWinsMeta: HTMLElement;
 };
 
 type SharePanelSyncData = {
@@ -150,6 +153,8 @@ export const createDashboardSync = (args: {
       args.dom.globalButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "global"));
       args.dom.seasonButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "season"));
       args.dom.tournamentButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "tournament"));
+      args.dom.seasonButton.disabled = args.dashboardState.loading || args.dashboardState.seasons.length === 0;
+      args.dom.tournamentButton.disabled = args.dashboardState.loading || args.dashboardState.tournaments.length === 0;
 
       args.dom.seasonSelect.hidden = args.dashboardState.segmentMode !== "season";
       args.dom.tournamentSelect.hidden = args.dashboardState.segmentMode !== "tournament";
@@ -321,14 +326,14 @@ export const createDashboardSync = (args: {
       const leaderboardStats = args.dashboardState.leaderboardStats;
       const isTournamentMode = args.dashboardState.segmentMode === "tournament";
       const busiestPlayer = !isTournamentMode ? leaderboardStats?.mostMatchesPlayer ?? null : null;
-      const tournamentWinnerPlayer = isTournamentMode ? leaderboardStats?.tournamentWinnerPlayer ?? null : null;
-      const longestStreakPlayer = getLongestStreakPlayer();
+      const mostWinsPlayer = !isTournamentMode ? leaderboardStats?.mostWinsPlayer ?? null : null;
+      const longestStreakPlayer = !isTournamentMode ? getLongestStreakPlayer() : null;
 
       const showStats =
         Boolean(leaderboardStats?.totalMatches) ||
         Boolean(busiestPlayer) ||
-        Boolean(longestStreakPlayer) ||
-        Boolean(tournamentWinnerPlayer);
+        Boolean(mostWinsPlayer) ||
+        Boolean(longestStreakPlayer);
       args.dom.leaderboardStatsGroup.hidden = !showStats;
 
       if (leaderboardStats?.totalMatches !== undefined) {
@@ -340,7 +345,7 @@ export const createDashboardSync = (args: {
 
       if (!isTournamentMode && busiestPlayer && busiestPlayer.matchesPlayed > 0) {
         args.dom.leaderboardStatMostActivePlayer.textContent = busiestPlayer.displayName;
-        args.dom.leaderboardStatMostActiveMeta.textContent = ` • 🔥 ${formatCount(
+        args.dom.leaderboardStatMostActiveMeta.textContent = ` • 👏 ${formatCount(
           busiestPlayer.matchesPlayed,
         )} ${args.t("progressMatchesLabel")}`;
         args.dom.leaderboardStatMostActive.hidden = false;
@@ -348,12 +353,7 @@ export const createDashboardSync = (args: {
         args.dom.leaderboardStatMostActive.hidden = true;
       }
 
-      if (tournamentWinnerPlayer) {
-        args.dom.leaderboardStatLongestStreakLabel.textContent = args.t("leaderboardWinner");
-        args.dom.leaderboardStatLongestStreakPlayer.textContent = tournamentWinnerPlayer.displayName;
-        args.dom.leaderboardStatLongestStreakMeta.textContent = ` • 🏆 ${args.t("leaderboardChampion")}`;
-        args.dom.leaderboardStatLongestStreak.hidden = false;
-      } else if (longestStreakPlayer) {
+      if (longestStreakPlayer) {
         args.dom.leaderboardStatLongestStreakLabel.textContent = args.t("leaderboardLongestStreakLabel");
         args.dom.leaderboardStatLongestStreakPlayer.textContent = longestStreakPlayer.displayName;
         args.dom.leaderboardStatLongestStreakMeta.textContent = ` • 🏆 ${longestStreakPlayer.streak} ${args.t(
@@ -362,6 +362,16 @@ export const createDashboardSync = (args: {
         args.dom.leaderboardStatLongestStreak.hidden = false;
       } else {
         args.dom.leaderboardStatLongestStreak.hidden = true;
+      }
+
+      if (!isTournamentMode && mostWinsPlayer && mostWinsPlayer.wins > 0) {
+        args.dom.leaderboardStatMostWinsPlayer.textContent = mostWinsPlayer.displayName;
+        args.dom.leaderboardStatMostWinsMeta.textContent = ` • 🔥 ${formatCount(
+          mostWinsPlayer.wins,
+        )} ${args.t("leaderboardWins")}`;
+        args.dom.leaderboardStatMostWins.hidden = false;
+      } else {
+        args.dom.leaderboardStatMostWins.hidden = true;
       }
 
       args.renderers.matches.render();

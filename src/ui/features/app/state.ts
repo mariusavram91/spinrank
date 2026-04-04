@@ -21,6 +21,7 @@ export const createDashboardState = (): DashboardState => ({
   players: [],
   leaderboardUpdatedAt: "",
   leaderboardStats: null,
+  tournamentBracket: [],
   userProgress: null,
   segmentMode: "global",
   selectedSeasonId: "",

@@ -117,7 +117,7 @@ export const renderMatchContext = (
   t: (
     key: "renderMatchContextTournament" | "renderMatchContextSeason" | "renderMatchContextOpenPlay",
   ) => string,
-  options?: { includeRound?: boolean },
+  options?: { includeRound?: boolean; includeTournamentTrophy?: boolean },
 ): string => {
   const tournament = tournaments.find((entry) => entry.id === match.tournamentId);
   if (tournament) {
@@ -127,7 +127,8 @@ export const renderMatchContext = (
           ? ` • ${bracketContext.roundTitle}`
           : ""
         : "";
-    const trophyLabel = bracketContext?.isFinal ? "🏆 " : "";
+    const trophyLabel =
+      options?.includeTournamentTrophy === false ? "" : bracketContext?.isFinal ? "🏆 " : "";
     const prefix = t("renderMatchContextTournament");
     return `${trophyLabel}${prefix} ${tournament.name}${roundLabel}`;
   }

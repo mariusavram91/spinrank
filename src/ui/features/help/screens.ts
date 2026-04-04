@@ -31,6 +31,45 @@ export const buildHelpScreens = (): HelpScreenElements => {
   faqIntro.className = "section-copy";
   bindLocalizedText(faqIntro, "faqIntro");
 
+  const faqSummary = document.createElement("section");
+  faqSummary.className = "faq-summary";
+
+  const faqSummaryHeading = document.createElement("h3");
+  faqSummaryHeading.className = "faq-summary__heading";
+  bindLocalizedText(faqSummaryHeading, "faqSummaryTitle");
+
+  const faqSummaryIntro = document.createElement("p");
+  faqSummaryIntro.className = "faq-summary__intro";
+  bindLocalizedText(faqSummaryIntro, "faqSummaryIntro");
+
+  const faqSummaryGrid = document.createElement("div");
+  faqSummaryGrid.className = "faq-summary__grid";
+
+  const createSummaryCard = () => {
+    const card = document.createElement("article");
+    card.className = "faq-summary-card";
+
+    const label = document.createElement("p");
+    label.className = "faq-summary-card__label";
+
+    const value = document.createElement("p");
+    value.className = "faq-summary-card__value";
+
+    const detail = document.createElement("p");
+    detail.className = "faq-summary-card__detail";
+
+    card.append(label, value, detail);
+    return { card, label, value, detail };
+  };
+
+  const seasonScoreCard = createSummaryCard();
+  const eloCard = createSummaryCard();
+  const doublesCard = createSummaryCard();
+  const paceCard = createSummaryCard();
+
+  faqSummaryGrid.append(seasonScoreCard.card, eloCard.card, doublesCard.card, paceCard.card);
+  faqSummary.append(faqSummaryHeading, faqSummaryIntro, faqSummaryGrid);
+
   const faqGrid = document.createElement("div");
   faqGrid.className = "faq-grid";
 
@@ -67,10 +106,30 @@ export const buildHelpScreens = (): HelpScreenElements => {
     faqGrid.replaceChildren(...cards);
   };
 
+  const renderFaqSummary = (): void => {
+    seasonScoreCard.label.textContent = t("faqSummarySeasonLabel");
+    seasonScoreCard.value.textContent = t("faqSummarySeasonValue");
+    seasonScoreCard.detail.textContent = t("faqSummarySeasonDetail");
+
+    eloCard.label.textContent = t("faqSummaryEloLabel");
+    eloCard.value.textContent = t("faqSummaryEloValue");
+    eloCard.detail.textContent = t("faqSummaryEloDetail");
+
+    doublesCard.label.textContent = t("faqSummarySinglesLabel");
+    doublesCard.value.textContent = t("faqSummarySinglesValue");
+    doublesCard.detail.textContent = t("faqSummarySinglesDetail");
+
+    paceCard.label.textContent = t("faqSummaryPaceLabel");
+    paceCard.value.textContent = t("faqSummaryPaceValue");
+    paceCard.detail.textContent = t("faqSummaryPaceDetail");
+  };
+
   onLanguageChange(renderFaqCards);
+  onLanguageChange(renderFaqSummary);
+  renderFaqSummary();
   renderFaqCards();
 
-  faqScreen.append(faqHeader, faqIntro, faqGrid);
+  faqScreen.append(faqHeader, faqSummary, faqIntro, faqGrid);
 
   const privacyScreen = document.createElement("section");
   privacyScreen.className = "dashboard faq-screen";
