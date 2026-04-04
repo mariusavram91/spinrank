@@ -1,4 +1,4 @@
-name: Deploy Frontend
+name: Tests & Deploy
 
 on:
   push:
@@ -15,7 +15,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  tests:
+    name: Run test suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run all tests
+        run: npm run test:all
+
+  build-frontend:
+    name: Build frontend
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,9 +69,10 @@ jobs:
         with:
           path: dist
 
-  deploy:
+  deploy-frontend:
+    name: Deploy to GitHub Pages
+    needs: build-frontend
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/current')
-    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
