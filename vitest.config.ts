@@ -9,6 +9,12 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "lcov"],
       include: ["src/**/*.ts", "worker/src/**/*.ts"],
+      thresholds: {
+        statements: 28,
+        branches: 63,
+        functions: 83,
+        lines: 28,
+      },
     },
     include: ["tests/unit/**", "tests/integration/**"],
     exclude: ["tests/e2e/**", "node_modules/**", "worker/node_modules/**"],

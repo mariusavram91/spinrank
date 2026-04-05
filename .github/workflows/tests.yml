@@ -1,0 +1,46 @@
+name: Test Suite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Vitest coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            worker/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        env:
+          SKIP_HOOK: 1
+
+      - name: Install worker dependencies
+        run: npm ci
+        working-directory: worker
+
+      - name: Run coverage
+        run: npm run test:coverage
+
+  e2e-docker:
+    name: Docker e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Docker-backed e2e suite
+        run: npm run test:e2e:docker
