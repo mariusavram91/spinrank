@@ -316,4 +316,243 @@ describe("match player search inputs", () => {
       Array.from(matchTypeToggle.querySelectorAll<HTMLButtonElement>("button")).every((button) => button.disabled),
     ).toBe(true);
   });
+
+  it("auto-selects the first visible season in season mode with no blank option", () => {
+    const dashboardState = createDashboardStateStub();
+    dashboardState.seasons = [
+      {
+        id: "season_1",
+        name: "Season 1",
+        startDate: "2026-04-01",
+        endDate: "2026-05-01",
+        isActive: true,
+        status: "active",
+        baseEloMode: "carry_over",
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+        createdAt: "2026-04-01T00:00:00.000Z",
+        completedAt: null,
+        isPublic: true,
+      },
+      {
+        id: "season_2",
+        name: "Season 2",
+        startDate: "2026-06-01",
+        endDate: "2026-07-01",
+        isActive: true,
+        status: "active",
+        baseEloMode: "carry_over",
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+        createdAt: "2026-06-01T00:00:00.000Z",
+        completedAt: null,
+        isPublic: true,
+      },
+    ];
+
+    const authState: ViewState = {
+      status: "authenticated",
+      message: "Signed in",
+      session: {
+        sessionToken: "token",
+        expiresAt: "2026-04-05T00:00:00.000Z",
+        user: {
+          id: "user_a",
+          provider: "google",
+          displayName: "Alice",
+          email: null,
+          avatarUrl: null,
+        },
+      },
+    };
+    const contextToggle = document.createElement("div");
+    contextToggle.dataset.mode = "season";
+    const formSeasonSelect = document.createElement("select");
+
+    const { populateMatchFormOptions } = createFormOrchestration({
+      dashboardState,
+      tournamentPlannerState: createTournamentPlannerStateStub(),
+      getViewState: () => authState,
+      getCurrentUserId: () => "user_a",
+      isAuthedState: (
+        state: ViewState,
+      ): state is Extract<ViewState, { status: "authenticated" }> => state.status === "authenticated",
+      getActiveTournamentBracketMatchId: () => null,
+      loadSeasonSelect: document.createElement("select"),
+      loadTournamentSelect: document.createElement("select"),
+      seasonSelect: document.createElement("select"),
+      tournamentSelect: document.createElement("select"),
+      matchTypeSelect: document.createElement("select"),
+      formatTypeSelect: document.createElement("select"),
+      pointsToWinSelect: document.createElement("select"),
+      formSeasonSelect,
+      formTournamentSelect: document.createElement("select"),
+      matchBracketSelect: document.createElement("select"),
+      tournamentSeasonSelect: document.createElement("select"),
+      teamA1Select: document.createElement("select"),
+      teamA2Select: document.createElement("select"),
+      teamB1Select: document.createElement("select"),
+      teamB2Select: document.createElement("select"),
+      winnerTeamSelect: document.createElement("select"),
+      scoreInputs: [{ teamA: document.createElement("input"), teamB: document.createElement("input") }],
+      seasonNameInput: document.createElement("input"),
+      seasonStartDateInput: document.createElement("input"),
+      seasonEndDateInput: document.createElement("input"),
+      seasonBaseEloSelect: document.createElement("select"),
+      seasonIsActiveInput: document.createElement("input"),
+      seasonIsPublicInput: document.createElement("input"),
+      tournamentNameInput: document.createElement("input"),
+      tournamentDateInput: document.createElement("input"),
+      suggestMatchButton: document.createElement("button"),
+      submitMatchButton: document.createElement("button"),
+      setSeasonSharePanelTargetId: () => {},
+      setTournamentSharePanelTargetId: () => {},
+      getMatchScreenRefs: () => ({
+        teamA2Field: null,
+        teamB2Field: null,
+        scoreGrid: null,
+        contextToggle,
+        matchTypeToggle: null,
+        formatTypeToggle: null,
+        pointsToggle: null,
+        seasonField: null,
+        seasonInfoField: null,
+        seasonInfoValue: null,
+        tournamentField: null,
+        bracketField: null,
+      }),
+      getAllowedMatchPlayerIds: () => null,
+      getMatchPlayerEntries: () => [],
+      formatDate: (value) => value,
+      t: (key) => key,
+    });
+
+    populateMatchFormOptions();
+
+    expect(formSeasonSelect.value).toBe("season_1");
+    expect(Array.from(formSeasonSelect.options).map((option) => option.value)).toEqual(["season_1", "season_2"]);
+  });
+
+  it("auto-selects the first visible tournament in tournament mode with no blank option", () => {
+    const dashboardState = createDashboardStateStub();
+    dashboardState.tournaments = [
+      {
+        id: "tournament_1",
+        name: "Tournament 1",
+        date: "2026-04-01",
+        seasonId: null,
+        seasonName: null,
+        status: "active",
+        createdByUserId: "user_a",
+        createdAt: "2026-04-01T00:00:00.000Z",
+        completedAt: null,
+        participantCount: 2,
+        participantIds: ["user_a", "user_b"],
+        bracketStatus: "draft",
+      },
+      {
+        id: "tournament_2",
+        name: "Tournament 2",
+        date: "2026-04-02",
+        seasonId: null,
+        seasonName: null,
+        status: "active",
+        createdByUserId: "user_a",
+        createdAt: "2026-04-02T00:00:00.000Z",
+        completedAt: null,
+        participantCount: 2,
+        participantIds: ["user_a", "user_c"],
+        bracketStatus: "draft",
+      },
+    ];
+
+    const authState: ViewState = {
+      status: "authenticated",
+      message: "Signed in",
+      session: {
+        sessionToken: "token",
+        expiresAt: "2026-04-05T00:00:00.000Z",
+        user: {
+          id: "user_a",
+          provider: "google",
+          displayName: "Alice",
+          email: null,
+          avatarUrl: null,
+        },
+      },
+    };
+    const contextToggle = document.createElement("div");
+    contextToggle.dataset.mode = "tournament";
+    const formTournamentSelect = document.createElement("select");
+    const seasonInfoField = document.createElement("div");
+    const seasonInfoValue = document.createElement("div");
+
+    const { populateMatchFormOptions } = createFormOrchestration({
+      dashboardState,
+      tournamentPlannerState: createTournamentPlannerStateStub(),
+      getViewState: () => authState,
+      getCurrentUserId: () => "user_a",
+      isAuthedState: (
+        state: ViewState,
+      ): state is Extract<ViewState, { status: "authenticated" }> => state.status === "authenticated",
+      getActiveTournamentBracketMatchId: () => null,
+      loadSeasonSelect: document.createElement("select"),
+      loadTournamentSelect: document.createElement("select"),
+      seasonSelect: document.createElement("select"),
+      tournamentSelect: document.createElement("select"),
+      matchTypeSelect: document.createElement("select"),
+      formatTypeSelect: document.createElement("select"),
+      pointsToWinSelect: document.createElement("select"),
+      formSeasonSelect: document.createElement("select"),
+      formTournamentSelect,
+      matchBracketSelect: document.createElement("select"),
+      tournamentSeasonSelect: document.createElement("select"),
+      teamA1Select: document.createElement("select"),
+      teamA2Select: document.createElement("select"),
+      teamB1Select: document.createElement("select"),
+      teamB2Select: document.createElement("select"),
+      winnerTeamSelect: document.createElement("select"),
+      scoreInputs: [{ teamA: document.createElement("input"), teamB: document.createElement("input") }],
+      seasonNameInput: document.createElement("input"),
+      seasonStartDateInput: document.createElement("input"),
+      seasonEndDateInput: document.createElement("input"),
+      seasonBaseEloSelect: document.createElement("select"),
+      seasonIsActiveInput: document.createElement("input"),
+      seasonIsPublicInput: document.createElement("input"),
+      tournamentNameInput: document.createElement("input"),
+      tournamentDateInput: document.createElement("input"),
+      suggestMatchButton: document.createElement("button"),
+      submitMatchButton: document.createElement("button"),
+      setSeasonSharePanelTargetId: () => {},
+      setTournamentSharePanelTargetId: () => {},
+      getMatchScreenRefs: () => ({
+        teamA2Field: null,
+        teamB2Field: null,
+        scoreGrid: null,
+        contextToggle,
+        matchTypeToggle: null,
+        formatTypeToggle: null,
+        pointsToggle: null,
+        seasonField: null,
+        seasonInfoField,
+        seasonInfoValue,
+        tournamentField: null,
+        bracketField: null,
+      }),
+      getAllowedMatchPlayerIds: () => null,
+      getMatchPlayerEntries: () => [],
+      formatDate: (value) => value,
+      t: (key) => key,
+    });
+
+    populateMatchFormOptions();
+
+    expect(formTournamentSelect.value).toBe("tournament_1");
+    expect(Array.from(formTournamentSelect.options).map((option) => option.value)).toEqual([
+      "tournament_1",
+      "tournament_2",
+    ]);
+    expect(seasonInfoField.hidden).toBe(true);
+    expect(seasonInfoValue.textContent).toBe("");
+  });
 });
