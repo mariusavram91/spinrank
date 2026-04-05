@@ -1,6 +1,14 @@
 import type { LeaderboardEntry, MatchRecord } from "../../../api/contract";
 import type { FairPlayerProfile, SuggestedMatchup } from "../../shared/types/app";
 
+export type FairMatchCandidate = {
+  userId: string;
+  displayName: string;
+  elo: number;
+  wins?: number;
+  losses?: number;
+};
+
 export const renderMatchScore = (match: MatchRecord): string =>
   match.score.map((game) => `${game.teamA} - ${game.teamB}`).join(" • ");
 
@@ -28,13 +36,15 @@ export const findPlayer = (
   players: LeaderboardEntry[],
 ): LeaderboardEntry | null => players.find((player) => player.userId === playerId) || null;
 
-const toFairPlayerProfile = (player: LeaderboardEntry): FairPlayerProfile => {
-  const totalMatches = player.wins + player.losses;
+const toFairPlayerProfile = (player: FairMatchCandidate): FairPlayerProfile => {
+  const wins = player.wins ?? 0;
+  const losses = player.losses ?? 0;
+  const totalMatches = wins + losses;
   return {
     userId: player.userId,
     displayName: player.displayName,
     elo: player.elo,
-    winRate: totalMatches > 0 ? player.wins / totalMatches : 0.5,
+    winRate: totalMatches > 0 ? wins / totalMatches : 0.5,
   };
 };
 
@@ -49,8 +59,8 @@ const calculateFairnessScore = (teamA: FairPlayerProfile[], teamB: FairPlayerPro
   return eloGap + winRateGap * 160;
 };
 
-export const buildFairMatchSuggestion = (
-  players: LeaderboardEntry[],
+export const buildFairMatchSuggestionFromCandidates = (
+  players: FairMatchCandidate[],
   sessionUserId: string,
   matchType: "singles" | "doubles",
 ): SuggestedMatchup | null => {
@@ -115,3 +125,10 @@ export const buildFairMatchSuggestion = (
 
   return bestSuggestion;
 };
+
+export const buildFairMatchSuggestion = (
+  players: LeaderboardEntry[],
+  sessionUserId: string,
+  matchType: "singles" | "doubles",
+): SuggestedMatchup | null =>
+  buildFairMatchSuggestionFromCandidates(players, sessionUserId, matchType);

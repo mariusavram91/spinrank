@@ -25,7 +25,7 @@ export const createTopLevelUiHandlers = (args: {
   renderSeasonEditor: () => void;
   closeFaqScreen: () => void;
   closePrivacyScreen: () => void;
-  applyFairMatchSuggestion: () => void;
+  applyFairMatchSuggestion: () => void | Promise<void>;
   suggestTournamentBracket: () => void;
   dashboardState: {
     screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "profile" | "faq" | "privacy";
@@ -181,7 +181,7 @@ export const createTopLevelUiHandlers = (args: {
     }
   },
   onSuggestMatch: () => {
-    args.applyFairMatchSuggestion();
+    void args.applyFairMatchSuggestion();
   },
   onSuggestTournament: () => {
     args.suggestTournamentBracket();

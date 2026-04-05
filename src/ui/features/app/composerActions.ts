@@ -1,5 +1,6 @@
 import type { DashboardState, TournamentPlannerMatch, TournamentPlannerState, ViewState } from "../../shared/types/app";
 import type { MatchType } from "../../../api/contract";
+import type { FairMatchCandidate } from "../matches/utils";
 
 export const createComposerActions = (args: {
   dashboardState: DashboardState;
@@ -25,8 +26,9 @@ export const createComposerActions = (args: {
   syncDashboardState: () => void;
   saveTournament: () => Promise<void>;
   setActiveTournamentBracketMatchId: (value: string | null) => void;
+  getSuggestedMatchPlayers: () => Promise<FairMatchCandidate[]>;
   buildFairMatchSuggestion: (
-    players: DashboardState["players"],
+    players: FairMatchCandidate[],
     sessionUserId: string,
     matchType: MatchType,
   ) => { teamAPlayerIds: string[]; teamBPlayerIds: string[] } | null;
@@ -41,14 +43,14 @@ export const createComposerActions = (args: {
     winnerPlayerId: string,
   ) => TournamentPlannerState["rounds"];
 }) => {
-  const applyFairMatchSuggestion = (): void => {
+  const applyFairMatchSuggestion = async (): Promise<void> => {
     const state = args.getViewState();
     if (!args.isAuthedState(state)) {
       return;
     }
 
     const suggestion = args.buildFairMatchSuggestion(
-      args.dashboardState.players,
+      await args.getSuggestedMatchPlayers(),
       state.session.user.id,
       args.matchTypeSelect.value as MatchType,
     );

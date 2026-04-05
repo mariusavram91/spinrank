@@ -11,6 +11,7 @@ import type {
   MatchBracketContext,
   MatchFeedFilter,
   MatchRecord,
+  ParticipantSearchEntry,
   SeasonRecord,
   TournamentRecord,
   SegmentLeaderboardStats,
@@ -45,7 +46,13 @@ import { createDraftRenderers } from "./features/dashboard/renderers/drafts";
 import { createDashboardSync } from "./features/dashboard/sync";
 import { renderProfileScreen } from "./features/profile/render";
 import { createMatchActions } from "./features/matches/actions";
-import { buildFairMatchSuggestion, buildUniquePlayerList, findPlayer, renderMatchScore, renderPlayerNames } from "./features/matches/utils";
+import {
+  buildFairMatchSuggestionFromCandidates,
+  buildUniquePlayerList,
+  findPlayer,
+  renderMatchScore,
+  renderPlayerNames,
+} from "./features/matches/utils";
 import { buildHelpScreens } from "./features/help/screens";
 import { createSeasonActions } from "./features/seasons/actions";
 import { createTournamentActions } from "./features/tournaments/actions";
@@ -348,6 +355,62 @@ export const buildApp = (): HTMLElement => {
   };
   const findMatchPlayer = (playerId: string | null | undefined) =>
     getMatchPlayerEntries().find((player) => player.userId === playerId);
+  const getSuggestedMatchPlayers = async (): Promise<Array<{
+    userId: string;
+    displayName: string;
+    elo: number;
+    wins?: number;
+    losses?: number;
+  }>> => {
+    const stateValue = state.current;
+    const sessionUserId = getCurrentUserId(stateValue);
+    const seasonId = formSeasonSelect.value || null;
+    const relatedParticipants: ParticipantSearchEntry[] = formTournamentSelect.value
+      ? []
+      : (
+          await runAuthedAction("searchParticipants", {
+            segmentType: "season",
+            seasonId,
+            limit: 25,
+          })
+        ).participants;
+
+    const leaderboardById = new Map(
+      dashboardState.players.map((player) => [
+        player.userId,
+        {
+          userId: player.userId,
+          displayName: player.displayName,
+          elo: player.elo,
+          wins: player.wins,
+          losses: player.losses,
+        },
+      ]),
+    );
+
+    const candidates = new Map<string, { userId: string; displayName: string; elo: number; wins?: number; losses?: number }>();
+    relatedParticipants.forEach((participant) => {
+      const leaderboardEntry = leaderboardById.get(participant.userId);
+      candidates.set(participant.userId, leaderboardEntry ?? {
+        userId: participant.userId,
+        displayName: participant.displayName,
+        elo: participant.elo,
+      });
+    });
+
+    const selfEntry = leaderboardById.get(sessionUserId);
+    if (selfEntry) {
+      candidates.set(sessionUserId, selfEntry);
+    } else if (isAuthedState(stateValue)) {
+      candidates.set(sessionUserId, {
+        userId: sessionUserId,
+        displayName: stateValue.session.user.displayName,
+        elo: 1200,
+      });
+    }
+
+    return [...candidates.values()];
+  };
   const getAllowedMatchPlayerIds = (): string[] | null => {
     const tournamentId = formTournamentSelect.value;
     if (tournamentId) {
@@ -1199,7 +1262,8 @@ export const buildApp = (): HTMLElement => {
     setActiveTournamentBracketMatchId: (value) => {
       activeTournamentBracketMatchId = value;
     },
-    buildFairMatchSuggestion,
+    getSuggestedMatchPlayers,
+    buildFairMatchSuggestion: buildFairMatchSuggestionFromCandidates,
     buildTournamentSuggestion,
     applyTournamentWinnerLocally,
   });
