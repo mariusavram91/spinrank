@@ -500,11 +500,26 @@ export const buildScoreCard = (args: {
     menu.hidden = true;
 
     let control!: PlayerSearchControl;
+    const updateMenuPlacement = (): void => {
+      const viewportHeight = globalThis.visualViewport?.height ?? globalThis.innerHeight;
+      const fieldRect = field.getBoundingClientRect();
+      const menuHeight = Math.min(menu.scrollHeight || 180, 180);
+      const gap = 6;
+      const spaceBelow = viewportHeight - fieldRect.bottom;
+      const spaceAbove = fieldRect.top;
+      const shouldOpenAbove = spaceBelow < menuHeight + gap && spaceAbove > spaceBelow;
+      menu.dataset.placement = shouldOpenAbove ? "top" : "bottom";
+    };
     const setMenuVisibility = (visible: boolean): void => {
       menu.hidden = !visible;
       field.classList.toggle("score-card__player-search-field--open", visible);
       input.setAttribute("aria-expanded", String(visible));
       control.visible = visible;
+      if (visible) {
+        requestAnimationFrame(updateMenuPlacement);
+      } else {
+        delete menu.dataset.placement;
+      }
     };
 
     const updateClearButtonVisibility = (): void => {
@@ -572,6 +587,48 @@ export const buildScoreCard = (args: {
       primary: createPlayerSearchControl("teamB", 1),
       secondary: createPlayerSearchControl("teamB", 2),
     },
+  };
+  let activeFocusTarget: HTMLElement | null = null;
+  let focusScrollFrame: number | null = null;
+  let focusScrollTimeout: number | null = null;
+  const scrollFocusedControlIntoView = (): void => {
+    if (!visible || !activeFocusTarget || !scoreCard.contains(activeFocusTarget)) {
+      return;
+    }
+    activeFocusTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+    [
+      teamSearchControls.teamA.primary,
+      teamSearchControls.teamA.secondary,
+      teamSearchControls.teamB.primary,
+      teamSearchControls.teamB.secondary,
+    ].forEach((control) => {
+      if (!control.visible) {
+        return;
+      }
+      control.menu.dataset.placement = "";
+      requestAnimationFrame(() => {
+        const viewportHeight = globalThis.visualViewport?.height ?? globalThis.innerHeight;
+        const fieldRect = control.field.getBoundingClientRect();
+        const menuHeight = Math.min(control.menu.scrollHeight || 180, 180);
+        const gap = 6;
+        const spaceBelow = viewportHeight - fieldRect.bottom;
+        const spaceAbove = fieldRect.top;
+        const shouldOpenAbove = spaceBelow < menuHeight + gap && spaceAbove > spaceBelow;
+        control.menu.dataset.placement = shouldOpenAbove ? "top" : "bottom";
+      });
+    });
+  };
+  const scheduleFocusedControlScroll = (): void => {
+    if (focusScrollFrame !== null) {
+      cancelAnimationFrame(focusScrollFrame);
+    }
+    if (focusScrollTimeout !== null) {
+      window.clearTimeout(focusScrollTimeout);
+    }
+    focusScrollFrame = requestAnimationFrame(() => {
+      scrollFocusedControlIntoView();
+      focusScrollTimeout = window.setTimeout(scrollFocusedControlIntoView, 180);
+    });
   };
   const buildTeamWrapper = (
     key: ScoreKey,
@@ -762,6 +819,9 @@ export const buildScoreCard = (args: {
             option.textContent = getPlayerOptionLabel(player, currentUserId);
             option.addEventListener("pointerdown", (event) => {
               event.preventDefault();
+              control.ignoreBlur = true;
+            });
+            option.addEventListener("click", () => {
               control.input.value = getPlayerOptionLabel(player, currentUserId);
               setSelectionValue(team, slot, player.userId);
               control.clearButton.hidden = false;
@@ -1206,9 +1266,29 @@ export const buildScoreCard = (args: {
   scoreCard.append(closeButton, header, controls, tiles, contextPanel, previousGamesPanel, scoreActions);
   overlay.append(scoreCard);
 
+  scoreCard.addEventListener("focusin", (event) => {
+    if (!(event.target instanceof HTMLElement)) {
+      return;
+    }
+    const isFocusableField = event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement;
+    activeFocusTarget = isFocusableField ? event.target : null;
+    if (activeFocusTarget) {
+      scheduleFocusedControlScroll();
+    }
+  });
+
+  scoreCard.addEventListener("focusout", (event) => {
+    if (event.target === activeFocusTarget) {
+      activeFocusTarget = null;
+    }
+  });
+
+  globalThis.visualViewport?.addEventListener("resize", scheduleFocusedControlScroll);
+
   const hide = (): void => {
     overlay.hidden = true;
     visible = false;
+    activeFocusTarget = null;
     document.body.classList.remove("score-card-open");
   };
 
