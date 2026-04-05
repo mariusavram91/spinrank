@@ -20,6 +20,8 @@ export interface MatchScreenElements {
   formatTypeToggle: HTMLDivElement;
   pointsToggle: HTMLDivElement;
   seasonField: HTMLElement;
+  seasonInfoField: HTMLElement;
+  seasonInfoValue: HTMLElement;
   tournamentField: HTMLElement;
   matchOutcome: HTMLElement;
 }
@@ -34,9 +36,10 @@ export interface SeasonScreenElements {
 const buildSegmentedControl = (
   options: Array<{ value: string; labelKey: TextKey }>,
   onSelect: (value: string) => void,
+  className = "segment-toggle form-segment-toggle",
 ): HTMLDivElement => {
   const toggle = document.createElement("div");
-  toggle.className = "segment-toggle form-segment-toggle";
+  toggle.className = className;
   options.forEach((option) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -121,8 +124,10 @@ export const buildMatchScreen = (args: {
         dispatchSelectChange(args.formSeasonSelect);
         return;
       }
+      args.formSeasonSelect.value = "";
       dispatchSelectChange(args.formTournamentSelect);
     },
+    "segment-toggle",
   );
   contextToggle.dataset.mode = "open";
 
@@ -161,10 +166,11 @@ export const buildMatchScreen = (args: {
 
   const seasonField = buildField("matchFieldSeason", args.formSeasonSelect);
   seasonField.classList.add("match-context-field");
-  const seasonFieldHint = document.createElement("span");
-  seasonFieldHint.className = "field-hint";
-  bindLocalizedText(seasonFieldHint, "matchFieldSeasonLockedHint");
-  seasonField.append(seasonFieldHint);
+
+  const seasonInfoValue = document.createElement("span");
+  seasonInfoValue.className = "match-context-info";
+  const seasonInfoField = buildField("matchFieldSeason", seasonInfoValue);
+  seasonInfoField.classList.add("match-context-field", "match-context-field--info");
 
   const tournamentField = buildField("matchFieldTournament", args.formTournamentSelect);
   tournamentField.classList.add("match-context-field");
@@ -240,6 +246,7 @@ export const buildMatchScreen = (args: {
     "matchSectionContext",
     contextToggle,
     seasonField,
+    seasonInfoField,
     tournamentField,
   );
   matchContextSection.classList.add("panel-section--match", "panel-section--match-context");
@@ -303,6 +310,8 @@ export const buildMatchScreen = (args: {
     formatTypeToggle,
     pointsToggle,
     seasonField,
+    seasonInfoField,
+    seasonInfoValue,
     tournamentField,
     matchOutcome: args.matchOutcome,
   };

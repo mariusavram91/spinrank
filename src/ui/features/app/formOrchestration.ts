@@ -20,6 +20,8 @@ type MatchScreenRefs = {
   formatTypeToggle: HTMLElement | null;
   pointsToggle: HTMLElement | null;
   seasonField: HTMLElement | null;
+  seasonInfoField: HTMLElement | null;
+  seasonInfoValue: HTMLElement | null;
   tournamentField: HTMLElement | null;
 };
 
@@ -233,6 +235,8 @@ export const createFormOrchestration = (args: {
       formatTypeToggle,
       pointsToggle,
       seasonField,
+      seasonInfoField,
+      seasonInfoValue,
       tournamentField,
     } = args.getMatchScreenRefs();
     const contextMode = resolveMatchContextMode(contextToggle);
@@ -246,6 +250,8 @@ export const createFormOrchestration = (args: {
       args.formTournamentSelect.value = "";
     } else if (contextMode === "season") {
       args.formTournamentSelect.value = "";
+    } else if (!args.formTournamentSelect.value) {
+      args.formSeasonSelect.value = "";
     }
 
     replaceOptions(
@@ -278,7 +284,18 @@ export const createFormOrchestration = (args: {
       "No points",
     );
 
-    const playerOptions = args.dashboardState.players.map((player) => ({
+    const selectedTournament = args.dashboardState.tournaments.find(
+      (tournament) => tournament.id === args.formTournamentSelect.value,
+    );
+    const availablePlayerIds = new Set(
+      selectedTournament?.participantIds ||
+        args.dashboardState.seasons.find((season) => season.id === args.formSeasonSelect.value)?.participantIds ||
+        args.dashboardState.players.map((player) => player.userId),
+    );
+
+    const playerOptions = args.dashboardState.players
+      .filter((player) => availablePlayerIds.has(player.userId))
+      .map((player) => ({
       value: player.userId,
       label: `${player.displayName} (${player.elo})`,
     }));
@@ -325,9 +342,6 @@ export const createFormOrchestration = (args: {
       );
     });
 
-    const selectedTournament = args.dashboardState.tournaments.find(
-      (tournament) => tournament.id === args.formTournamentSelect.value,
-    );
     const lockedSeasonId = selectedTournament?.seasonId || "";
     const selectedSeasonValue = lockedSeasonId || args.formSeasonSelect.value;
 
@@ -345,6 +359,12 @@ export const createFormOrchestration = (args: {
     );
     args.formSeasonSelect.value = selectedSeasonValue;
     args.formSeasonSelect.disabled = Boolean(lockedSeasonId);
+    if (seasonInfoValue) {
+      const linkedSeason = args.dashboardState.seasons.find((season) => season.id === lockedSeasonId);
+      seasonInfoValue.textContent = linkedSeason
+        ? `${linkedSeason.name}${isCompletedSeason(linkedSeason) ? " • Completed" : ""}`
+        : args.t("noSeason");
+    }
 
     const filteredTournaments =
       contextMode === "season" && !lockedSeasonId
@@ -401,7 +421,10 @@ export const createFormOrchestration = (args: {
       contextToggle.dataset.mode = contextMode;
     }
     if (seasonField) {
-      seasonField.hidden = contextMode === "open";
+      seasonField.hidden = contextMode !== "season";
+    }
+    if (seasonInfoField) {
+      seasonInfoField.hidden = contextMode !== "tournament";
     }
     if (tournamentField) {
       tournamentField.hidden = contextMode !== "tournament";

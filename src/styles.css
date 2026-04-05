@@ -1800,6 +1800,16 @@ button:disabled,
   margin-top: 0;
 }
 
+.match-context-info {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(82, 61, 36, 0.1);
+  color: var(--text-muted);
+}
+
 .score-row {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

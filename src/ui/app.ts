@@ -408,6 +408,8 @@ export const buildApp = (): HTMLElement => {
     formatTypeToggle: HTMLElement | null;
     pointsToggle: HTMLElement | null;
     seasonField: HTMLElement | null;
+    seasonInfoField: HTMLElement | null;
+    seasonInfoValue: HTMLElement | null;
     tournamentField: HTMLElement | null;
   } = {
     teamA2Field: null,
@@ -418,6 +420,8 @@ export const buildApp = (): HTMLElement => {
     formatTypeToggle: null,
     pointsToggle: null,
     seasonField: null,
+    seasonInfoField: null,
+    seasonInfoValue: null,
     tournamentField: null,
   };
   let seasonBaseEloToggle: HTMLElement | null = null;
@@ -1325,6 +1329,8 @@ export const buildApp = (): HTMLElement => {
     formatTypeToggle,
     pointsToggle,
     seasonField,
+    seasonInfoField,
+    seasonInfoValue,
     tournamentField,
     seasonBaseEloToggle: nextSeasonBaseEloToggle,
     seasonStateToggle: nextSeasonStateToggle,
@@ -1427,6 +1433,8 @@ export const buildApp = (): HTMLElement => {
   syncMatchPlayerSearchInputs = createMatchPlayerSearchInputs({
     dashboardState,
     getCurrentUserId: () => getCurrentUserId(state.current),
+    formSeasonSelect,
+    formTournamentSelect,
     teamA1Field,
     teamA2Field,
     teamB1Field,
@@ -1478,6 +1486,8 @@ export const buildApp = (): HTMLElement => {
   matchScreenRefs.formatTypeToggle = formatTypeToggle;
   matchScreenRefs.pointsToggle = pointsToggle;
   matchScreenRefs.seasonField = seasonField;
+  matchScreenRefs.seasonInfoField = seasonInfoField;
+  matchScreenRefs.seasonInfoValue = seasonInfoValue;
   matchScreenRefs.tournamentField = tournamentField;
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());
