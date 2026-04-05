@@ -11,12 +11,20 @@ export const createLockHelpers = (args: {
   getActiveTournamentBracketMatchId: () => string | null;
   isLockedSeason: (season: SeasonRecord | undefined) => boolean;
   isLockedTournament: (tournament: TournamentRecord | undefined) => boolean;
-  t: (key: "matchLockTournamentComplete" | "matchLockSeasonComplete" | "matchLockBracketLocked") => string;
+  t: (
+    key:
+      | "matchLockTournamentComplete"
+      | "matchLockSeasonComplete"
+      | "matchLockBracketLocked"
+      | "matchBracketNoEligible",
+  ) => string;
 }) => {
   const syncMatchFormLockState = (): void => {
     const season = args.dashboardState.seasons.find((entry) => entry.id === args.formSeasonSelect.value);
     const tournament = args.dashboardState.tournaments.find((entry) => entry.id === args.formTournamentSelect.value);
+    const missingTournamentBracket = Boolean(tournament && !args.getActiveTournamentBracketMatchId());
     const locked =
+      missingTournamentBracket ||
       args.isLockedSeason(season) ||
       args.isLockedTournament(tournament) ||
       Boolean(
@@ -37,6 +45,8 @@ export const createLockHelpers = (args: {
       args.matchLockNotice.textContent = args.t("matchLockTournamentComplete");
     } else if (season && args.isLockedSeason(season)) {
       args.matchLockNotice.textContent = args.t("matchLockSeasonComplete");
+    } else if (missingTournamentBracket) {
+      args.matchLockNotice.textContent = args.t("matchBracketNoEligible");
     } else if (locked) {
       args.matchLockNotice.textContent = args.t("matchLockBracketLocked");
     }

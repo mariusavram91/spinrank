@@ -41,6 +41,7 @@ type DashboardSyncDom = {
   seasonIsPublicInput: HTMLInputElement;
   seasonSelectAllParticipantsInput: HTMLInputElement;
   suggestMatchButton: HTMLButtonElement;
+  formTournamentSelect: HTMLSelectElement;
   matchTypeSelect: HTMLSelectElement;
   resetTournamentDraftButton: HTMLButtonElement;
   saveTournamentButton: HTMLButtonElement;
@@ -182,8 +183,10 @@ export const createDashboardSync = (args: {
         seasonResetAction.hidden = !isSeasonEditingDraft;
       }
       args.dom.resetSeasonDraftButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting;
+      const isTournamentMatchDraft = Boolean(args.dom.formTournamentSelect.value);
+      args.dom.suggestMatchButton.hidden = isTournamentMatchDraft;
       args.dom.suggestMatchButton.disabled =
-        args.dashboardState.loading || args.dashboardState.matchSubmitting;
+        isTournamentMatchDraft || args.dashboardState.loading || args.dashboardState.matchSubmitting;
       args.dom.suggestMatchButton.textContent = args.t(
         args.dom.matchTypeSelect.value === "doubles" ? "suggestFairMatchDoubles" : "suggestFairMatchSingles",
       );

@@ -10,6 +10,13 @@ import {
 import { getTodayDateValue } from "../../shared/utils/format";
 
 type SelectOption = { value: string; label: string };
+type MatchPlayerEntry = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  elo: number;
+  rank: number;
+};
 
 type MatchScreenRefs = {
   teamA2Field: HTMLElement | null;
@@ -58,10 +65,13 @@ export const createFormOrchestration = (args: {
   seasonIsPublicInput: HTMLInputElement;
   tournamentNameInput: HTMLInputElement;
   tournamentDateInput: HTMLInputElement;
+  suggestMatchButton: HTMLButtonElement;
+  submitMatchButton: HTMLButtonElement;
   setSeasonSharePanelTargetId: (seasonId: string) => void;
   setTournamentSharePanelTargetId: (tournamentId: string) => void;
   getMatchScreenRefs: () => MatchScreenRefs;
   getAllowedMatchPlayerIds: () => string[] | null;
+  getMatchPlayerEntries: () => MatchPlayerEntry[];
   formatDate: (value: string) => string;
   t: (key: TextKey) => string;
 }) => {
@@ -119,6 +129,9 @@ export const createFormOrchestration = (args: {
     );
   };
 
+  const getPendingOrCurrentValue = (select: HTMLSelectElement): string =>
+    select.dataset.pendingValue ?? select.value;
+
   const syncLoadControlsVisibility = (): void => {};
 
   const syncSegmentedToggle = (toggle: HTMLElement | null, value: string): void => {
@@ -127,6 +140,15 @@ export const createFormOrchestration = (args: {
     }
     Array.from(toggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.value === value));
+    });
+  };
+
+  const setSegmentedToggleDisabled = (toggle: HTMLElement | null, disabled: boolean): void => {
+    if (!toggle) {
+      return;
+    }
+    toggle.querySelectorAll<HTMLButtonElement>("button[data-value]").forEach((button) => {
+      button.disabled = disabled;
     });
   };
 
@@ -223,12 +245,12 @@ export const createFormOrchestration = (args: {
     const state = args.getViewState();
     const sessionUserId = args.isAuthedState(state) ? state.session.user.id : "";
     const selectedPlayerIds = [
-      args.teamA1Select.value,
-      args.teamA2Select.value,
-      args.teamB1Select.value,
-      args.teamB2Select.value,
+      getPendingOrCurrentValue(args.teamA1Select),
+      getPendingOrCurrentValue(args.teamA2Select),
+      getPendingOrCurrentValue(args.teamB1Select),
+      getPendingOrCurrentValue(args.teamB2Select),
     ].filter(Boolean);
-    const teamA1Value = args.teamA1Select.value || (selectedPlayerIds.length === 0 ? sessionUserId : "");
+    const teamA1Value = getPendingOrCurrentValue(args.teamA1Select) || (selectedPlayerIds.length === 0 ? sessionUserId : "");
     const {
       teamA2Field,
       teamB2Field,
@@ -244,10 +266,21 @@ export const createFormOrchestration = (args: {
       bracketField,
     } = args.getMatchScreenRefs();
     const contextMode = resolveMatchContextMode(contextToggle);
+    const isTournamentContext = Boolean(args.formTournamentSelect.value) || contextMode === "tournament";
+    const hasActiveTournamentBracket = !isTournamentContext || Boolean(args.getActiveTournamentBracketMatchId());
 
     if (args.matchTypeSelect.value === "singles") {
       args.teamA2Select.value = "";
       args.teamB2Select.value = "";
+      delete args.teamA2Select.dataset.pendingValue;
+      delete args.teamB2Select.dataset.pendingValue;
+    }
+    if (isTournamentContext) {
+      args.matchTypeSelect.value = "singles";
+      args.teamA2Select.value = "";
+      args.teamB2Select.value = "";
+      delete args.teamA2Select.dataset.pendingValue;
+      delete args.teamB2Select.dataset.pendingValue;
     }
     if (contextMode === "open") {
       args.formSeasonSelect.value = "";
@@ -295,15 +328,15 @@ export const createFormOrchestration = (args: {
       args.getAllowedMatchPlayerIds() ?? args.dashboardState.players.map((player) => player.userId),
     );
 
-    const playerOptions = args.dashboardState.players
+    const playerOptions = args.getMatchPlayerEntries()
       .filter((player) => availablePlayerIds.has(player.userId))
       .map((player) => ({
-      value: player.userId,
-      label: `${player.displayName} (${player.elo})`,
-    }));
+        value: player.userId,
+        label: `${player.displayName} (${player.elo})`,
+      }));
     const isDoubles = args.matchTypeSelect.value === "doubles";
     const nextTeamA1Value = teamA1Value;
-    const nextTeamB1Value = args.teamB1Select.value;
+    const nextTeamB1Value = getPendingOrCurrentValue(args.teamB1Select);
 
     const getNextAvailablePlayer = (excluded: string[]): string => {
       const taken = new Set(excluded.filter(Boolean));
@@ -322,10 +355,18 @@ export const createFormOrchestration = (args: {
     };
 
     const nextTeamA2Value = isDoubles
-      ? resolveAvailablePlayer(args.teamA2Select.value, [nextTeamA1Value, nextTeamB1Value, args.teamB2Select.value])
+      ? resolveAvailablePlayer(getPendingOrCurrentValue(args.teamA2Select), [
+          nextTeamA1Value,
+          nextTeamB1Value,
+          getPendingOrCurrentValue(args.teamB2Select),
+        ])
       : "";
     const nextTeamB2Value = isDoubles
-      ? resolveAvailablePlayer(args.teamB2Select.value, [nextTeamA1Value, nextTeamB1Value, nextTeamA2Value])
+      ? resolveAvailablePlayer(getPendingOrCurrentValue(args.teamB2Select), [
+          nextTeamA1Value,
+          nextTeamB1Value,
+          nextTeamA2Value,
+        ])
       : "";
 
     const selectedValues = [nextTeamA1Value, nextTeamA2Value, nextTeamB1Value, nextTeamB2Value].filter(Boolean);
@@ -342,7 +383,26 @@ export const createFormOrchestration = (args: {
         selectedValues.filter((value) => value !== (selectedValue || select.value)),
         emptyLabel,
       );
+      delete select.dataset.pendingValue;
     });
+
+    const disableTournamentMatchPlayers = isTournamentContext;
+    args.teamA1Select.disabled = disableTournamentMatchPlayers || !hasActiveTournamentBracket;
+    args.teamA2Select.disabled = true;
+    args.teamB1Select.disabled = disableTournamentMatchPlayers || !hasActiveTournamentBracket;
+    args.teamB2Select.disabled = true;
+
+    const disableTournamentSetup = isTournamentContext && !hasActiveTournamentBracket;
+    args.formatTypeSelect.disabled = disableTournamentSetup;
+    args.pointsToWinSelect.disabled = disableTournamentSetup;
+    args.winnerTeamSelect.disabled = disableTournamentSetup;
+    args.scoreInputs.forEach((game) => {
+      game.teamA.disabled = disableTournamentSetup;
+      game.teamB.disabled = disableTournamentSetup;
+    });
+    args.suggestMatchButton.hidden = isTournamentContext;
+    args.suggestMatchButton.disabled = isTournamentContext;
+    args.submitMatchButton.disabled = disableTournamentSetup;
 
     const lockedSeasonId = selectedTournament?.seasonId || "";
     const selectedSeasonValue = lockedSeasonId || args.formSeasonSelect.value;
@@ -438,6 +498,9 @@ export const createFormOrchestration = (args: {
     syncSegmentedToggle(matchTypeToggle, args.matchTypeSelect.value || "singles");
     syncSegmentedToggle(formatTypeToggle, args.formatTypeSelect.value || "single_game");
     syncSegmentedToggle(pointsToggle, args.pointsToWinSelect.value || "11");
+    setSegmentedToggleDisabled(matchTypeToggle, isTournamentContext);
+    setSegmentedToggleDisabled(formatTypeToggle, disableTournamentSetup);
+    setSegmentedToggleDisabled(pointsToggle, disableTournamentSetup);
   };
 
   const collectMatchPayload = (): CreateMatchPayload => {

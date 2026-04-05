@@ -300,6 +300,54 @@ export const buildApp = (): HTMLElement => {
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
 
   let activeTournamentBracketMatchId: string | null = null;
+  const getMatchPlayerEntries = (): Array<{
+    userId: string;
+    displayName: string;
+    avatarUrl: string | null;
+    elo: number;
+    rank: number;
+  }> => {
+    const entries = new Map<
+      string,
+      {
+        userId: string;
+        displayName: string;
+        avatarUrl: string | null;
+        elo: number;
+        rank: number;
+      }
+    >();
+
+    dashboardState.players.forEach((player) => {
+      entries.set(player.userId, {
+        userId: player.userId,
+        displayName: player.displayName,
+        avatarUrl: player.avatarUrl,
+        elo: player.elo,
+        rank: player.rank,
+      });
+    });
+
+    const tournamentId = formTournamentSelect.value;
+    const bracketParticipants = tournamentId
+      ? dashboardState.matchTournamentBracketCache[tournamentId]?.participants ?? []
+      : [];
+    bracketParticipants.forEach((participant) => {
+      if (!entries.has(participant.userId)) {
+        entries.set(participant.userId, {
+          userId: participant.userId,
+          displayName: participant.displayName,
+          avatarUrl: participant.avatarUrl,
+          elo: participant.elo,
+          rank: Number.MAX_SAFE_INTEGER,
+        });
+      }
+    });
+
+    return [...entries.values()];
+  };
+  const findMatchPlayer = (playerId: string | null | undefined) =>
+    getMatchPlayerEntries().find((player) => player.userId === playerId);
   const getAllowedMatchPlayerIds = (): string[] | null => {
     const tournamentId = formTournamentSelect.value;
     if (tournamentId) {
@@ -497,10 +545,13 @@ export const buildApp = (): HTMLElement => {
     seasonIsPublicInput,
     tournamentNameInput,
     tournamentDateInput,
+    suggestMatchButton,
+    submitMatchButton,
     setSeasonSharePanelTargetId: (seasonId) => setSeasonSharePanelTargetId(seasonId),
     setTournamentSharePanelTargetId: (tournamentId) => setTournamentSharePanelTargetId(tournamentId),
     getMatchScreenRefs: () => matchScreenRefs,
     getAllowedMatchPlayerIds,
+    getMatchPlayerEntries,
     formatDate,
     t,
   });
@@ -540,8 +591,8 @@ export const buildApp = (): HTMLElement => {
           [match.leftPlayerId, match.rightPlayerId].includes(currentUserId),
         )
         .map((match: GetTournamentBracketData["rounds"][number]["matches"][number]) => {
-          const leftName = findPlayer(match.leftPlayerId, dashboardState.players)?.displayName || "Player 1";
-          const rightName = findPlayer(match.rightPlayerId, dashboardState.players)?.displayName || "Player 2";
+          const leftName = findMatchPlayer(match.leftPlayerId)?.displayName || "Player 1";
+          const rightName = findMatchPlayer(match.rightPlayerId)?.displayName || "Player 2";
           return {
             id: match.id,
             label: `${round.title}: ${leftName} vs ${rightName}`,
@@ -574,7 +625,7 @@ export const buildApp = (): HTMLElement => {
     }
     const options = getEligibleTournamentBracketMatches(tournamentId);
     if (!options.some((option) => option.id === activeTournamentBracketMatchId)) {
-      activeTournamentBracketMatchId = null;
+      activeTournamentBracketMatchId = options[0]?.id ?? null;
     }
     replaceOptions(
       matchBracketSelect,
@@ -589,6 +640,18 @@ export const buildApp = (): HTMLElement => {
       options.length > 0 ? t("matchBracketSelectPrompt") : t("matchBracketNoEligible"),
     );
     matchBracketSelect.disabled = options.length === 0;
+    if (activeTournamentBracketMatchId) {
+      applySelectedTournamentBracketMatch();
+      return;
+    }
+    teamA1Select.dataset.pendingValue = "";
+    teamA2Select.dataset.pendingValue = "";
+    teamB1Select.dataset.pendingValue = "";
+    teamB2Select.dataset.pendingValue = "";
+    teamA1Select.value = "";
+    teamA2Select.value = "";
+    teamB1Select.value = "";
+    teamB2Select.value = "";
     populateMatchFormOptions();
     syncMatchPlayerSearchInputs();
     syncDashboardState();
@@ -604,6 +667,10 @@ export const buildApp = (): HTMLElement => {
     if (!bracketMatch) {
       return;
     }
+    teamA1Select.dataset.pendingValue = bracketMatch.leftPlayerId || "";
+    teamA2Select.dataset.pendingValue = "";
+    teamB1Select.dataset.pendingValue = bracketMatch.rightPlayerId || "";
+    teamB2Select.dataset.pendingValue = "";
     teamA1Select.value = bracketMatch.leftPlayerId || "";
     teamA2Select.value = "";
     teamB1Select.value = bracketMatch.rightPlayerId || "";
@@ -756,6 +823,7 @@ export const buildApp = (): HTMLElement => {
       seasonIsPublicInput,
       seasonSelectAllParticipantsInput,
       suggestMatchButton,
+      formTournamentSelect,
       matchTypeSelect,
       resetTournamentDraftButton,
       saveTournamentButton,
@@ -1565,6 +1633,7 @@ export const buildApp = (): HTMLElement => {
     dashboardState,
     getCurrentUserId: () => getCurrentUserId(state.current),
     getAllowedMatchPlayerIds,
+    getMatchPlayerEntries,
     formSeasonSelect,
     formTournamentSelect,
     teamA1Field,

@@ -1,5 +1,13 @@
 import type { DashboardState } from "../../shared/types/app";
 
+type MatchPlayerEntry = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  elo: number;
+  rank: number;
+};
+
 type SlotKey = "teamA1" | "teamA2" | "teamB1" | "teamB2";
 
 const inputTestIdBySlot: Record<SlotKey, string> = {
@@ -23,6 +31,7 @@ export const createMatchPlayerSearchInputs = (args: {
   dashboardState: DashboardState;
   getCurrentUserId: () => string;
   getAllowedMatchPlayerIds: () => string[] | null;
+  getMatchPlayerEntries: () => MatchPlayerEntry[];
   formSeasonSelect: HTMLSelectElement;
   formTournamentSelect: HTMLSelectElement;
   teamA1Field: HTMLElement;
@@ -48,12 +57,12 @@ export const createMatchPlayerSearchInputs = (args: {
     teamB2: args.teamB2Select,
   };
 
-  const getPlayerOptionLabel = (player: DashboardState["players"][number], currentUserId: string): string =>
+  const getPlayerOptionLabel = (player: MatchPlayerEntry, currentUserId: string): string =>
     `${player.displayName} (${player.elo})${player.userId === currentUserId ? " (You)" : ""}`;
 
   const getPlayerLabel = (playerId: string): string => {
     const currentUserId = args.getCurrentUserId();
-    const player = args.dashboardState.players.find((entry) => entry.userId === playerId);
+    const player = args.getMatchPlayerEntries().find((entry) => entry.userId === playerId);
     return player ? getPlayerOptionLabel(player, currentUserId) : "";
   };
 
@@ -65,12 +74,13 @@ export const createMatchPlayerSearchInputs = (args: {
       .filter((value) => Boolean(value) && value !== currentValue);
   };
 
-  const getAvailablePlayers = (): DashboardState["players"] => {
-    const allowedIds = new Set(args.getAllowedMatchPlayerIds() ?? args.dashboardState.players.map((player) => player.userId));
-    return args.dashboardState.players.filter((player) => allowedIds.has(player.userId));
+  const getAvailablePlayers = (): MatchPlayerEntry[] => {
+    const matchPlayers = args.getMatchPlayerEntries();
+    const allowedIds = new Set(args.getAllowedMatchPlayerIds() ?? matchPlayers.map((player) => player.userId));
+    return matchPlayers.filter((player) => allowedIds.has(player.userId));
   };
 
-  const getVisiblePlayers = (slot: SlotKey, query: string): DashboardState["players"] => {
+  const getVisiblePlayers = (slot: SlotKey, query: string): MatchPlayerEntry[] => {
     const currentUserId = args.getCurrentUserId();
     const normalized = query.trim().toLowerCase();
     const blockedIds = new Set(getBlockedIds(slot));
@@ -307,8 +317,11 @@ export const createMatchPlayerSearchInputs = (args: {
   const sync = (): void => {
     (Object.keys(selectBySlot) as SlotKey[]).forEach((slot) => {
       const picker = pickerBySlot[slot];
+      const disabled = selectBySlot[slot].disabled;
       picker.input.value = getPlayerLabel(selectBySlot[slot].value);
       picker.clearButton.hidden = picker.input.value.trim().length === 0;
+      picker.input.disabled = disabled;
+      picker.clearButton.disabled = disabled;
       const currentUserId = args.getCurrentUserId();
       const players = getVisiblePlayers(slot, picker.input.matches(":focus") ? picker.input.value : "");
       picker.optionsByLabel = new Map(
@@ -328,6 +341,9 @@ export const createMatchPlayerSearchInputs = (args: {
                 picker.ignoreBlur = true;
               });
               option.addEventListener("click", () => {
+                if (selectBySlot[slot].disabled) {
+                  return;
+                }
                 picker.input.value = getPlayerOptionLabel(player, currentUserId);
                 selectBySlot[slot].value = player.userId;
                 picker.clearButton.hidden = false;
@@ -347,6 +363,9 @@ export const createMatchPlayerSearchInputs = (args: {
             })()]
         ),
       );
+      picker.menu.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+        button.disabled = disabled;
+      });
     });
   };
 

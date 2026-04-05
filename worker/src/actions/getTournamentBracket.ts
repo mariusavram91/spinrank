@@ -35,11 +35,38 @@ export async function handleGetTournamentBracket(
   }
 
   const participantIds = await getPlanParticipantIds(env, tournamentId);
+  const participantRows = await env.DB.prepare(
+    `
+      SELECT
+        u.id,
+        u.display_name,
+        u.avatar_url,
+        u.global_elo
+      FROM tournament_participants tp
+      JOIN users u ON u.id = tp.user_id
+      WHERE tp.tournament_id = ?1
+      ORDER BY u.display_name ASC
+    `,
+  )
+    .bind(tournamentId)
+    .all<{
+      id: string;
+      display_name: string;
+      avatar_url: string | null;
+      global_elo: number;
+    }>();
   const rounds = await getBracketRounds(env, tournamentId);
 
   return successResponse(request.requestId, {
     tournament: tournamentRecord,
     participantIds,
+    participants: participantRows.results.map((row) => ({
+      userId: row.id,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      elo: Number(row.global_elo),
+      isSuggested: true,
+    })),
     rounds,
   });
 }

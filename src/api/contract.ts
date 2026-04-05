@@ -385,6 +385,7 @@ export interface GetTournamentBracketPayload {
 export interface GetTournamentBracketData {
   tournament: TournamentRecord;
   participantIds: string[];
+  participants: ParticipantSearchEntry[];
   rounds: TournamentBracketRound[];
 }
 
