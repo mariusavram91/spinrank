@@ -23,6 +23,7 @@ type MatchScreenRefs = {
   seasonInfoField: HTMLElement | null;
   seasonInfoValue: HTMLElement | null;
   tournamentField: HTMLElement | null;
+  bracketField: HTMLElement | null;
 };
 
 export const createFormOrchestration = (args: {
@@ -41,6 +42,7 @@ export const createFormOrchestration = (args: {
   pointsToWinSelect: HTMLSelectElement;
   formSeasonSelect: HTMLSelectElement;
   formTournamentSelect: HTMLSelectElement;
+  matchBracketSelect: HTMLSelectElement;
   tournamentSeasonSelect: HTMLSelectElement;
   teamA1Select: HTMLSelectElement;
   teamA2Select: HTMLSelectElement;
@@ -59,6 +61,7 @@ export const createFormOrchestration = (args: {
   setSeasonSharePanelTargetId: (seasonId: string) => void;
   setTournamentSharePanelTargetId: (tournamentId: string) => void;
   getMatchScreenRefs: () => MatchScreenRefs;
+  getAllowedMatchPlayerIds: () => string[] | null;
   formatDate: (value: string) => string;
   t: (key: TextKey) => string;
 }) => {
@@ -238,6 +241,7 @@ export const createFormOrchestration = (args: {
       seasonInfoField,
       seasonInfoValue,
       tournamentField,
+      bracketField,
     } = args.getMatchScreenRefs();
     const contextMode = resolveMatchContextMode(contextToggle);
 
@@ -288,9 +292,7 @@ export const createFormOrchestration = (args: {
       (tournament) => tournament.id === args.formTournamentSelect.value,
     );
     const availablePlayerIds = new Set(
-      selectedTournament?.participantIds ||
-        args.dashboardState.seasons.find((season) => season.id === args.formSeasonSelect.value)?.participantIds ||
-        args.dashboardState.players.map((player) => player.userId),
+      args.getAllowedMatchPlayerIds() ?? args.dashboardState.players.map((player) => player.userId),
     );
 
     const playerOptions = args.dashboardState.players
@@ -429,6 +431,9 @@ export const createFormOrchestration = (args: {
     if (tournamentField) {
       tournamentField.hidden = contextMode !== "tournament";
     }
+    if (bracketField) {
+      bracketField.hidden = contextMode !== "tournament";
+    }
     syncSegmentedToggle(contextToggle, contextMode);
     syncSegmentedToggle(matchTypeToggle, args.matchTypeSelect.value || "singles");
     syncSegmentedToggle(formatTypeToggle, args.formatTypeSelect.value || "single_game");
@@ -483,6 +488,9 @@ export const createFormOrchestration = (args: {
     const tournament = args.dashboardState.tournaments.find(
       (entry) => entry.id === args.formTournamentSelect.value,
     );
+    if (tournament && !args.getActiveTournamentBracketMatchId()) {
+      throw new Error("Select a tournament bracket match.");
+    }
 
     return {
       matchType: args.matchTypeSelect.value as CreateMatchPayload["matchType"],

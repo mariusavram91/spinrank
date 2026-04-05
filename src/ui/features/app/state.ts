@@ -63,6 +63,7 @@ export const createDashboardState = (): DashboardState => ({
   sharePanelSeasonTargetId: "",
   sharePanelTournamentTargetId: "",
   shareAlertMessage: "",
+  matchTournamentBracketCache: {},
 });
 
 export const captureShareTokenFromUrl = (dashboardState: DashboardState): void => {

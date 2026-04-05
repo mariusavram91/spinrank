@@ -18,6 +18,8 @@ export const createComposerActions = (args: {
   winnerTeamSelect: HTMLSelectElement;
   resetScoreInputs: () => void;
   populateMatchFormOptions: () => void;
+  syncMatchBracketOptions: () => void;
+  applySelectedTournamentBracketMatch: () => void;
   renderTournamentPlanner: () => void;
   syncAuthState: () => void;
   syncDashboardState: () => void;
@@ -150,6 +152,8 @@ export const createComposerActions = (args: {
     args.setActiveTournamentBracketMatchId(match.id);
     args.dashboardState.screen = "createMatch";
     args.populateMatchFormOptions();
+    args.syncMatchBracketOptions();
+    args.applySelectedTournamentBracketMatch();
     args.syncAuthState();
     args.syncDashboardState();
   };

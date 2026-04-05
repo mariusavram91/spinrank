@@ -47,6 +47,7 @@ export const assembleAppScreens = (args: {
   pointsToWinSelect: HTMLSelectElement;
   formSeasonSelect: HTMLSelectElement;
   formTournamentSelect: HTMLSelectElement;
+  matchBracketSelect: HTMLSelectElement;
   teamA1Select: HTMLSelectElement;
   teamA2Select: HTMLSelectElement;
   teamB1Select: HTMLSelectElement;
@@ -157,6 +158,7 @@ export const assembleAppScreens = (args: {
     pointsToWinSelect: args.pointsToWinSelect,
     formSeasonSelect: args.formSeasonSelect,
     formTournamentSelect: args.formTournamentSelect,
+    matchBracketSelect: args.matchBracketSelect,
     teamA1Select: args.teamA1Select,
     teamA2Select: args.teamA2Select,
     teamB1Select: args.teamB1Select,

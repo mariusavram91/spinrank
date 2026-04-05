@@ -5,6 +5,7 @@ import type {
   BootstrapUserData,
   CreateMatchPayload,
   CreateSeasonPayload,
+  GetTournamentBracketData,
   GetUserProgressData,
   LeaderboardEntry,
   MatchBracketContext,
@@ -204,6 +205,7 @@ export const buildApp = (): HTMLElement => {
     pointsToWinSelect,
     formSeasonSelect,
     formTournamentSelect,
+    matchBracketSelect,
     tournamentDateInput,
     tournamentSeasonSelect,
     teamA1Select,
@@ -298,6 +300,24 @@ export const buildApp = (): HTMLElement => {
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
 
   let activeTournamentBracketMatchId: string | null = null;
+  const getAllowedMatchPlayerIds = (): string[] | null => {
+    const tournamentId = formTournamentSelect.value;
+    if (tournamentId) {
+      if (!activeTournamentBracketMatchId) {
+        return [];
+      }
+      const bracketData = dashboardState.matchTournamentBracketCache[tournamentId];
+      const bracketMatch = bracketData?.rounds
+        .flatMap((round: GetTournamentBracketData["rounds"][number]) => round.matches)
+        .find((match: GetTournamentBracketData["rounds"][number]["matches"][number]) => match.id === activeTournamentBracketMatchId);
+      return bracketMatch ? [bracketMatch.leftPlayerId, bracketMatch.rightPlayerId].filter(Boolean) as string[] : [];
+    }
+    const seasonId = formSeasonSelect.value;
+    if (seasonId) {
+      return dashboardState.seasons.find((season) => season.id === seasonId)?.participantIds ?? [];
+    }
+    return null;
+  };
   let authMenuOpen = false;
   let createMenuOpen = false;
   let seasonSharePanelElements: SharePanelElements | null = null;
@@ -411,6 +431,7 @@ export const buildApp = (): HTMLElement => {
     seasonInfoField: HTMLElement | null;
     seasonInfoValue: HTMLElement | null;
     tournamentField: HTMLElement | null;
+    bracketField: HTMLElement | null;
   } = {
     teamA2Field: null,
     teamB2Field: null,
@@ -423,6 +444,7 @@ export const buildApp = (): HTMLElement => {
     seasonInfoField: null,
     seasonInfoValue: null,
     tournamentField: null,
+    bracketField: null,
   };
   let seasonBaseEloToggle: HTMLElement | null = null;
   let seasonStateToggle: HTMLElement | null = null;
@@ -459,6 +481,7 @@ export const buildApp = (): HTMLElement => {
     pointsToWinSelect,
     formSeasonSelect,
     formTournamentSelect,
+    matchBracketSelect,
     tournamentSeasonSelect,
     teamA1Select,
     teamA2Select,
@@ -477,6 +500,7 @@ export const buildApp = (): HTMLElement => {
     setSeasonSharePanelTargetId: (seasonId) => setSeasonSharePanelTargetId(seasonId),
     setTournamentSharePanelTargetId: (tournamentId) => setTournamentSharePanelTargetId(tournamentId),
     getMatchScreenRefs: () => matchScreenRefs,
+    getAllowedMatchPlayerIds,
     formatDate,
     t,
   });
@@ -493,6 +517,106 @@ export const buildApp = (): HTMLElement => {
     isLockedTournament,
     t,
   });
+
+  const getEligibleTournamentBracketMatches = (tournamentId: string): Array<{
+    id: string;
+    label: string;
+    leftPlayerId: string;
+    rightPlayerId: string;
+  }> => {
+    const bracketData = dashboardState.matchTournamentBracketCache[tournamentId];
+    const currentUserId = getCurrentUserId(state.current);
+    if (!bracketData || !currentUserId) {
+      return [];
+    }
+    return bracketData.rounds.flatMap((round: GetTournamentBracketData["rounds"][number]) =>
+      round.matches
+        .filter((match: GetTournamentBracketData["rounds"][number]["matches"][number]) =>
+          Boolean(match.leftPlayerId) &&
+          Boolean(match.rightPlayerId) &&
+          !match.createdMatchId &&
+          !match.winnerPlayerId &&
+          !match.locked &&
+          [match.leftPlayerId, match.rightPlayerId].includes(currentUserId),
+        )
+        .map((match: GetTournamentBracketData["rounds"][number]["matches"][number]) => {
+          const leftName = findPlayer(match.leftPlayerId, dashboardState.players)?.displayName || "Player 1";
+          const rightName = findPlayer(match.rightPlayerId, dashboardState.players)?.displayName || "Player 2";
+          return {
+            id: match.id,
+            label: `${round.title}: ${leftName} vs ${rightName}`,
+            leftPlayerId: match.leftPlayerId as string,
+            rightPlayerId: match.rightPlayerId as string,
+          };
+        }),
+    );
+  };
+
+  const syncMatchBracketOptions = async (): Promise<void> => {
+    const tournamentId = formTournamentSelect.value;
+    if (!tournamentId) {
+      activeTournamentBracketMatchId = null;
+      replaceOptions(
+        matchBracketSelect,
+        [{ value: "", label: t("matchBracketSelectPrompt") }],
+        "",
+        t("matchBracketSelectPrompt"),
+      );
+      matchBracketSelect.disabled = true;
+      populateMatchFormOptions();
+      syncMatchPlayerSearchInputs();
+      syncDashboardState();
+      return;
+    }
+    if (!dashboardState.matchTournamentBracketCache[tournamentId]) {
+      const data: GetTournamentBracketData = await runAuthedAction("getTournamentBracket", { tournamentId });
+      dashboardState.matchTournamentBracketCache[tournamentId] = data;
+    }
+    const options = getEligibleTournamentBracketMatches(tournamentId);
+    if (!options.some((option) => option.id === activeTournamentBracketMatchId)) {
+      activeTournamentBracketMatchId = null;
+    }
+    replaceOptions(
+      matchBracketSelect,
+      [
+        {
+          value: "",
+          label: options.length > 0 ? t("matchBracketSelectPrompt") : t("matchBracketNoEligible"),
+        },
+        ...options.map((option) => ({ value: option.id, label: option.label })),
+      ],
+      activeTournamentBracketMatchId || "",
+      options.length > 0 ? t("matchBracketSelectPrompt") : t("matchBracketNoEligible"),
+    );
+    matchBracketSelect.disabled = options.length === 0;
+    populateMatchFormOptions();
+    syncMatchPlayerSearchInputs();
+    syncDashboardState();
+  };
+
+  const applySelectedTournamentBracketMatch = (): void => {
+    const tournamentId = formTournamentSelect.value;
+    const bracketMatch = tournamentId
+      ? dashboardState.matchTournamentBracketCache[tournamentId]?.rounds
+        .flatMap((round: GetTournamentBracketData["rounds"][number]) => round.matches)
+        .find((match: GetTournamentBracketData["rounds"][number]["matches"][number]) => match.id === activeTournamentBracketMatchId)
+      : null;
+    if (!bracketMatch) {
+      return;
+    }
+    teamA1Select.value = bracketMatch.leftPlayerId || "";
+    teamA2Select.value = "";
+    teamB1Select.value = bracketMatch.rightPlayerId || "";
+    teamB2Select.value = "";
+    matchTypeSelect.value = "singles";
+    formatTypeSelect.value = "single_game";
+    pointsToWinSelect.value = "11";
+    winnerTeamSelect.value = "A";
+    resetScoreInputs();
+    populateMatchFormOptions();
+    syncMatchPlayerSearchInputs();
+    syncDashboardState();
+  };
 
   const { syncAuthState } = createAppAuthRuntime({
     getViewState: () => state.current,
@@ -996,6 +1120,10 @@ export const buildApp = (): HTMLElement => {
     winnerTeamSelect,
     resetScoreInputs,
     populateMatchFormOptions,
+    syncMatchBracketOptions: () => {
+      void syncMatchBracketOptions();
+    },
+    applySelectedTournamentBracketMatch,
     renderTournamentPlanner,
     syncAuthState,
     syncDashboardState,
@@ -1279,6 +1407,7 @@ export const buildApp = (): HTMLElement => {
       formatTypeSelect,
       formSeasonSelect,
       formTournamentSelect,
+      matchBracketSelect,
       winnerTeamSelect,
       pointsToWinSelect,
       teamA1Select,
@@ -1332,6 +1461,7 @@ export const buildApp = (): HTMLElement => {
     seasonInfoField,
     seasonInfoValue,
     tournamentField,
+    bracketField,
     seasonBaseEloToggle: nextSeasonBaseEloToggle,
     seasonStateToggle: nextSeasonStateToggle,
     seasonVisibilityToggle: nextSeasonVisibilityToggle,
@@ -1370,6 +1500,7 @@ export const buildApp = (): HTMLElement => {
     pointsToWinSelect,
     formSeasonSelect,
     formTournamentSelect,
+    matchBracketSelect,
     teamA1Select,
     teamA2Select,
     teamB1Select,
@@ -1433,6 +1564,7 @@ export const buildApp = (): HTMLElement => {
   syncMatchPlayerSearchInputs = createMatchPlayerSearchInputs({
     dashboardState,
     getCurrentUserId: () => getCurrentUserId(state.current),
+    getAllowedMatchPlayerIds,
     formSeasonSelect,
     formTournamentSelect,
     teamA1Field,
@@ -1444,6 +1576,15 @@ export const buildApp = (): HTMLElement => {
     teamB1Select,
     teamB2Select,
   }).sync;
+  matchBracketSelect.disabled = true;
+  formTournamentSelect.addEventListener("change", () => {
+    activeTournamentBracketMatchId = null;
+    void syncMatchBracketOptions();
+  });
+  matchBracketSelect.addEventListener("change", () => {
+    activeTournamentBracketMatchId = matchBracketSelect.value || null;
+    applySelectedTournamentBracketMatch();
+  });
   seasonSharePanelElements = seasonSharePanelInstance;
   tournamentSharePanelElements = tournamentSharePanelInstance;
   bindSharePanelHandlers({
@@ -1489,6 +1630,7 @@ export const buildApp = (): HTMLElement => {
   matchScreenRefs.seasonInfoField = seasonInfoField;
   matchScreenRefs.seasonInfoValue = seasonInfoValue;
   matchScreenRefs.tournamentField = tournamentField;
+  matchScreenRefs.bracketField = bracketField;
 
   googleSlot.classList.toggle("provider-disabled", !isProviderConfigured());
   populateMatchFormOptions();

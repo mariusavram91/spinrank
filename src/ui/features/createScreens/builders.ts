@@ -23,6 +23,7 @@ export interface MatchScreenElements {
   seasonInfoField: HTMLElement;
   seasonInfoValue: HTMLElement;
   tournamentField: HTMLElement;
+  bracketField: HTMLElement;
   matchOutcome: HTMLElement;
 }
 
@@ -97,6 +98,7 @@ export const buildMatchScreen = (args: {
   pointsToWinSelect: HTMLSelectElement;
   formSeasonSelect: HTMLSelectElement;
   formTournamentSelect: HTMLSelectElement;
+  matchBracketSelect: HTMLSelectElement;
   teamA1Select: HTMLSelectElement;
   teamA2Select: HTMLSelectElement;
   teamB1Select: HTMLSelectElement;
@@ -175,6 +177,9 @@ export const buildMatchScreen = (args: {
   const tournamentField = buildField("matchFieldTournament", args.formTournamentSelect);
   tournamentField.classList.add("match-context-field");
 
+  const bracketField = buildField("matchFieldBracket", args.matchBracketSelect);
+  bracketField.classList.add("match-context-field");
+
   const teamGrid = document.createElement("div");
   teamGrid.className = "matchup-grid";
   const teamA1Field = buildField("teamAPlayer1", args.teamA1Select);
@@ -248,6 +253,7 @@ export const buildMatchScreen = (args: {
     seasonField,
     seasonInfoField,
     tournamentField,
+    bracketField,
   );
   matchContextSection.classList.add("panel-section--match", "panel-section--match-context");
 
@@ -313,6 +319,7 @@ export const buildMatchScreen = (args: {
     seasonInfoField,
     seasonInfoValue,
     tournamentField,
+    bracketField,
     matchOutcome: args.matchOutcome,
   };
 };

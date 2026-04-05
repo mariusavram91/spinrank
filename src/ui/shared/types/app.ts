@@ -1,5 +1,6 @@
 import type {
   AppSession,
+  GetTournamentBracketData,
   GetUserProgressData,
   LeaderboardEntry,
   MatchFeedFilter,
@@ -83,6 +84,7 @@ export interface DashboardState {
   sharePanelSeasonTargetId: string;
   sharePanelTournamentTargetId: string;
   shareAlertMessage: string;
+  matchTournamentBracketCache: Record<string, GetTournamentBracketData>;
 }
 
 export interface SegmentShareInfo {

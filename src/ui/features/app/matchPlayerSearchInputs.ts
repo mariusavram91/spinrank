@@ -22,6 +22,7 @@ type PickerControl = {
 export const createMatchPlayerSearchInputs = (args: {
   dashboardState: DashboardState;
   getCurrentUserId: () => string;
+  getAllowedMatchPlayerIds: () => string[] | null;
   formSeasonSelect: HTMLSelectElement;
   formTournamentSelect: HTMLSelectElement;
   teamA1Field: HTMLElement;
@@ -65,14 +66,7 @@ export const createMatchPlayerSearchInputs = (args: {
   };
 
   const getAvailablePlayers = (): DashboardState["players"] => {
-    const selectedTournament = args.dashboardState.tournaments.find(
-      (tournament) => tournament.id === args.formTournamentSelect.value,
-    );
-    const allowedIds = new Set(
-      selectedTournament?.participantIds ||
-        args.dashboardState.seasons.find((season) => season.id === args.formSeasonSelect.value)?.participantIds ||
-        args.dashboardState.players.map((player) => player.userId),
-    );
+    const allowedIds = new Set(args.getAllowedMatchPlayerIds() ?? args.dashboardState.players.map((player) => player.userId));
     return args.dashboardState.players.filter((player) => allowedIds.has(player.userId));
   };
 

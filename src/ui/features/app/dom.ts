@@ -329,6 +329,10 @@ export const createAppDom = (args: {
   formTournamentSelect.className = "select-input";
   formTournamentSelect.dataset.testid = "match-tournament-select";
 
+  const matchBracketSelect = document.createElement("select");
+  matchBracketSelect.className = "select-input";
+  matchBracketSelect.dataset.testid = "match-bracket-select";
+
   const tournamentDateInput = document.createElement("input");
   tournamentDateInput.className = "text-input";
   tournamentDateInput.type = "date";
@@ -718,6 +722,7 @@ export const createAppDom = (args: {
     pointsToWinSelect,
     formSeasonSelect,
     formTournamentSelect,
+    matchBracketSelect,
     tournamentDateInput,
     tournamentSeasonSelect,
     teamA1Select,
