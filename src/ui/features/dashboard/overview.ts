@@ -51,6 +51,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
 
   const progressPanel = document.createElement("section");
   progressPanel.className = "content-card progress-card";
+  progressPanel.dataset.testid = "progress-panel";
 
   const progressHeader = document.createElement("div");
   progressHeader.className = "card-header progress-card__header";
@@ -95,6 +96,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
 
   const leaderboardPanel = document.createElement("section");
   leaderboardPanel.className = "content-card";
+  leaderboardPanel.dataset.testid = "leaderboard-panel";
 
   const leaderboardTop = document.createElement("div");
   leaderboardTop.className = "card-header leaderboard-topline";
@@ -112,19 +114,23 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   const globalButton = document.createElement("button");
   globalButton.type = "button";
   bindLocalizedText(globalButton, "scopeGlobal");
+  globalButton.dataset.testid = "leaderboard-scope-global";
 
   const seasonButton = document.createElement("button");
   seasonButton.type = "button";
   bindLocalizedText(seasonButton, "scopeSeason");
+  seasonButton.dataset.testid = "leaderboard-scope-season";
 
   const tournamentButton = document.createElement("button");
   tournamentButton.type = "button";
   bindLocalizedText(tournamentButton, "scopeTournament");
+  tournamentButton.dataset.testid = "leaderboard-scope-tournament";
 
   segmentToggle.append(globalButton, seasonButton, tournamentButton);
 
   const seasonSelect = document.createElement("select");
   seasonSelect.className = "select-input";
+  seasonSelect.dataset.testid = "season-filter-select";
 
   const seasonStats = document.createElement("div");
   seasonStats.className = "leaderboard-season-stats";
@@ -140,6 +146,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
 
   const tournamentSelect = document.createElement("select");
   tournamentSelect.className = "select-input";
+  tournamentSelect.dataset.testid = "tournament-filter-select";
 
   const leaderboardStatsGroup = document.createElement("div");
   leaderboardStatsGroup.className = "leaderboard-stats-group";
@@ -239,6 +246,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
 
   const leaderboardList = document.createElement("div");
   leaderboardList.className = "leaderboard-list";
+  leaderboardList.dataset.testid = "leaderboard-list";
 
   leaderboardHeading.append(leaderboardTitle, segmentToggle, seasonSelect, seasonStats, tournamentSelect);
   leaderboardTop.append(leaderboardHeading);

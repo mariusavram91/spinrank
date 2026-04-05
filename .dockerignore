@@ -1,0 +1,12 @@
+node_modules
+.git
+dist
+coverage
+.cache
+.vite
+test-results
+tests/e2e/.worker-server.pid
+worker/.wrangler
+worker/dist
+worker/node_modules
+.DS_Store

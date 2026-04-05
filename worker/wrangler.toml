@@ -24,3 +24,16 @@ APP_ORIGIN = "https://spinrank.eu"
   [env.dev.vars]
   APP_ENV = "dev"
   APP_ORIGIN = "http://localhost:5173"
+
+[env.e2e]
+  [[env.e2e.d1_databases]]
+  binding = "DB"
+  database_name = "spinrank-e2e-db"
+  database_id = "00000000-0000-0000-0000-000000000000"
+  preview_database_id = "00000000-0000-0000-0000-000000000000"
+  migrations_dir = "migrations"
+
+  [env.e2e.vars]
+  APP_ENV = "test"
+  APP_ORIGIN = "http://localhost:4173"
+  TEST_AUTH_SECRET = "test-auth-secret"

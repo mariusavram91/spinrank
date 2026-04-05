@@ -1,0 +1,147 @@
+services:
+  worker-dev:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      WRANGLER_ENV: dev
+      APP_ENV: dev
+      APP_ORIGIN: http://localhost:5173
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:-dev-session-secret}
+      TEST_AUTH_SECRET: ${TEST_AUTH_SECRET:-dev-test-auth-secret}
+      WORKER_HOST: 0.0.0.0
+      WORKER_PORT: 8787
+      WRANGLER_PERSIST_PATH: /app/.wrangler/state/dev
+    ports:
+      - "8787:8787"
+    networks:
+      - dev
+    volumes:
+      - ./worker:/app
+      - worker_dev_node_modules:/app/node_modules
+      - worker_dev_state:/app/.wrangler
+    command: ["npm", "run", "dev"]
+    profiles: ["dev"]
+
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-dev
+    environment:
+      VITE_APP_ENV: dev
+      VITE_API_BASE_URL: http://localhost:8787/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - worker-dev
+    networks:
+      - dev
+    volumes:
+      - .:/app
+      - frontend_dev_node_modules:/app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    profiles: ["dev"]
+
+  worker-e2e:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      WRANGLER_ENV: e2e
+      APP_ENV: test
+      APP_ORIGIN: http://frontend-e2e:4173
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:-test-session-secret}
+      TEST_AUTH_SECRET: ${TEST_AUTH_SECRET:-test-auth-secret}
+      WORKER_HOST: 0.0.0.0
+      WORKER_PORT: 8787
+      WRANGLER_PERSIST_PATH: /app/.wrangler/state/e2e
+    ports:
+      - "8788:8787"
+    networks:
+      - e2e
+    volumes:
+      - ./worker:/app
+      - worker_e2e_node_modules:/app/node_modules
+      - worker_e2e_state:/app/.wrangler
+    depends_on:
+      worker-e2e-init:
+        condition: service_completed_successfully
+    command: ["npm", "run", "dev:test"]
+    profiles: ["e2e"]
+
+  worker-e2e-init:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      WRANGLER_ENV: e2e
+      APP_ENV: test
+      APP_ORIGIN: http://frontend-e2e:4173
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:-test-session-secret}
+      TEST_AUTH_SECRET: ${TEST_AUTH_SECRET:-test-auth-secret}
+      WRANGLER_PERSIST_PATH: /app/.wrangler/state/e2e
+    networks:
+      - e2e
+    volumes:
+      - ./worker:/app
+      - worker_e2e_node_modules:/app/node_modules
+      - worker_e2e_state:/app/.wrangler
+    command: ["npm", "run", "db:local:migrate:e2e"]
+    profiles: ["e2e"]
+
+  frontend-e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-dev
+    environment:
+      VITE_APP_ENV: test
+      VITE_API_BASE_URL: http://worker-e2e:8787/api
+    ports:
+      - "4173:4173"
+    depends_on:
+      - worker-e2e
+    networks:
+      - e2e
+    volumes:
+      - .:/app
+      - frontend_e2e_node_modules:/app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "4173", "--mode", "test"]
+    profiles: ["e2e"]
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-e2e
+    environment:
+      APP_BASE_URL: http://frontend-e2e:4173
+      APP_ORIGIN: http://frontend-e2e:4173
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:-test-session-secret}
+      WORKER_BASE_URL: http://worker-e2e:8787
+      PLAYWRIGHT_SKIP_WEBSERVER: "1"
+      PLAYWRIGHT_USE_EXTERNAL_WORKER: "1"
+      TEST_AUTH_SECRET: ${TEST_AUTH_SECRET:-test-auth-secret}
+    depends_on:
+      - frontend-e2e
+      - worker-e2e
+    networks:
+      - e2e
+    volumes:
+      - .:/app
+      - frontend_e2e_node_modules:/app/node_modules
+    command: ["npm", "run", "test:e2e"]
+    profiles: ["e2e"]
+
+volumes:
+  frontend_dev_node_modules:
+  worker_dev_node_modules:
+  worker_dev_state:
+  frontend_e2e_node_modules:
+  worker_e2e_node_modules:
+  worker_e2e_state:
+
+networks:
+  dev:
+  e2e:

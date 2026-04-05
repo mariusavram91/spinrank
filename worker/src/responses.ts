@@ -22,12 +22,18 @@ const SECURITY_HEADERS: Record<string, string> = {
 
 export function getCorsOrigin(env: Env, requestOrigin?: string | null): string {
   const normalizedAppOrigin = normalizeOrigin(env.APP_ORIGIN);
+  const normalizedRequestOrigin = normalizeOrigin(requestOrigin);
+
+  if (env.APP_ENV !== "prod" && normalizedRequestOrigin) {
+    return normalizedRequestOrigin;
+  }
+
   if (normalizedAppOrigin) {
     return normalizedAppOrigin;
   }
 
-  if (requestOrigin) {
-    return requestOrigin;
+  if (normalizedRequestOrigin) {
+    return normalizedRequestOrigin;
   }
 
   return "*";

@@ -4,12 +4,16 @@
   "type": "module",
   "scripts": {
     "build": "wrangler build",
-    "dev": "wrangler dev --env dev --persist-to=.wrangler/state",
+    "dev": "node scripts/run-dev-server.js",
+    "dev:test": "WRANGLER_ENV=e2e APP_ENV=test node scripts/run-dev-server.js",
     "deploy": "wrangler deploy",
     "test": "cd .. && vitest run --config vitest.config.ts tests/unit/worker tests/integration/worker",
-    "db:local:migrate": "wrangler d1 migrations apply DB --env dev --local --persist-to=.wrangler/state",
-    "db:local:seed": "wrangler d1 execute DB --env dev --local --persist-to=.wrangler/state --file=seed/dev_seed.sql",
-    "db:remote:migrate": "wrangler d1 migrations apply DB --remote"
+    "db:local:migrate": "wrangler d1 migrations apply DB --env dev --local --persist-to=.wrangler/state/dev",
+    "db:local:seed": "wrangler d1 execute DB --env dev --local --persist-to=.wrangler/state/dev --file=seed/dev_seed.sql",
+    "db:local:migrate:e2e": "wrangler d1 migrations apply DB --env e2e --local --persist-to=.wrangler/state/e2e",
+    "db:local:seed:e2e": "wrangler d1 execute DB --env e2e --local --persist-to=.wrangler/state/e2e --file=seed/dev_seed.sql",
+    "db:remote:migrate": "wrangler d1 migrations apply DB --env dev --remote",
+    "db:remote:migrate:e2e": "wrangler d1 migrations apply DB --env e2e --remote"
   },
   "dependencies": {
     "jose": "^6.0.0",

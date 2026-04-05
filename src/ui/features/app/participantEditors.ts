@@ -74,6 +74,8 @@ export const createParticipantEditors = (args: {
     const participant = getKnownParticipant(participantId);
     const chip = document.createElement("article");
     chip.className = "participant-chip participant-chip--selected";
+    chip.dataset.testid = "participant-chip";
+    chip.dataset.participantId = participantId;
 
     const avatar = document.createElement("img");
     avatar.className = "player-avatar player-avatar-small";
@@ -103,6 +105,7 @@ export const createParticipantEditors = (args: {
     action.className = "secondary-button participant-chip__action";
     action.textContent = locked ? args.t("participantLockedLabel") : args.t("participantRemove");
     action.disabled = locked;
+    action.dataset.testid = "participant-remove-button";
     action.addEventListener("click", onRemove);
 
     chip.append(avatar, content, action);
@@ -117,6 +120,7 @@ export const createParticipantEditors = (args: {
   ): HTMLElement => {
     const row = document.createElement("article");
     row.className = "participant-chip participant-chip--search";
+    row.dataset.testid = "participant-search-result";
 
     const avatar = document.createElement("img");
     avatar.className = "player-avatar player-avatar-small";
@@ -148,6 +152,7 @@ export const createParticipantEditors = (args: {
     action.className = "primary-button participant-chip__action";
     action.textContent = selected ? args.t("participantAddedLabel") : args.t("participantAdd");
     action.disabled = selected || locked;
+    action.dataset.testid = "participant-add-button";
     action.addEventListener("click", onAdd);
 
     row.append(avatar, content, action);

@@ -38,19 +38,24 @@ npm install
 cd ..
 ```
 
-### 3. Create the D1 database
+### 3. Create the D1 databases
 
 From the `worker` directory:
 
 ```bash
 cd worker
 npx wrangler d1 create spinrank-db
+npx wrangler d1 create spinrank-e2e-db
 ```
 
 This prints the database IDs you need for [worker/wrangler.toml](/Users/mariusavram/Projects/spinrank-main/worker/wrangler.toml). Replace:
 
-- `database_id`
-- `preview_database_id`
+- `env.dev.d1_databases[0].database_id`
+- `env.dev.d1_databases[0].preview_database_id`
+- `env.e2e.d1_databases[0].database_id`
+- `env.e2e.d1_databases[0].preview_database_id`
+
+The checked-in `env.e2e` IDs are intentionally dummy placeholder UUIDs, so replace them before using the e2e Worker environment.
 
 If you want separate preview and production databases, create both and set the IDs explicitly.
 
@@ -79,6 +84,7 @@ Use:
 ```bash
 cd worker
 npm run db:local:migrate
+npm run db:local:migrate:e2e
 ```
 
 ### 6. Seed local data
@@ -86,6 +92,7 @@ npm run db:local:migrate
 ```bash
 cd worker
 npm run db:local:seed
+npm run db:local:seed:e2e
 ```
 
 This loads the manual verification dataset from [worker/seed/dev_seed.sql](/Users/mariusavram/Projects/spinrank-main/worker/seed/dev_seed.sql).
@@ -133,8 +140,16 @@ Health check:
 - `npm run test:watch` — keep Vitest running in watch mode while you work on the UI.
 - `npm run test:unit` / `npm run test:integration` — focus on `tests/unit` or `tests/integration` when you only need that surface.
 - `npm run test:coverage` — run Vitest with coverage reporting; results land in `coverage/`.
-- `npm run test:e2e` — run the Playwright tests configured in `playwright.config.ts`. Install the browsers once with `npx playwright install` before running this script.
+- `npm run test:e2e` — run the Playwright tests configured in `playwright.config.ts`. Install the browsers once with `npx playwright install` before running this script. This command starts the Vite frontend in `test` mode and a dedicated test Worker automatically.
 - `npm run test:all` — sequentially runs `test:coverage` and `test:e2e` for a full handoff in one command.
+
+For local e2e runs, Playwright boots the Vite dev server in `test` mode (loading `.env.test`) and spawns the Cloudflare Worker in test mode via `worker/dev:test`. The worker exposes the authenticated `/test/bootstrap-user` route and reads `TEST_AUTH_SECRET` from the Node environment, defaulting to `test-auth-secret`.
+
+If you want to override the default local test secret, export it when you run the suite:
+
+```bash
+TEST_AUTH_SECRET=your-test-secret npm run test:e2e
+```
 
 Run every script from the repo root. Vitest inherits the Vite config, so `npm run typecheck` must succeed before tests can pass; fix any type errors before rerunning.
 
@@ -153,6 +168,54 @@ From the repo root:
 ```bash
 npm run dev
 ```
+
+## Docker Compose convenience
+
+If you prefer containers, the provided `docker-compose.yml` now defines two isolated stacks:
+
+- `dev`: frontend + worker for day-to-day development on `5173` / `8787`
+- `e2e`: frontend + worker dedicated to Playwright on `4173` / `8788`, plus a separate `e2e` runner container
+
+The stacks use separate bridge networks, separate `node_modules` volumes, separate published ports, and separate Wrangler state volumes so they do not share runtime state or local D1 data.
+
+1. Start the development stack:
+
+   ```bash
+   docker compose -p spinrank-dev --profile dev up --build frontend-dev worker-dev
+   ```
+
+   - Visit `http://localhost:5173` to see the frontend.
+   - The worker API is available at `http://localhost:8787/api` and `/health`.
+   - Override secrets or IDs from your shell only if you need to, for example:
+
+   ```bash
+   APP_SESSION_SECRET=... TEST_AUTH_SECRET=... VITE_GOOGLE_CLIENT_ID=... docker compose -p spinrank-dev --profile dev up --build frontend-dev worker-dev
+   ```
+
+2. Start the isolated e2e stack when you want to inspect the test frontend/worker manually:
+
+   ```bash
+   docker compose -p spinrank-e2e --profile e2e up --build frontend-e2e worker-e2e
+   ```
+
+   The test frontend is exposed at `http://localhost:4173` and the test worker at `http://localhost:8788`.
+
+3. Run Playwright inside the dedicated test container:
+
+   ```bash
+   docker compose -p spinrank-e2e --profile e2e run --rm e2e
+   ```
+
+   This is the simplest Docker e2e command because it brings up the required services automatically. If you already started `frontend-e2e` and `worker-e2e` separately, the same command reuses them.
+
+   Or run the worker suites with `docker compose -p spinrank-e2e --profile e2e run --rm worker-e2e npm run test`.
+
+4. When you are done, stop either stack without affecting the other:
+
+   ```bash
+   docker compose -p spinrank-dev down
+   docker compose -p spinrank-e2e down
+   ```
 
 ## Verification
 
@@ -207,7 +270,13 @@ After the database exists, run the remote migrations & seed data:
 ```bash
 cd worker
 npm run db:remote:migrate
-npm run db:remote:seed
+```
+
+If you keep a dedicated remote e2e database, migrate it separately:
+
+```bash
+cd worker
+npm run db:remote:migrate:e2e
 ```
 
 ### 2. Wire the Worker secrets

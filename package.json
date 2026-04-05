@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepare": "git config core.hooksPath .githooks",
+    "prepare": "node scripts/config-hooks.mjs",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",

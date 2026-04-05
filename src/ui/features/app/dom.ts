@@ -106,9 +106,11 @@ export const createAppDom = (args: {
   createMenuButton.className = "create-menu-button";
   createMenuButton.textContent = "+";
   createMenuButton.setAttribute("aria-label", "Open create menu");
+  createMenuButton.dataset.testid = "create-menu-toggle";
 
   const dashboard = document.createElement("section");
   dashboard.className = "dashboard";
+  dashboard.dataset.testid = "dashboard-screen";
 
   const createMatchScreen = document.createElement("section");
   createMatchScreen.className = "dashboard";
@@ -228,16 +230,19 @@ export const createAppDom = (args: {
   openCreateMatchButton.type = "button";
   openCreateMatchButton.className = "secondary-button";
   bindLocalizedText(openCreateMatchButton, "createMatch");
+  openCreateMatchButton.dataset.testid = "open-match-button";
 
   const openCreateTournamentButton = document.createElement("button");
   openCreateTournamentButton.type = "button";
   openCreateTournamentButton.className = "secondary-button";
   bindLocalizedText(openCreateTournamentButton, "openCreateTournament");
+  openCreateTournamentButton.dataset.testid = "open-tournament-button";
 
   const openCreateSeasonButton = document.createElement("button");
   openCreateSeasonButton.type = "button";
   openCreateSeasonButton.className = "secondary-button";
   bindLocalizedText(openCreateSeasonButton, "createSeason");
+  openCreateSeasonButton.dataset.testid = "open-season-button";
 
   const {
     openButton: openScoreCardButton,
@@ -254,6 +259,7 @@ export const createAppDom = (args: {
     getSeasons: args.getSeasons,
     getSelectedSeasonId: args.getSelectedSeasonId,
   });
+  openScoreCardButton.dataset.testid = "open-scorecard-button";
   const { overlay: deleteWarningOverlay, prompt: promptDeleteWarning } = buildDeleteWarning();
 
   const dashboardOverview = buildDashboardOverview(args.assetsBaseUrl);
@@ -305,18 +311,23 @@ export const createAppDom = (args: {
 
   const matchTypeSelect = document.createElement("select");
   matchTypeSelect.className = "select-input";
+  matchTypeSelect.dataset.testid = "match-type-select";
 
   const formatTypeSelect = document.createElement("select");
   formatTypeSelect.className = "select-input";
+  formatTypeSelect.dataset.testid = "match-format-select";
 
   const pointsToWinSelect = document.createElement("select");
   pointsToWinSelect.className = "select-input";
+  pointsToWinSelect.dataset.testid = "match-points-select";
 
   const formSeasonSelect = document.createElement("select");
   formSeasonSelect.className = "select-input";
+  formSeasonSelect.dataset.testid = "match-season-select";
 
   const formTournamentSelect = document.createElement("select");
   formTournamentSelect.className = "select-input";
+  formTournamentSelect.dataset.testid = "match-tournament-select";
 
   const tournamentDateInput = document.createElement("input");
   tournamentDateInput.className = "text-input";
@@ -328,12 +339,16 @@ export const createAppDom = (args: {
 
   const teamA1Select = document.createElement("select");
   teamA1Select.className = "select-input";
+  teamA1Select.dataset.testid = "match-team-a-1";
   const teamA2Select = document.createElement("select");
   teamA2Select.className = "select-input";
+  teamA2Select.dataset.testid = "match-team-a-2";
   const teamB1Select = document.createElement("select");
   teamB1Select.className = "select-input";
+  teamB1Select.dataset.testid = "match-team-b-1";
   const teamB2Select = document.createElement("select");
   teamB2Select.className = "select-input";
+  teamB2Select.dataset.testid = "match-team-b-2";
 
   const winnerTeamSelect = document.createElement("select");
   winnerTeamSelect.className = "select-input";
@@ -354,6 +369,10 @@ export const createAppDom = (args: {
     teamALabel: document.createElement("span"),
     teamBLabel: document.createElement("span"),
   }));
+  scoreInputs.forEach((game, index) => {
+    game.teamA.dataset.testid = `match-score-${index}-team-a`;
+    game.teamB.dataset.testid = `match-score-${index}-team-b`;
+  });
 
   const resetScoreInputs = (): void => {
     scoreInputs.forEach((game) => {
@@ -366,6 +385,7 @@ export const createAppDom = (args: {
   submitMatchButton.type = "submit";
   submitMatchButton.className = "primary-button";
   bindLocalizedText(submitMatchButton, "createMatch");
+  submitMatchButton.dataset.testid = "match-submit";
 
   const matchesTitle = document.createElement("h3");
   matchesTitle.className = "card-title";
@@ -424,12 +444,14 @@ export const createAppDom = (args: {
   const closeCreateSeasonButton = document.createElement("button");
   closeCreateSeasonButton.type = "button";
   closeCreateSeasonButton.className = "secondary-button compact-header-button";
+  closeCreateSeasonButton.dataset.testid = "close-create-season-button";
   bindLocalizedText(closeCreateSeasonButton, "back");
 
   const seasonStatus = document.createElement("p");
   seasonStatus.className = "form-status share-alert match-composer-alert";
   seasonStatus.hidden = true;
   seasonStatus.setAttribute("aria-live", "polite");
+  seasonStatus.dataset.testid = "season-status";
 
   const seasonSummary = document.createElement("p");
   seasonSummary.className = "summary-chip";
@@ -440,7 +462,7 @@ export const createAppDom = (args: {
 
   const seasonQuickBar = document.createElement("div");
   seasonQuickBar.className = "segment-lock-bar";
-  seasonQuickBar.append(seasonLockNotice);
+  seasonQuickBar.append(seasonStatus, seasonLockNotice);
 
   const seasonInsights = document.createElement("div");
   seasonInsights.className = "segment-insights";
@@ -452,6 +474,7 @@ export const createAppDom = (args: {
   const seasonNameInput = document.createElement("input");
   seasonNameInput.className = "text-input";
   seasonNameInput.placeholder = "Season name";
+  seasonNameInput.dataset.testid = "season-name";
 
   const loadSeasonSelect = document.createElement("select");
   loadSeasonSelect.className = "select-input";
@@ -465,10 +488,12 @@ export const createAppDom = (args: {
   seasonStartDateInput.className = "text-input";
   seasonStartDateInput.type = "date";
   seasonStartDateInput.value = getTodayDateValue();
+  seasonStartDateInput.dataset.testid = "season-start";
 
   const seasonEndDateInput = document.createElement("input");
   seasonEndDateInput.className = "text-input";
   seasonEndDateInput.type = "date";
+  seasonEndDateInput.dataset.testid = "season-end";
 
   const seasonBaseEloSelect = document.createElement("select");
   seasonBaseEloSelect.className = "select-input";
@@ -487,6 +512,7 @@ export const createAppDom = (args: {
   seasonParticipantSearchInput.className = "text-input participant-search-input";
   seasonParticipantSearchInput.type = "search";
   bindLocalizedAttribute(seasonParticipantSearchInput, "placeholder", "participantSearchPlaceholder");
+  seasonParticipantSearchInput.dataset.testid = "season-participant-search";
 
   const seasonParticipantResults = document.createElement("div");
   seasonParticipantResults.className = "participant-search-results";
@@ -514,6 +540,7 @@ export const createAppDom = (args: {
   submitSeasonButton.type = "submit";
   submitSeasonButton.className = "primary-button";
   bindLocalizedText(submitSeasonButton, "createSeason");
+  submitSeasonButton.dataset.testid = "season-submit";
 
   const deleteSeasonButton = document.createElement("button");
   deleteSeasonButton.type = "button";

@@ -2,9 +2,11 @@ dist
 node_modules
 .DS_Store
 coverage
+test-results/
 *.tsbuildinfo
 .env.local
 .env.*.local
+.env.docker
 .clasp.json
 *.sqlite
 *.sqlite3
@@ -12,5 +14,6 @@ coverage
 worker/.wrangler/state/
 worker/.wrangler/tmp/
 .dev.vars
+tests/e2e/.worker-server.pid
 *.swp
 plans

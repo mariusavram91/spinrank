@@ -2,6 +2,13 @@ import type { DashboardState } from "../../shared/types/app";
 
 type SlotKey = "teamA1" | "teamA2" | "teamB1" | "teamB2";
 
+const inputTestIdBySlot: Record<SlotKey, string> = {
+  teamA1: "match-player-search-team-a-1",
+  teamA2: "match-player-search-team-a-2",
+  teamB1: "match-player-search-team-b-1",
+  teamB2: "match-player-search-team-b-2",
+};
+
 type PickerControl = {
   input: HTMLInputElement;
   list: HTMLDataListElement;
@@ -41,6 +48,7 @@ export const createMatchPlayerSearchInputs = (args: {
     input.className = "text-input match-player-search-input";
     input.autocomplete = "off";
     input.spellcheck = false;
+    input.dataset.testid = inputTestIdBySlot[slot];
 
     const list = document.createElement("datalist");
     list.id = `match-player-search-${slot}-${++listIdCounter}`;

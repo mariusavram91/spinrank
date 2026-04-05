@@ -37,6 +37,7 @@ export const buildMatchesPanel = (args: {
 } => {
   const matchesPanel = document.createElement("section");
   matchesPanel.className = "content-card";
+  matchesPanel.dataset.testid = "matches-panel";
 
   const matchesTop = document.createElement("div");
   matchesTop.className = "card-header match-topline";
@@ -65,6 +66,7 @@ export const buildMatchesPanel = (args: {
 
   const matchesList = document.createElement("div");
   matchesList.className = "matches-list";
+  matchesList.dataset.testid = "matches-list";
 
   const loadMoreButton = document.createElement("button");
   loadMoreButton.type = "button";
