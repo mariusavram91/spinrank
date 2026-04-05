@@ -178,6 +178,7 @@ export const createMatchPlayerSearchInputs = (args: {
               const option = document.createElement("button");
               option.type = "button";
               option.className = "score-card__player-search-option";
+              option.dataset.testid = "match-player-search-option";
               option.textContent = getPlayerOptionLabel(player, currentUserId);
               option.addEventListener("pointerdown", (event) => {
                 event.preventDefault();

@@ -31,4 +31,4 @@ if ! is_running frontend-e2e || ! is_running worker-e2e; then
   docker compose "${COMPOSE_ARGS[@]}" up -d frontend-e2e worker-e2e
 fi
 
-docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps e2e npm run test:e2e -- --workers=1 --output=/tmp/spinrank-playwright-prepush
+docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps -T e2e npm run test:e2e -- --workers=1 --output=/tmp/spinrank-playwright-prepush

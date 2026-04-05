@@ -55,8 +55,9 @@ async function createSeasonAndMatch(page: import("@playwright/test").Page, rival
   await page.getByTestId("create-menu-toggle").click();
   await page.getByTestId("open-match-button").click();
   await page.getByTestId("match-context-season").click();
+  await expect(page.getByTestId("match-season-select")).not.toHaveValue("");
   await page.getByTestId("match-player-search-team-b-1").fill(`${rivalDisplayName} (1200)`);
-  await page.getByTestId("match-player-search-team-b-1").press("Tab");
+  await page.getByTestId("match-player-search-option").filter({ hasText: rivalDisplayName }).first().click();
   await page.getByTestId("match-score-0-team-a").fill("11");
   await page.getByTestId("match-score-0-team-b").fill("5");
   await page.getByTestId("match-submit").click();
