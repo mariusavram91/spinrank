@@ -58,7 +58,7 @@
   "matchSectionContext": "Season & tournament",
   "matchSectionSetup": "Setup",
   "matchSectionPlayers": "Players",
-  "matchSectionWinnerScoring": "Winner & scoring",
+  "matchSectionWinnerScoring": "Results",
   "matchOutcomePending": "Winner updates automatically from the score.",
   "matchLockBracketLocked": "This bracket pairing is locked because players already advanced.",
   "matchLockSeasonComplete": "This season is completed and no further matches can be added.",

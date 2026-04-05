@@ -211,10 +211,6 @@ export const buildMatchScreen = (args: {
   const scoreSection = document.createElement("div");
   scoreSection.className = "form-field";
 
-  const scoreLabel = document.createElement("span");
-  scoreLabel.className = "field-label";
-  bindLocalizedText(scoreLabel, "scoreLabel");
-
   args.scoreInputs.forEach((game, index) => {
     const gameBlock = document.createElement("div");
     gameBlock.className = "score-game-block";
@@ -245,7 +241,7 @@ export const buildMatchScreen = (args: {
     scoreGrid.append(gameBlock);
   });
 
-  scoreSection.append(scoreLabel, scoreGrid);
+  scoreSection.append(scoreGrid);
 
   const matchContextSection = createPanelSection(
     "matchSectionContext",
