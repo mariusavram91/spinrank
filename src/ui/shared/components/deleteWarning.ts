@@ -10,11 +10,13 @@ export interface DeleteWarningElements {
 export const buildDeleteWarning = (): DeleteWarningElements => {
   const overlay = document.createElement("div");
   overlay.className = "delete-warning-overlay";
+  overlay.dataset.testid = "delete-warning-overlay";
   overlay.hidden = true;
   overlay.tabIndex = -1;
 
   const modal = document.createElement("div");
   modal.className = "delete-warning-modal";
+  modal.dataset.testid = "delete-warning-modal";
   modal.setAttribute("role", "alertdialog");
   modal.setAttribute("aria-modal", "true");
   modal.setAttribute("aria-labelledby", "delete-warning-title");
@@ -48,6 +50,7 @@ export const buildDeleteWarning = (): DeleteWarningElements => {
 
   const input = document.createElement("input");
   input.className = "delete-warning__input";
+  input.dataset.testid = "delete-warning-input";
   input.type = "text";
   input.hidden = true;
   input.autocomplete = "off";
@@ -61,11 +64,13 @@ export const buildDeleteWarning = (): DeleteWarningElements => {
   const cancelButton = document.createElement("button");
   cancelButton.type = "button";
   cancelButton.className = "secondary-button";
+  cancelButton.dataset.testid = "delete-warning-cancel";
   bindLocalizedText(cancelButton, "deleteWarningCancel");
 
   const confirmButton = document.createElement("button");
   confirmButton.type = "button";
   confirmButton.className = "secondary-button destructive-button";
+  confirmButton.dataset.testid = "delete-warning-confirm";
   bindLocalizedText(confirmButton, "deleteWarningConfirm");
 
   actions.append(cancelButton, confirmButton);

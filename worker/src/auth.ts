@@ -53,9 +53,11 @@ export async function requireSessionUser(
   }
 
   try {
+    const runtime = resolveWorkerRuntime(env.runtime);
     const verified = await jwtVerify<SessionClaims>(
       sessionToken,
       new TextEncoder().encode(env.APP_SESSION_SECRET),
+      { currentDate: new Date(runtime.now()) },
     );
 
     const userId = String(verified.payload.sub);

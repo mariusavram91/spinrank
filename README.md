@@ -141,6 +141,7 @@ Health check:
 - `npm run test:unit` / `npm run test:integration` — focus on `tests/unit` or `tests/integration` when you only need that surface.
 - `npm run test:coverage` — run Vitest with coverage reporting; results land in `coverage/`.
 - `npm run test:e2e` — run the Playwright tests configured in `playwright.config.ts`. Install the browsers once with `npx playwright install` before running this script. This command starts the Vite frontend in `test` mode and a dedicated test Worker automatically.
+- The Playwright global setup now applies the local `e2e` D1 migrations into an isolated Wrangler state directory before the Worker boots, so the browser suite no longer depends on a pre-migrated local test database.
 - `npm run test:all` — sequentially runs `test:coverage` and `test:e2e` for a full handoff in one command.
 
 For local e2e runs, Playwright boots the Vite dev server in `test` mode (loading `.env.test`) and spawns the Cloudflare Worker in test mode via `worker/dev:test`. The worker exposes the authenticated `/test/bootstrap-user` route and reads `TEST_AUTH_SECRET` from the Node environment, defaulting to `test-auth-secret`.

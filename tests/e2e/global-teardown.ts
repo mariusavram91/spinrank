@@ -1,9 +1,10 @@
-import { readFile, unlink } from "node:fs/promises";
+import { readFile, rm, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
 const PID_FILE = join(process.cwd(), "tests/e2e/.worker-server.pid");
 const SKIP_WORKER_BOOT = process.env.PLAYWRIGHT_USE_EXTERNAL_WORKER === "1";
+const WRANGLER_PERSIST_PATH = process.env.WRANGLER_PERSIST_PATH ?? "tests/e2e/.wrangler-state";
 
 export default async function globalTeardown() {
   if (SKIP_WORKER_BOOT) {
@@ -28,5 +29,11 @@ export default async function globalTeardown() {
     await unlink(PID_FILE);
   } catch {
     // ignore if already removed
+  }
+
+  try {
+    await rm(join(process.cwd(), "worker", WRANGLER_PERSIST_PATH), { recursive: true, force: true });
+  } catch {
+    // ignore cleanup errors
   }
 }

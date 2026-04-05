@@ -147,6 +147,7 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
         const deleteMatchButton = document.createElement("button");
         deleteMatchButton.type = "button";
         deleteMatchButton.className = "icon-button match-delete-button";
+        deleteMatchButton.dataset.testid = "match-delete-button";
         deleteMatchButton.textContent = "🗑";
         deleteMatchButton.setAttribute("aria-label", "Delete match");
         deleteMatchButton.title = "Delete match";

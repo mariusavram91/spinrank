@@ -15,6 +15,7 @@
     "test:integration": "vitest run tests/integration",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:docker": "bash scripts/run-docker-e2e.sh",
     "test:all": "npm run test:coverage && npm run test:e2e"
   },
   "devDependencies": {

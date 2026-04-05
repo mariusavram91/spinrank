@@ -81,6 +81,7 @@ test.describe("dashboard smoke flow", () => {
 
     await page.getByTestId("create-menu-toggle").click();
     await page.getByTestId("open-match-button").click();
+    await page.getByTestId("match-context-season").click();
     await page.getByTestId("match-player-search-team-b-1").fill(`${rivalDisplayName} (1200)`);
     await page.getByTestId("match-player-search-team-b-1").press("Tab");
     await page.getByTestId("match-score-0-team-a").fill("11");

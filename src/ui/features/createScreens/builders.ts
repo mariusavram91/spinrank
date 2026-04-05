@@ -132,6 +132,9 @@ export const buildMatchScreen = (args: {
     "segment-toggle",
   );
   contextToggle.dataset.mode = "open";
+  Array.from(contextToggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
+    button.dataset.testid = `match-context-${button.dataset.value}`;
+  });
 
   const matchTypeToggle = buildSegmentedControl(
     [
