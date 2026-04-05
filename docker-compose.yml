@@ -6,7 +6,7 @@ services:
     environment:
       WRANGLER_ENV: dev
       APP_ENV: dev
-      APP_ORIGIN: http://localhost:5173
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:5173}
       APP_SESSION_SECRET: ${APP_SESSION_SECRET:-dev-session-secret}
       TEST_AUTH_SECRET: ${TEST_AUTH_SECRET:-dev-test-auth-secret}
       WORKER_HOST: 0.0.0.0
@@ -29,8 +29,10 @@ services:
       dockerfile: Dockerfile
       target: frontend-dev
     environment:
+      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: ${__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS:-}
       VITE_APP_ENV: dev
-      VITE_API_BASE_URL: http://localhost:8787/api
+      VITE_API_BASE_URL: /api
+      VITE_DEV_PROXY_TARGET: http://worker-dev:8787
     ports:
       - "5173:5173"
     depends_on:

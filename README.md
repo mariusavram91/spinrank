@@ -108,14 +108,14 @@ cp .env.example .env.local
 Current frontend env vars:
 
 - `VITE_APP_ENV=dev`
-- `VITE_API_BASE_URL=http://127.0.0.1:8787/api`
+- `VITE_API_BASE_URL=/api`
 - `VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com`
 
 Update at least:
 
 - `VITE_GOOGLE_CLIENT_ID`
 
-Keep `VITE_API_BASE_URL` pointed at the local Worker unless you are intentionally testing against a deployed environment.
+Keep `VITE_API_BASE_URL=/api` for local development so the Vite dev server can proxy requests to the local Worker.
 
 ### 8. Start the Worker
 
@@ -124,7 +124,7 @@ cd worker
 npm run dev
 ```
 
-By default the frontend expects the Worker at:
+By default the frontend proxies these local backend routes:
 
 - `http://127.0.0.1:8787/api`
 
@@ -181,7 +181,7 @@ The stacks use separate bridge networks, separate `node_modules` volumes, separa
 1. Start the development stack:
 
    ```bash
-   docker compose -p spinrank-dev --profile dev up --build frontend-dev worker-dev
+   docker compose -p spinrank-dev --profile dev up --build worker-dev frontend-dev
    ```
 
    - Visit `http://localhost:5173` to see the frontend.
@@ -189,7 +189,14 @@ The stacks use separate bridge networks, separate `node_modules` volumes, separa
    - Override secrets or IDs from your shell only if you need to, for example:
 
    ```bash
-   APP_SESSION_SECRET=... TEST_AUTH_SECRET=... VITE_GOOGLE_CLIENT_ID=... docker compose -p spinrank-dev --profile dev up --build frontend-dev worker-dev
+   APP_SESSION_SECRET=... TEST_AUTH_SECRET=... VITE_GOOGLE_CLIENT_ID=... docker compose -p spinrank-dev --profile dev up --build worker-dev frontend-dev
+   ```
+
+   If you seed the local D1 database on your host, the Docker worker will not see that data because Docker uses its own Wrangler state volume. Seed the Docker-backed local database with:
+
+   ```bash
+   docker compose -p spinrank-dev --profile dev run --rm worker-dev npm run db:local:migrate
+   docker compose -p spinrank-dev --profile dev run --rm worker-dev npm run db:local:seed
    ```
 
 2. Start the isolated e2e stack when you want to inspect the test frontend/worker manually:
@@ -216,6 +223,53 @@ The stacks use separate bridge networks, separate `node_modules` volumes, separa
    docker compose -p spinrank-dev down
    docker compose -p spinrank-e2e down
    ```
+
+## Phone testing with a temporary Cloudflare Tunnel
+
+If you want to open the dev app on your phone without changing your local network setup, you can expose the Vite frontend through a temporary Cloudflare Tunnel.
+
+1. Start the local dev stack:
+
+   ```bash
+   docker compose -p spinrank-dev --profile dev up --build worker-dev frontend-dev
+   ```
+
+2. In a second terminal, create a temporary tunnel to the frontend:
+
+   ```bash
+   cloudflared tunnel --url http://localhost:5173
+   ```
+
+   Cloudflare prints a temporary public URL such as:
+
+   ```text
+   https://example-tunnel-name.trycloudflare.com
+   ```
+
+3. Add the generated hostname to Google Cloud Console:
+
+   - Open `APIs & Services > Credentials`.
+   - Open your OAuth 2.0 Web Client.
+   - Add the exact origin under `Authorized JavaScript origins`, for example:
+
+   ```text
+   https://example-tunnel-name.trycloudflare.com
+   ```
+
+4. Restart the Docker dev stack with the tunnel hostname wired into both Vite and the worker:
+
+   ```bash
+   APP_ORIGIN=https://example-tunnel-name.trycloudflare.com \
+   __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=example-tunnel-name.trycloudflare.com \
+   docker compose -p spinrank-dev --profile dev up --build worker-dev frontend-dev
+   ```
+
+5. Open the Cloudflare URL on your phone and test the app there.
+
+Notes:
+
+- `trycloudflare.com` hostnames are temporary. If you start a new tunnel and get a different hostname, update both the Google OAuth origin and `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`.
+- Google Sign-In matches origins exactly. Use the full `https://...trycloudflare.com` origin and do not include a path.
 
 ## Verification
 
