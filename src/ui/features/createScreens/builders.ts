@@ -399,6 +399,7 @@ export const buildTournamentScreen = (args: {
     tournamentDetailsSection,
     tournamentParticipantsSection,
     tournamentActionsWrapper,
+    args.tournamentStatus,
     tournamentBracketSection,
   );
   args.screen.append(args.tournamentPanel);

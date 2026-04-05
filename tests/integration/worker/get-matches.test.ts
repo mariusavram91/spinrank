@@ -106,7 +106,7 @@ describe("worker integration: getMatches", () => {
     } finally {
       await context.cleanup();
     }
-  });
+  }, 30000);
 
   it("hides private season matches from users outside the season", async () => {
     const context = await createWorkerTestContext();

@@ -337,6 +337,7 @@ export const createAppDom = (args: {
   tournamentDateInput.className = "text-input";
   tournamentDateInput.type = "date";
   tournamentDateInput.value = getTodayDateValue();
+  tournamentDateInput.dataset.testid = "tournament-date";
 
   const tournamentSeasonSelect = document.createElement("select");
   tournamentSeasonSelect.className = "select-input";
@@ -431,6 +432,7 @@ export const createAppDom = (args: {
   closeCreateTournamentButton.type = "button";
   closeCreateTournamentButton.className = "secondary-button compact-header-button";
   bindLocalizedText(closeCreateTournamentButton, "back");
+  closeCreateTournamentButton.dataset.testid = "close-create-tournament-button";
 
   const seasonTop = document.createElement("div");
   seasonTop.className = "card-header";
@@ -555,9 +557,11 @@ export const createAppDom = (args: {
   const tournamentNameInput = document.createElement("input");
   tournamentNameInput.className = "text-input";
   tournamentNameInput.placeholder = "Tournament name";
+  tournamentNameInput.dataset.testid = "tournament-name";
 
   const loadTournamentSelect = document.createElement("select");
   loadTournamentSelect.className = "select-input";
+  loadTournamentSelect.dataset.testid = "tournament-load-select";
 
   const resetTournamentDraftButton = document.createElement("button");
   resetTournamentDraftButton.type = "button";
@@ -568,6 +572,7 @@ export const createAppDom = (args: {
   tournamentStatus.className = "form-status share-alert match-composer-alert";
   tournamentStatus.hidden = true;
   tournamentStatus.setAttribute("aria-live", "polite");
+  tournamentStatus.dataset.testid = "tournament-status";
 
   const tournamentSummary = document.createElement("p");
   tournamentSummary.className = "summary-chip";
@@ -598,6 +603,7 @@ export const createAppDom = (args: {
   participantSearchInput.className = "text-input participant-search-input";
   participantSearchInput.type = "search";
   bindLocalizedAttribute(participantSearchInput, "placeholder", "participantSearchPlaceholder");
+  participantSearchInput.dataset.testid = "tournament-participant-search";
 
   const participantSearchResults = document.createElement("div");
   participantSearchResults.className = "participant-search-results";
@@ -619,11 +625,13 @@ export const createAppDom = (args: {
   suggestTournamentButton.type = "button";
   suggestTournamentButton.className = "primary-button";
   bindLocalizedText(suggestTournamentButton, "suggestTournament");
+  suggestTournamentButton.dataset.testid = "tournament-suggest";
 
   const saveTournamentButton = document.createElement("button");
   saveTournamentButton.type = "button";
   saveTournamentButton.className = "primary-button";
   bindLocalizedText(saveTournamentButton, "saveTournament");
+  saveTournamentButton.dataset.testid = "tournament-save";
 
   const deleteTournamentButton = document.createElement("button");
   deleteTournamentButton.type = "button";

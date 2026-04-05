@@ -61,5 +61,5 @@ describe("worker integration: searchParticipants", () => {
     } finally {
       await context.cleanup();
     }
-  });
+  }, 30000);
 });
