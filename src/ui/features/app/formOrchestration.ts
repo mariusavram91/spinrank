@@ -94,15 +94,13 @@ export const createFormOrchestration = (args: {
     blockedValues: string[],
     emptyLabel: string,
   ): void => {
-    const nextOptions =
-      options.length > 0
-        ? options
-        : [
-            {
-              value: "",
-              label: emptyLabel,
-            },
-          ];
+    const nextOptions = [
+      {
+        value: "",
+        label: emptyLabel,
+      },
+      ...options,
+    ];
 
     select.replaceChildren(
       ...nextOptions.map((option) => {
@@ -219,7 +217,13 @@ export const createFormOrchestration = (args: {
   const populateMatchFormOptions = (): void => {
     const state = args.getViewState();
     const sessionUserId = args.isAuthedState(state) ? state.session.user.id : "";
-    const teamA1Value = args.teamA1Select.value || sessionUserId;
+    const selectedPlayerIds = [
+      args.teamA1Select.value,
+      args.teamA2Select.value,
+      args.teamB1Select.value,
+      args.teamB2Select.value,
+    ].filter(Boolean);
+    const teamA1Value = args.teamA1Select.value || (selectedPlayerIds.length === 0 ? sessionUserId : "");
     const {
       teamA2Field,
       teamB2Field,
@@ -289,7 +293,10 @@ export const createFormOrchestration = (args: {
     };
 
     const resolveAvailablePlayer = (currentValue: string, excluded: string[]): string => {
-      if (currentValue && excluded.indexOf(currentValue) === -1) {
+      if (!currentValue) {
+        return "";
+      }
+      if (excluded.indexOf(currentValue) === -1) {
         return currentValue;
       }
       return getNextAvailablePlayer(excluded);
@@ -504,9 +511,10 @@ export const createFormOrchestration = (args: {
   };
 
   const resetTournamentForm = (): void => {
+    const state = args.getViewState();
     args.tournamentPlannerState.name = "";
     args.tournamentPlannerState.tournamentId = "";
-    args.tournamentPlannerState.participantIds = [];
+    args.tournamentPlannerState.participantIds = args.isAuthedState(state) ? [state.session.user.id] : [];
     args.tournamentPlannerState.participantQuery = "";
     args.tournamentPlannerState.participantResults = [];
     args.tournamentPlannerState.participantSearchLoading = false;

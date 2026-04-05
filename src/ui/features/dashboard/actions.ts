@@ -37,6 +37,17 @@ export const createDashboardActions = (args: {
   const isVisibleTournamentId = (tournamentId: string): boolean =>
     Boolean(tournamentId && args.dashboardState.tournaments.some((tournament) => tournament.id === tournamentId));
 
+  const buildClientShareUrl = (shareToken: string, fallbackUrl: string): string => {
+    if (typeof window === "undefined" || !window.location?.href) {
+      return fallbackUrl;
+    }
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
+    url.searchParams.set("shareToken", shareToken);
+    return url.toString();
+  };
+
   const loadLeaderboard = async (): Promise<void> => {
     if (args.dashboardState.segmentMode === "global") {
       const data = await args.runAuthedAction("getLeaderboard", {});
@@ -246,7 +257,7 @@ export const createDashboardActions = (args: {
         segmentType,
         segmentId,
         shareToken: data.shareToken,
-        url: data.url,
+        url: buildClientShareUrl(data.shareToken, data.url),
         expiresAt: data.expiresAt,
       };
       delete args.dashboardState.shareErrors[key];

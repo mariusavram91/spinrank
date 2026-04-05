@@ -1923,8 +1923,12 @@ button:disabled,
   display: none;
 }
 
-.match-player-search-input {
+.match-player-search-field {
   margin-top: 6px;
+}
+
+.match-player-search-input {
+  margin-top: 0;
 }
 
 .participant-list {

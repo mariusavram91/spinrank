@@ -10,9 +10,13 @@ const inputTestIdBySlot: Record<SlotKey, string> = {
 };
 
 type PickerControl = {
+  field: HTMLDivElement;
   input: HTMLInputElement;
-  list: HTMLDataListElement;
+  clearButton: HTMLButtonElement;
+  menu: HTMLDivElement;
   optionsByLabel: Map<string, string>;
+  visible: boolean;
+  ignoreBlur: boolean;
 };
 
 export const createMatchPlayerSearchInputs = (args: {
@@ -41,36 +45,13 @@ export const createMatchPlayerSearchInputs = (args: {
     teamB2: args.teamB2Select,
   };
 
-  let listIdCounter = 0;
-  const createPicker = (slot: SlotKey): PickerControl => {
-    const input = document.createElement("input");
-    input.type = "search";
-    input.className = "text-input match-player-search-input";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    input.dataset.testid = inputTestIdBySlot[slot];
-
-    const list = document.createElement("datalist");
-    list.id = `match-player-search-${slot}-${++listIdCounter}`;
-    input.setAttribute("list", list.id);
-
-    return {
-      input,
-      list,
-      optionsByLabel: new Map<string, string>(),
-    };
-  };
-
-  const pickerBySlot: Record<SlotKey, PickerControl> = {
-    teamA1: createPicker("teamA1"),
-    teamA2: createPicker("teamA2"),
-    teamB1: createPicker("teamB1"),
-    teamB2: createPicker("teamB2"),
-  };
+  const getPlayerOptionLabel = (player: DashboardState["players"][number], currentUserId: string): string =>
+    `${player.displayName} (${player.elo})${player.userId === currentUserId ? " (You)" : ""}`;
 
   const getPlayerLabel = (playerId: string): string => {
+    const currentUserId = args.getCurrentUserId();
     const player = args.dashboardState.players.find((entry) => entry.userId === playerId);
-    return player ? `${player.displayName} (${player.elo})` : "";
+    return player ? getPlayerOptionLabel(player, currentUserId) : "";
   };
 
   const getBlockedIds = (slot: SlotKey): string[] => {
@@ -81,25 +62,8 @@ export const createMatchPlayerSearchInputs = (args: {
       .filter((value) => Boolean(value) && value !== currentValue);
   };
 
-  const getSuggestedPlayers = (slot: SlotKey): DashboardState["players"] => {
+  const getVisiblePlayers = (slot: SlotKey, query: string): DashboardState["players"] => {
     const currentUserId = args.getCurrentUserId();
-    const blockedIds = new Set(getBlockedIds(slot));
-    const currentValue = selectBySlot[slot].value;
-    return [...args.dashboardState.players]
-      .filter((player) => !blockedIds.has(player.userId) || player.userId === currentValue)
-      .sort((left, right) => {
-        if (left.userId === currentUserId) {
-          return -1;
-        }
-        if (right.userId === currentUserId) {
-          return 1;
-        }
-        return left.rank - right.rank;
-      })
-      .slice(0, 8);
-  };
-
-  const getMatchingPlayers = (slot: SlotKey, query: string): DashboardState["players"] => {
     const normalized = query.trim().toLowerCase();
     const blockedIds = new Set(getBlockedIds(slot));
     const currentValue = selectBySlot[slot].value;
@@ -109,64 +73,218 @@ export const createMatchPlayerSearchInputs = (args: {
         if (!normalized) {
           return true;
         }
-        const optionLabel = `${player.displayName} (${player.elo})`.toLowerCase();
+        const optionLabel = getPlayerOptionLabel(player, currentUserId).toLowerCase();
         return (
           player.displayName.toLowerCase().includes(normalized) ||
           optionLabel.includes(normalized)
         );
       })
-      .slice(0, 12);
+      .sort((left, right) => {
+        if (!normalized) {
+          if (left.userId === currentUserId) {
+            return -1;
+          }
+          if (right.userId === currentUserId) {
+            return 1;
+          }
+        }
+        return left.rank - right.rank;
+      })
+      .slice(0, normalized ? 12 : 8);
   };
 
-  const populateOptions = (slot: SlotKey, query: string): void => {
-    const picker = pickerBySlot[slot];
-    const players = query.trim() ? getMatchingPlayers(slot, query) : getSuggestedPlayers(slot);
-    picker.optionsByLabel = new Map(
-      players.map((player) => [`${player.displayName} (${player.elo})`, player.userId]),
-    );
-    picker.list.replaceChildren(
-      ...players.map((player) => {
-        const option = document.createElement("option");
-        option.value = `${player.displayName} (${player.elo})`;
-        return option;
-      }),
-    );
-  };
+  const createPicker = (slot: SlotKey): PickerControl => {
+    const field = document.createElement("div");
+    field.className = "score-card__player-search-field match-player-search-field";
 
-  const dispatchBackingSelectChange = (slot: SlotKey): void => {
-    selectBySlot[slot].dispatchEvent(new Event("change", { bubbles: true }));
-  };
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "text-input score-card__player-search match-player-search-input";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.dataset.testid = inputTestIdBySlot[slot];
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("role", "combobox");
 
-  const syncInputValue = (slot: SlotKey): void => {
-    const picker = pickerBySlot[slot];
-    picker.input.value = getPlayerLabel(selectBySlot[slot].value);
-  };
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.className = "score-card__player-search-clear";
+    clearButton.setAttribute("aria-label", "Clear player search");
+    clearButton.textContent = "x";
 
-  const commitInputValue = (slot: SlotKey): void => {
-    const picker = pickerBySlot[slot];
-    const nextValue = picker.input.value.trim();
-    if (!nextValue) {
+    const menu = document.createElement("div");
+    menu.className = "score-card__player-search-menu match-player-search-menu";
+    menu.hidden = true;
+
+    let control!: PickerControl;
+
+    const updateMenuPlacement = (): void => {
+      const viewportHeight = globalThis.visualViewport?.height ?? globalThis.innerHeight;
+      const fieldRect = field.getBoundingClientRect();
+      const menuHeight = Math.min(menu.scrollHeight || 180, 180);
+      const gap = 6;
+      const spaceBelow = viewportHeight - fieldRect.bottom;
+      const spaceAbove = fieldRect.top;
+      const shouldOpenAbove = spaceBelow < menuHeight + gap && spaceAbove > spaceBelow;
+      menu.dataset.placement = shouldOpenAbove ? "top" : "bottom";
+    };
+
+    const setMenuVisibility = (visible: boolean): void => {
+      menu.hidden = !visible;
+      field.classList.toggle("score-card__player-search-field--open", visible);
+      input.setAttribute("aria-expanded", String(visible));
+      control.visible = visible;
+      if (visible) {
+        requestAnimationFrame(updateMenuPlacement);
+      } else {
+        delete menu.dataset.placement;
+      }
+    };
+
+    const updateClearButtonVisibility = (): void => {
+      clearButton.hidden = input.value.trim().length === 0;
+    };
+
+    const populateOptions = (query: string): void => {
+      const currentUserId = args.getCurrentUserId();
+      const players = getVisiblePlayers(slot, query);
+      control.optionsByLabel = new Map(
+        players.map((player) => [getPlayerOptionLabel(player, currentUserId), player.userId]),
+      );
+
+      menu.replaceChildren(
+        ...(
+          players.length > 0
+            ? players.map((player) => {
+              const option = document.createElement("button");
+              option.type = "button";
+              option.className = "score-card__player-search-option";
+              option.textContent = getPlayerOptionLabel(player, currentUserId);
+              option.addEventListener("pointerdown", (event) => {
+                event.preventDefault();
+                control.ignoreBlur = true;
+              });
+              option.addEventListener("click", () => {
+                input.value = getPlayerOptionLabel(player, currentUserId);
+                selectBySlot[slot].value = player.userId;
+                updateClearButtonVisibility();
+                setMenuVisibility(false);
+                selectBySlot[slot].dispatchEvent(new Event("change", { bubbles: true }));
+              });
+              return option;
+            })
+            : [(() => {
+              const emptyState = document.createElement("div");
+              emptyState.className = "score-card__player-search-empty";
+              emptyState.textContent = "No players found.";
+              return emptyState;
+            })()]
+        ),
+      );
+    };
+
+    const syncInputValue = (): void => {
+      input.value = getPlayerLabel(selectBySlot[slot].value);
+      updateClearButtonVisibility();
+      if (control.visible) {
+        populateOptions(input.value);
+      }
+    };
+
+    const commitInputValue = (): void => {
+      const nextValue = input.value.trim();
+      if (!nextValue) {
+        if (selectBySlot[slot].value) {
+          selectBySlot[slot].value = "";
+          selectBySlot[slot].dispatchEvent(new Event("change", { bubbles: true }));
+          return;
+        }
+        syncInputValue();
+        return;
+      }
+
+      populateOptions(nextValue);
+      const matchedUserId = control.optionsByLabel.get(nextValue);
+      if (!matchedUserId) {
+        syncInputValue();
+        return;
+      }
+      if (selectBySlot[slot].value !== matchedUserId) {
+        selectBySlot[slot].value = matchedUserId;
+        selectBySlot[slot].dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+      }
+      syncInputValue();
+    };
+
+    input.addEventListener("focus", () => {
+      populateOptions(input.value);
+      setMenuVisibility(true);
+    });
+
+    input.addEventListener("input", () => {
+      populateOptions(input.value);
+      updateClearButtonVisibility();
+      setMenuVisibility(true);
+    });
+
+    input.addEventListener("change", () => {
+      commitInputValue();
+    });
+
+    input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (control.ignoreBlur) {
+          control.ignoreBlur = false;
+          return;
+        }
+        setMenuVisibility(false);
+        syncInputValue();
+      }, 0);
+    });
+
+    clearButton.addEventListener("click", () => {
+      control.ignoreBlur = true;
+      input.value = "";
+      updateClearButtonVisibility();
       if (selectBySlot[slot].value) {
         selectBySlot[slot].value = "";
-        dispatchBackingSelectChange(slot);
-      } else {
-        syncInputValue(slot);
+        selectBySlot[slot].dispatchEvent(new Event("change", { bubbles: true }));
       }
-      return;
-    }
+      populateOptions("");
+      setMenuVisibility(true);
+      input.focus();
+    });
 
-    populateOptions(slot, nextValue);
-    const matchedUserId = picker.optionsByLabel.get(nextValue) || "";
-    if (!matchedUserId) {
-      syncInputValue(slot);
-      return;
-    }
-    if (selectBySlot[slot].value !== matchedUserId) {
-      selectBySlot[slot].value = matchedUserId;
-      dispatchBackingSelectChange(slot);
-      return;
-    }
-    syncInputValue(slot);
+    field.append(input, clearButton, menu);
+
+    control = {
+      field,
+      input,
+      clearButton,
+      menu,
+      optionsByLabel: new Map<string, string>(),
+      visible: false,
+      ignoreBlur: false,
+    };
+
+    updateClearButtonVisibility();
+
+    globalThis.visualViewport?.addEventListener("resize", () => {
+      if (control.visible) {
+        requestAnimationFrame(updateMenuPlacement);
+      }
+    });
+
+    return control;
+  };
+
+  const pickerBySlot: Record<SlotKey, PickerControl> = {
+    teamA1: createPicker("teamA1"),
+    teamA2: createPicker("teamA2"),
+    teamB1: createPicker("teamB1"),
+    teamB2: createPicker("teamB2"),
   };
 
   (Object.keys(fieldBySlot) as SlotKey[]).forEach((slot) => {
@@ -175,31 +293,52 @@ export const createMatchPlayerSearchInputs = (args: {
     const picker = pickerBySlot[slot];
 
     select.classList.add("match-player-select--hidden");
-    field.append(picker.input, picker.list);
-
-    picker.input.addEventListener("focus", () => {
-      populateOptions(slot, picker.input.value);
-    });
-
-    picker.input.addEventListener("input", () => {
-      populateOptions(slot, picker.input.value);
-    });
-
-    picker.input.addEventListener("change", () => {
-      commitInputValue(slot);
-    });
-
-    picker.input.addEventListener("blur", () => {
-      window.setTimeout(() => {
-        syncInputValue(slot);
-      }, 0);
-    });
+    field.append(picker.field);
   });
 
   const sync = (): void => {
     (Object.keys(selectBySlot) as SlotKey[]).forEach((slot) => {
-      populateOptions(slot, pickerBySlot[slot].input.value);
-      syncInputValue(slot);
+      const picker = pickerBySlot[slot];
+      picker.input.value = getPlayerLabel(selectBySlot[slot].value);
+      picker.clearButton.hidden = picker.input.value.trim().length === 0;
+      const currentUserId = args.getCurrentUserId();
+      const players = getVisiblePlayers(slot, picker.input.matches(":focus") ? picker.input.value : "");
+      picker.optionsByLabel = new Map(
+        players.map((player) => [getPlayerOptionLabel(player, currentUserId), player.userId]),
+      );
+
+      picker.menu.replaceChildren(
+        ...(
+          players.length > 0
+            ? players.map((player) => {
+              const option = document.createElement("button");
+              option.type = "button";
+              option.className = "score-card__player-search-option";
+              option.textContent = getPlayerOptionLabel(player, currentUserId);
+              option.addEventListener("pointerdown", (event) => {
+                event.preventDefault();
+                picker.ignoreBlur = true;
+              });
+              option.addEventListener("click", () => {
+                picker.input.value = getPlayerOptionLabel(player, currentUserId);
+                selectBySlot[slot].value = player.userId;
+                picker.clearButton.hidden = false;
+                picker.menu.hidden = true;
+                picker.field.classList.remove("score-card__player-search-field--open");
+                picker.input.setAttribute("aria-expanded", "false");
+                picker.visible = false;
+                selectBySlot[slot].dispatchEvent(new Event("change", { bubbles: true }));
+              });
+              return option;
+            })
+            : [(() => {
+              const emptyState = document.createElement("div");
+              emptyState.className = "score-card__player-search-empty";
+              emptyState.textContent = "No players found.";
+              return emptyState;
+            })()]
+        ),
+      );
     });
   };
 

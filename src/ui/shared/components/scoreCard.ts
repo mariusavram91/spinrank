@@ -829,6 +829,8 @@ export const buildScoreCard = (args: {
               control.field.classList.remove("score-card__player-search-field--open");
               control.input.setAttribute("aria-expanded", "false");
               control.visible = false;
+              control.ignoreBlur = false;
+              control.input.blur();
               handleSelectionChange();
             });
             return option;

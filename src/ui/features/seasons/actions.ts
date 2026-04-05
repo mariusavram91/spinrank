@@ -70,12 +70,9 @@ export const createSeasonActions = (args: {
       } and added to the dashboard.`;
       args.dashboardState.selectedSeasonId = data.season.id;
       args.dashboardState.screen = "createSeason";
-      if (isEditing) {
-        args.dashboardState.editingSeasonId = data.season.id;
-        args.dashboardState.editingSeasonParticipantIds = [...payload.participantIds];
-      } else {
-        args.resetSeasonForm();
-      }
+      args.dashboardState.editingSeasonId = data.season.id;
+      args.dashboardState.editingSeasonParticipantIds = [...payload.participantIds];
+      args.dashboardState.seasonDraftMode = "edit";
       args.syncAuthState();
       args.setSeasonSharePanelTargetId(data.season.id);
       await args.loadDashboard();
