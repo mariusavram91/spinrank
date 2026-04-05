@@ -5,7 +5,7 @@ const clampLimit = (value: number | undefined): number => {
   if (!Number.isFinite(value)) {
     return 12;
   }
-  return Math.max(1, Math.min(25, Math.trunc(Number(value))));
+  return Math.max(1, Math.min(100, Math.trunc(Number(value))));
 };
 
 export async function handleSearchParticipants(

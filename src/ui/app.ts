@@ -305,6 +305,7 @@ export const buildApp = (): HTMLElement => {
   captureShareTokenFromUrl(dashboardState);
 
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
+  const matchParticipantCache = new Map<string, ParticipantSearchEntry[]>();
 
   let activeTournamentBracketMatchId: string | null = null;
   const getMatchPlayerEntries = (): Array<{
@@ -324,21 +325,55 @@ export const buildApp = (): HTMLElement => {
         rank: number;
       }
     >();
-
-    dashboardState.players.forEach((player) => {
-      entries.set(player.userId, {
-        userId: player.userId,
-        displayName: player.displayName,
-        avatarUrl: player.avatarUrl,
-        elo: player.elo,
-        rank: player.rank,
-      });
-    });
-
     const tournamentId = formTournamentSelect.value;
+    if (tournamentId) {
+      dashboardState.players.forEach((player) => {
+        entries.set(player.userId, {
+          userId: player.userId,
+          displayName: player.displayName,
+          avatarUrl: player.avatarUrl,
+          elo: player.elo,
+          rank: player.rank,
+        });
+      });
+    }
     const bracketParticipants = tournamentId
       ? dashboardState.matchTournamentBracketCache[tournamentId]?.participants ?? []
       : [];
+    const matchParticipantKey = formSeasonSelect.value ? `season:${formSeasonSelect.value}` : "open";
+    const relatedParticipants = !tournamentId ? matchParticipantCache.get(matchParticipantKey) ?? [] : [];
+    relatedParticipants.forEach((participant) => {
+      if (!entries.has(participant.userId)) {
+        entries.set(participant.userId, {
+          userId: participant.userId,
+          displayName: participant.displayName,
+          avatarUrl: participant.avatarUrl,
+          elo: participant.elo,
+          rank: Number.MAX_SAFE_INTEGER,
+        });
+      }
+    });
+    if (!tournamentId && isAuthedState(state.current)) {
+      const currentUserId = state.current.session.user.id;
+      const currentLeaderboardEntry = dashboardState.players.find((player) => player.userId === currentUserId);
+      if (currentLeaderboardEntry) {
+        entries.set(currentUserId, {
+          userId: currentLeaderboardEntry.userId,
+          displayName: currentLeaderboardEntry.displayName,
+          avatarUrl: currentLeaderboardEntry.avatarUrl,
+          elo: currentLeaderboardEntry.elo,
+          rank: currentLeaderboardEntry.rank,
+        });
+      } else {
+        entries.set(currentUserId, {
+          userId: currentUserId,
+          displayName: state.current.session.user.displayName,
+          avatarUrl: state.current.session.user.avatarUrl,
+          elo: 1200,
+          rank: Number.MAX_SAFE_INTEGER,
+        });
+      }
+    }
     bracketParticipants.forEach((participant) => {
       if (!entries.has(participant.userId)) {
         entries.set(participant.userId, {
@@ -352,6 +387,22 @@ export const buildApp = (): HTMLElement => {
     });
 
     return [...entries.values()];
+  };
+  const refreshMatchPlayerPool = async (): Promise<void> => {
+    if (!isAuthedState(state.current) || formTournamentSelect.value) {
+      return;
+    }
+    const seasonId = formSeasonSelect.value || null;
+    const cacheKey = seasonId ? `season:${seasonId}` : "open";
+    const data = await runAuthedAction("searchParticipants", {
+      segmentType: "season",
+      seasonId,
+      limit: 100,
+    });
+    matchParticipantCache.set(cacheKey, data.participants);
+    populateMatchFormOptions();
+    syncMatchPlayerSearchInputs();
+    syncDashboardState();
   };
   const findMatchPlayer = (playerId: string | null | undefined) =>
     getMatchPlayerEntries().find((player) => player.userId === playerId);
@@ -371,7 +422,7 @@ export const buildApp = (): HTMLElement => {
           await runAuthedAction("searchParticipants", {
             segmentType: "season",
             seasonId,
-            limit: 25,
+            limit: 100,
           })
         ).participants;
 
@@ -1712,7 +1763,15 @@ export const buildApp = (): HTMLElement => {
   matchBracketSelect.disabled = true;
   formTournamentSelect.addEventListener("change", () => {
     activeTournamentBracketMatchId = null;
+    if (!formTournamentSelect.value) {
+      void refreshMatchPlayerPool();
+    }
     void syncMatchBracketOptions();
+  });
+  formSeasonSelect.addEventListener("change", () => {
+    if (!formTournamentSelect.value) {
+      void refreshMatchPlayerPool();
+    }
   });
   matchBracketSelect.addEventListener("change", () => {
     activeTournamentBracketMatchId = matchBracketSelect.value || null;
@@ -1785,7 +1844,9 @@ export const buildApp = (): HTMLElement => {
   syncDashboardState();
 
   if (isAuthedState(state.current)) {
-    void initAuthenticatedDashboard();
+    void initAuthenticatedDashboard().then(() => {
+      void refreshMatchPlayerPool();
+    });
   }
 
   return container;
