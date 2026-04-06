@@ -63,7 +63,7 @@ describe("worker getMatches action", () => {
     );
 
     expect(response.ok).toBe(true);
-    expect(response.data).toEqual({ matches: [], nextCursor: null });
+    expect(response.data).toEqual({ matches: [], players: [], nextCursor: null });
   });
 
   it("uses the dedicated mine query path for paginated personal history", async () => {
@@ -119,6 +119,6 @@ describe("worker getMatches action", () => {
     );
 
     expect(response.ok).toBe(true);
-    expect(response.data).toEqual({ matches: [], nextCursor: null });
+    expect(response.data).toEqual({ matches: [], players: [], nextCursor: null });
   });
 });

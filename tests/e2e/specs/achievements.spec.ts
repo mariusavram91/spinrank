@@ -110,5 +110,9 @@ test.describe("achievements", () => {
     await page.locator(".auth-avatar-button").click();
     await expect(page.locator(".profile-achievements__summary")).toBeVisible();
     await expect(page.locator(".achievement-chip-list")).toBeHidden();
+    await page.getByTestId("profile-achievements-toggle").click();
+    await expect(page.locator(".achievement-chip-list")).toBeVisible();
+    await expect(page.locator(".achievement-chip-list")).not.toContainText("First match");
+    await expect(page.locator(".achievement-chip-list")).not.toContainText("First win");
   });
 });

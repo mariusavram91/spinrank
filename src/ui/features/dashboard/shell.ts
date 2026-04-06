@@ -70,7 +70,7 @@ export const buildMatchesPanel = (args: {
 
   const loadMoreButton = document.createElement("button");
   loadMoreButton.type = "button";
-  loadMoreButton.className = "secondary-button";
+  loadMoreButton.className = "secondary-button matches-load-more-button";
   bindLocalizedText(loadMoreButton, "loadMore");
 
   matchesTop.append(matchesHeading, matchFiltersRow);

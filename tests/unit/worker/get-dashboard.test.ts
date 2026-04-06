@@ -96,6 +96,7 @@ describe("worker getDashboard action", () => {
           { id: "match_1", bracketContext: { roundTitle: "Final", isFinal: true } },
           { id: "match_2", bracketContext: null },
         ],
+        players: [{ userId: "user_2", rank: 2 }],
       },
     } as never);
     vi.mocked(handleGetUserProgress).mockResolvedValue({
@@ -144,6 +145,7 @@ describe("worker getDashboard action", () => {
       seasons: [{ id: "season_1", name: "Spring" }],
       tournaments: [{ id: "tournament_1", name: "Cup" }],
       leaderboard: [{ userId: "user_1", rank: 1 }],
+      players: [{ userId: "user_1", rank: 1 }, { userId: "user_2", rank: 2 }],
       leaderboardUpdatedAt: "2026-04-06T12:00:00.000Z",
       userProgress: { currentRank: 1 },
       achievements: {
@@ -200,6 +202,7 @@ describe("worker getDashboard action", () => {
       ok: true,
       data: {
         matches: [{ id: "match_9", bracketContext: null }],
+        players: [{ userId: "user_9", rank: 9 }],
         nextCursor: "cursor_2",
       },
     } as never);
@@ -230,6 +233,7 @@ describe("worker getDashboard action", () => {
     expect(response.data?.leaderboardUpdatedAt).toBe("2026-04-05T10:00:00.000Z");
     expect(response.data?.nextCursor).toBe("cursor_2");
     expect(response.data?.matches).toEqual([{ id: "match_9", bracketContext: null }]);
+    expect(response.data?.players).toEqual([{ userId: "user_1", rank: 1 }, { userId: "user_9", rank: 9 }]);
   });
 
   it("starts dashboard subrequests in parallel so composition does not serialize slow reads", async () => {

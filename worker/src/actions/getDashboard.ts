@@ -41,6 +41,11 @@ export async function handleGetDashboard(
     seasons: seasons.data?.seasons ?? [],
     tournaments: tournaments.data?.tournaments ?? [],
     leaderboard: leaderboard.data?.leaderboard ?? [],
+    players: [
+      ...new Map(
+        [...(leaderboard.data?.leaderboard ?? []), ...(matches.data?.players ?? [])].map((player) => [player.userId, player]),
+      ).values(),
+    ],
     leaderboardUpdatedAt: leaderboard.data?.updatedAt ?? isoNow(env.runtime),
     userProgress: userProgress.data!,
     achievements,

@@ -350,6 +350,7 @@ export interface GetMatchesPayload {
 export interface GetMatchesData {
   matches: MatchRecord[];
   nextCursor: string | null;
+  players?: LeaderboardEntry[];
 }
 
 export interface CreateMatchPayload {
@@ -462,6 +463,7 @@ export interface GetDashboardData {
   seasons: SeasonRecord[];
   tournaments: TournamentRecord[];
   leaderboard: LeaderboardEntry[];
+  players: LeaderboardEntry[];
   leaderboardUpdatedAt: string;
   userProgress: GetUserProgressData;
   achievements: AchievementOverview;

@@ -179,4 +179,75 @@ describe("worker deactivateMatch action", () => {
     expect(rebuildTournamentBracket).toHaveBeenCalledWith(env, "tournament_1");
     expect(recomputeAllRankings).toHaveBeenCalledTimes(1);
   });
+
+  it("rejects deleting a tournament match when a later bracket round match already exists", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1200,
+      wins: 0,
+      losses: 0,
+      streak: 0,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        batch: vi.fn(async () => []),
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("FROM matches") && statementSql.includes("WHERE id = ?1")) {
+              return {
+                id: "match_semi",
+                created_by_user_id: "user_a",
+                status: "active",
+                tournament_id: "tournament_1",
+                season_id: null,
+                match_type: "singles",
+                team_a_player_ids_json: JSON.stringify(["user_a"]),
+                team_b_player_ids_json: JSON.stringify(["user_b"]),
+                winner_team: "A",
+                global_elo_delta_json: JSON.stringify({ user_a: 20, user_b: -20 }),
+                segment_elo_delta_json: JSON.stringify({ tournament_1: { user_a: 20, user_b: -20 } }),
+                played_at: "2026-04-05T12:00:00.000Z",
+                created_at: "2026-04-05T12:05:00.000Z",
+              };
+            }
+
+            if (statementSql.includes("FROM tournament_bracket_matches current")) {
+              return { 1: 1 };
+            }
+
+            return { success: true };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+        randomId: () => "generated_1",
+      },
+    } as unknown as Env;
+
+    const response = await handleDeactivateMatch(
+      {
+        action: "deactivateMatch",
+        requestId: "req_deactivate_match_tournament_guard",
+        payload: { id: "match_semi", reason: "cleanup" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(false);
+    expect(response.error).toMatchObject({
+      code: "CONFLICT",
+      message: "Only the latest tournament match can be deleted.",
+    });
+    expect(env.DB.batch).not.toHaveBeenCalled();
+  });
 });

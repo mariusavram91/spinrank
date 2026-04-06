@@ -14,7 +14,15 @@ const createDashboardState = (): DashboardState =>
       { userId: "user_c", displayName: "Cara", avatarUrl: null, elo: 1160, rank: 3 },
     ],
     seasons: [{ id: "season_1", participantIds: ["user_a", "user_b", "user_c"], status: "active", name: "Spring" }],
-    tournaments: [{ id: "tournament_1", participantIds: ["user_a", "user_b"], status: "active", seasonId: "season_1" }],
+    tournaments: [
+      {
+        id: "tournament_1",
+        participantIds: ["user_a", "user_b"],
+        status: "active",
+        seasonId: "season_1",
+        bracketStatus: "draft",
+      },
+    ],
     editingSeasonParticipantIds: ["user_a"],
     seasonParticipantQuery: "",
     seasonParticipantResults: [],
@@ -98,6 +106,7 @@ const createHarness = () => {
     args,
     editors: createParticipantEditors(args),
     seasonParticipantResults,
+    participantSearchInput,
     participantSearchResults,
     bracketBoard,
     loadTournamentSelect,
@@ -160,5 +169,43 @@ describe("participant editors", () => {
         rightPlayerId: "user_b",
       }),
     );
+  });
+
+  it("locks tournament participant editing once the bracket has started", async () => {
+    const harness = createHarness();
+    harness.args.dashboardState.tournaments[0].bracketStatus = "in_progress";
+
+    harness.editors.renderTournamentPlanner();
+    await flush();
+
+    expect(harness.participantSearchInput.disabled).toBe(true);
+    const removeButton = harness.args.participantList.querySelector(
+      "[data-participant-id='user_b'] [data-testid='participant-remove-button']",
+    ) as HTMLButtonElement | null;
+    expect(removeButton?.disabled).toBe(true);
+    const addButton = harness.participantSearchResults.querySelector(
+      "[data-testid='participant-add-button']",
+    ) as HTMLButtonElement | null;
+    expect(addButton?.disabled).toBe(true);
+  });
+
+  it("refreshes tournament search results when the query changes", async () => {
+    const harness = createHarness();
+
+    harness.editors.renderTournamentPlanner();
+    await flush();
+    vi.mocked(harness.args.runAuthedAction).mockClear();
+
+    harness.participantSearchInput.value = "Cara";
+    harness.participantSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+
+    expect(harness.args.runAuthedAction).toHaveBeenCalledWith("searchParticipants", {
+      segmentType: "tournament",
+      query: "Cara",
+      seasonId: "season_1",
+      limit: 12,
+    });
+    expect(harness.participantSearchResults.querySelectorAll("[data-testid='participant-search-result']")).toHaveLength(1);
   });
 });

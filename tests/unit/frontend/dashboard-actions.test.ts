@@ -95,6 +95,7 @@ const createDashboardState = (overrides: Partial<DashboardState> = {}): Dashboar
     profileMatchesCursor: null,
     profileLoading: false,
     profileMatchesLoading: false,
+    profileAchievementsExpanded: false,
     profileSegmentSummaries: {},
     profileSegmentSummaryLoadingKeys: [],
     matchBracketContextByMatchId: {},
@@ -186,6 +187,7 @@ describe("dashboard actions", () => {
       ],
       tournaments: [tournamentRecord({ id: "tournament_2" })],
       leaderboard: [leaderboardEntry()],
+      players: [leaderboardEntry(), leaderboardEntry({ userId: "user_2", displayName: "Rival", rank: 2 })],
       leaderboardUpdatedAt: "2026-04-06T09:00:00.000Z",
       userProgress: {
         currentRank: 1,
@@ -219,7 +221,7 @@ describe("dashboard actions", () => {
     expect(dashboardState.seasons.map((season) => season.id)).toEqual(["season_2", "season_3"]);
     expect(dashboardState.selectedSeasonId).toBe("season_3");
     expect(dashboardState.selectedTournamentId).toBe("tournament_2");
-    expect(dashboardState.players).toEqual(data.leaderboard);
+    expect(dashboardState.players).toEqual(data.players);
     expect(dashboardState.leaderboard).toEqual(data.leaderboard);
     expect(dashboardState.userProgress).toEqual(data.userProgress);
     expect(dashboardState.matches).toEqual(data.matches);
@@ -257,6 +259,7 @@ describe("dashboard actions", () => {
         seasons: [seasonRecord({ id: "season_1" })],
         tournaments: [],
         leaderboard: [leaderboardEntry()],
+        players: [leaderboardEntry()],
         leaderboardUpdatedAt: "2026-04-06T09:00:00.000Z",
         userProgress: {
           currentRank: 1,
@@ -269,9 +272,9 @@ describe("dashboard actions", () => {
           losses: 1,
           points: [],
         },
-        matches: [],
-        nextCursor: null,
-        matchBracketContextByMatchId: {},
+      matches: [],
+      nextCursor: null,
+      matchBracketContextByMatchId: {},
       } satisfies GetDashboardData)
       .mockResolvedValueOnce({
         leaderboard: [leaderboardEntry({ userId: "user_2", displayName: "Season Ada", rank: 3 })],
@@ -298,6 +301,10 @@ describe("dashboard actions", () => {
     ]);
     expect(dashboardState.leaderboardUpdatedAt).toBe("2026-04-06T10:00:00.000Z");
     expect(dashboardState.leaderboardStats).toMatchObject({ totalMatches: 4 });
+    expect(dashboardState.players).toEqual([
+      expect.objectContaining({ userId: "user_1" }),
+      expect.objectContaining({ userId: "user_2", displayName: "Season Ada" }),
+    ]);
     expect(harness.markLeaderboardDirty).toHaveBeenCalledTimes(2);
   });
 
@@ -317,10 +324,12 @@ describe("dashboard actions", () => {
           bracketContext: { roundTitle: "Final", isFinal: true },
         }),
       ],
+      players: [leaderboardEntry({ userId: "user_9", displayName: "Late Joiner", rank: 9 })],
       nextCursor: "cursor_2",
     };
     const pageTwo: GetMatchesData = {
       matches: [matchRecord({ id: "match_3" })],
+      players: [leaderboardEntry({ userId: "user_8", displayName: "Another", rank: 8 })],
       nextCursor: null,
     };
     const runAuthedAction = vi
@@ -345,9 +354,55 @@ describe("dashboard actions", () => {
     expect(dashboardState.matches.map((match) => match.id)).toEqual(["match_2", "match_3"]);
     expect(dashboardState.matchesCursor).toBeNull();
     expect(dashboardState.matchesFilter).toBe("all");
+    expect(dashboardState.players).toEqual([
+      expect.objectContaining({ userId: "user_9", displayName: "Late Joiner" }),
+      expect.objectContaining({ userId: "user_8", displayName: "Another" }),
+    ]);
     expect(dashboardState.matchBracketContextByMatchId).toEqual({
       match_2: { roundTitle: "Final", isFinal: true },
     });
+    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(1, true, "loadingOverlay");
+    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(2, false);
+    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(3, true, "loadingOverlay");
+    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(4, false);
+  });
+
+  it("merges tournament leaderboard players with bracket participants when switching segment mode", async () => {
+    const dashboardState = createDashboardState({
+      segmentMode: "global",
+      selectedTournamentId: "tournament_1",
+      tournaments: [tournamentRecord({ id: "tournament_1" })],
+      players: [],
+    });
+    const runAuthedAction = vi
+      .fn()
+      .mockResolvedValueOnce({
+        leaderboard: [leaderboardEntry({ userId: "user_final", displayName: "Finalist", rank: 1 })],
+        updatedAt: "2026-04-06T11:00:00.000Z",
+        stats: {
+          totalMatches: 3,
+          mostMatchesPlayer: null,
+          mostWinsPlayer: null,
+          tournamentWinnerPlayer: null,
+        },
+      })
+      .mockResolvedValueOnce({
+        rounds: [],
+        participants: [
+          { userId: "user_final", displayName: "Finalist", avatarUrl: null, elo: 1240, isSuggested: true },
+          { userId: "user_hidden", displayName: "Hidden Seed", avatarUrl: null, elo: 1175, isSuggested: true },
+        ],
+      });
+    const harness = createHarness(dashboardState, runAuthedAction);
+
+    await harness.actions.applySegmentMode("tournament");
+
+    expect(dashboardState.players).toEqual([
+      expect.objectContaining({ userId: "user_final", displayName: "Finalist" }),
+      expect.objectContaining({ userId: "user_hidden", displayName: "Hidden Seed", elo: 1175 }),
+    ]);
+    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(1, true, "loadingOverlay");
+    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(2, false);
   });
 
   it("creates segment share links, rewrites urls for the current origin, and redeems pending tokens", async () => {

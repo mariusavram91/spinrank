@@ -400,9 +400,9 @@ export const createFormOrchestration = (args: {
 
     const disableTournamentMatchPlayers = isTournamentContext;
     args.teamA1Select.disabled = disableTournamentMatchPlayers || !hasActiveTournamentBracket;
-    args.teamA2Select.disabled = true;
+    args.teamA2Select.disabled = disableTournamentMatchPlayers || !hasActiveTournamentBracket || !isDoubles;
     args.teamB1Select.disabled = disableTournamentMatchPlayers || !hasActiveTournamentBracket;
-    args.teamB2Select.disabled = true;
+    args.teamB2Select.disabled = disableTournamentMatchPlayers || !hasActiveTournamentBracket || !isDoubles;
 
     const disableTournamentSetup = isTournamentContext && !hasActiveTournamentBracket;
     args.formatTypeSelect.disabled = disableTournamentSetup;

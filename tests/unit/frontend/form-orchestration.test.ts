@@ -24,8 +24,26 @@ const createDashboardStateStub = (): DashboardState =>
       { userId: "user_b", displayName: "Bob", avatarUrl: null, elo: 1180, rank: 2 },
       { userId: "user_c", displayName: "Cara", avatarUrl: null, elo: 1160, rank: 3 },
     ],
-    seasons: [{ id: "season_1", name: "Spring Season", status: "active", isActive: true, seasonId: undefined }],
-    tournaments: [{ id: "tournament_1", name: "Spring Cup", seasonId: "season_1", status: "active" }],
+    seasons: [
+      {
+        id: "season_1",
+        name: "Spring Season",
+        status: "active",
+        isActive: true,
+        participantIds: ["user_a", "user_b", "user_c"],
+        createdByUserId: "user_a",
+      },
+    ],
+    tournaments: [
+      {
+        id: "tournament_1",
+        name: "Spring Cup",
+        seasonId: "season_1",
+        status: "active",
+        participantIds: ["user_a", "user_b", "user_c"],
+        createdByUserId: "user_a",
+      },
+    ],
     editingSeasonId: "season_editing",
     editingSeasonParticipantIds: ["user_b", "user_c"],
     seasonDraftMode: "edit",
@@ -341,5 +359,15 @@ describe("form orchestration", () => {
     expect(harness.loadTournamentSelect.value).toBe("");
     expect(harness.seasonTargetIds.at(-1)).toBe("");
     expect(harness.tournamentTargetIds.at(-1)).toBe("");
+  });
+
+  it("enables the second player slots for open doubles matches", () => {
+    const harness = createHarness();
+    harness.matchTypeSelect.value = "doubles";
+
+    harness.orchestration.populateMatchFormOptions();
+
+    expect(harness.teamA2Select.disabled).toBe(false);
+    expect(harness.teamB2Select.disabled).toBe(false);
   });
 });

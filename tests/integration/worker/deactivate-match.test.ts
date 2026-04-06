@@ -285,7 +285,7 @@ describe("worker integration: deactivateMatch", () => {
     }
   });
 
-  it("rebuilds tournament brackets after a tournament match is deleted", async () => {
+  it("rebuilds tournament brackets after deleting a tournament match before later rounds are played", async () => {
     const context = await createWorkerTestContext();
     try {
       await seedUser(context.env, { id: "user_a", displayName: "Alice" });

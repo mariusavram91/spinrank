@@ -61,6 +61,7 @@ export interface DashboardState {
   profileLoading: boolean;
   profileMatchesLoading: boolean;
   profileAchievementsExpanded: boolean;
+  profileRecentlySeenAchievementKeys: string[];
   profileSegmentSummaries: Record<string, ProfileSegmentSummary>;
   profileSegmentSummaryLoadingKeys: string[];
   matchBracketContextByMatchId: Record<string, { roundTitle: string; isFinal: boolean }>;

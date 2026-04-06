@@ -2,7 +2,6 @@ import type { ParticipantSearchEntry } from "../../../api/contract";
 import type { DashboardState, TournamentPlannerMatch, TournamentPlannerState } from "../../shared/types/app";
 import type { RunAuthedAction } from "../../shared/types/actions";
 import type { TextKey } from "../../shared/i18n/translations";
-import { setAvatarImage } from "../../shared/utils/avatar";
 
 export const createParticipantEditors = (args: {
   dashboardState: DashboardState;
@@ -34,6 +33,18 @@ export const createParticipantEditors = (args: {
   const knownParticipants = new Map<string, ParticipantSearchEntry>();
   let seasonSearchToken = 0;
   let tournamentSearchToken = 0;
+
+  const setParticipantAvatarImage = (
+    image: HTMLImageElement,
+    participant: Pick<ParticipantSearchEntry, "avatarUrl" | "displayName"> | null | undefined,
+  ): void => {
+    image.alt = participant?.displayName || "Participant";
+    image.onerror = () => {
+      image.onerror = null;
+      image.src = `${args.assetsBaseUrl}assets/logo.png`;
+    };
+    image.src = participant?.avatarUrl || `${args.assetsBaseUrl}assets/logo.png`;
+  };
 
   const syncKnownParticipants = (): void => {
     args.dashboardState.players.forEach((player) => {
@@ -70,6 +81,18 @@ export const createParticipantEditors = (args: {
     return fallback ? `${fallback.displayName} (${fallback.elo})` : "Unknown player";
   };
 
+  const isTournamentParticipantEditingLocked = (): boolean => {
+    const tournament = args.getEditingTournament();
+    if (!tournament) {
+      return false;
+    }
+    return (
+      args.isLockedTournament(tournament) ||
+      tournament.bracketStatus === "in_progress" ||
+      tournament.bracketStatus === "completed"
+    );
+  };
+
   const buildSelectedParticipantChip = (participantId: string, locked: boolean, onRemove: () => void): HTMLElement => {
     const participant = getKnownParticipant(participantId);
     const chip = document.createElement("article");
@@ -79,13 +102,7 @@ export const createParticipantEditors = (args: {
 
     const avatar = document.createElement("img");
     avatar.className = "player-avatar player-avatar-small";
-    setAvatarImage(
-      avatar,
-      participant?.userId,
-      participant?.avatarUrl,
-      `${args.assetsBaseUrl}assets/logo.png`,
-      participant?.displayName || "Participant",
-    );
+    setParticipantAvatarImage(avatar, participant);
 
     const content = document.createElement("div");
     content.className = "participant-chip__content";
@@ -124,13 +141,7 @@ export const createParticipantEditors = (args: {
 
     const avatar = document.createElement("img");
     avatar.className = "player-avatar player-avatar-small";
-    setAvatarImage(
-      avatar,
-      participant.userId,
-      participant.avatarUrl,
-      `${args.assetsBaseUrl}assets/logo.png`,
-      participant.displayName,
-    );
+    setParticipantAvatarImage(avatar, participant);
 
     const content = document.createElement("div");
     content.className = "participant-chip__content";
@@ -294,7 +305,7 @@ export const createParticipantEditors = (args: {
   };
 
   const renderTournamentSearchResults = (): void => {
-    const locked = args.isLockedTournament(args.getEditingTournament());
+    const locked = isTournamentParticipantEditingLocked();
     const selected = new Set(args.tournamentPlannerState.participantIds);
     const visibleResults = args.tournamentPlannerState.participantResults.filter(
       (participant) => !selected.has(participant.userId),
@@ -398,6 +409,7 @@ export const createParticipantEditors = (args: {
       : null;
     const editingTournament = args.getEditingTournament();
     const tournamentLocked = args.isLockedTournament(editingTournament);
+    const participantEditingLocked = isTournamentParticipantEditingLocked();
 
     if (seasonParticipantIds) {
       args.tournamentPlannerState.participantIds = args.tournamentPlannerState.participantIds.filter((participantId) =>
@@ -408,14 +420,14 @@ export const createParticipantEditors = (args: {
       args.tournamentPlannerState.participantIds = [sessionUserId, ...args.tournamentPlannerState.participantIds];
     }
 
-    args.participantSearchInput.disabled = tournamentLocked;
+    args.participantSearchInput.disabled = participantEditingLocked;
 
     if (args.tournamentPlannerState.participantIds.length === 0) {
       args.participantList.replaceChildren(renderEmptyState(args.t("participantSelectedEmpty")));
     } else {
       const chips = args.tournamentPlannerState.participantIds.map((participantId) =>
-        buildSelectedParticipantChip(participantId, tournamentLocked || participantId === sessionUserId, () => {
-          if (tournamentLocked || participantId === sessionUserId) {
+        buildSelectedParticipantChip(participantId, participantEditingLocked || participantId === sessionUserId, () => {
+          if (participantEditingLocked || participantId === sessionUserId) {
             return;
           }
           args.tournamentPlannerState.participantIds = args.tournamentPlannerState.participantIds.filter(
@@ -498,6 +510,7 @@ export const createParticipantEditors = (args: {
                 node.textContent = option.label;
                 node.selected = option.value === (currentValue || "");
                 node.disabled =
+                  participantEditingLocked ||
                   option.value !== "" &&
                   option.value !== (currentValue || "") &&
                   usedIds.indexOf(option.value) !== -1;
@@ -506,7 +519,7 @@ export const createParticipantEditors = (args: {
             );
 
             select.disabled =
-              tournamentLocked ||
+              participantEditingLocked ||
               Boolean(match.createdMatchId) ||
               Boolean(match.locked) ||
               Boolean(match.winnerPlayerId);
@@ -547,13 +560,7 @@ export const createParticipantEditors = (args: {
           const leftPlayer = getKnownParticipant(visibleLeftPlayerId || "");
           const leftAvatar = document.createElement("img");
           leftAvatar.className = "player-avatar player-avatar-small";
-          setAvatarImage(
-            leftAvatar,
-            leftPlayer?.userId,
-            leftPlayer?.avatarUrl,
-            `${args.assetsBaseUrl}assets/logo.png`,
-            leftText,
-          );
+          setParticipantAvatarImage(leftAvatar, leftPlayer);
           const leftLabel = document.createElement("span");
           leftLabel.textContent =
             round.title === "Final" && visibleLeftPlayerId && match.winnerPlayerId === visibleLeftPlayerId
@@ -572,13 +579,7 @@ export const createParticipantEditors = (args: {
           const rightPlayer = getKnownParticipant(visibleRightPlayerId || "");
           const rightAvatar = document.createElement("img");
           rightAvatar.className = "player-avatar player-avatar-small";
-          setAvatarImage(
-            rightAvatar,
-            rightPlayer?.userId,
-            rightPlayer?.avatarUrl,
-            `${args.assetsBaseUrl}assets/logo.png`,
-            rightText,
-          );
+          setParticipantAvatarImage(rightAvatar, rightPlayer);
           const rightLabel = document.createElement("span");
           rightLabel.textContent =
             round.title === "Final" && visibleRightPlayerId && match.winnerPlayerId === visibleRightPlayerId
@@ -647,7 +648,8 @@ export const createParticipantEditors = (args: {
     args.tournamentPlannerState.participantResults = [];
     args.tournamentPlannerState.participantSearchLoading = false;
     args.tournamentPlannerState.participantSearchError = "";
-    renderTournamentPlanner();
+    renderTournamentSearchResults();
+    void refreshTournamentParticipantResults();
   });
 
   args.tournamentSeasonSelect.addEventListener("change", () => {

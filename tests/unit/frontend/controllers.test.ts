@@ -148,7 +148,7 @@ describe("app controllers", () => {
 
     expect(args.openFaqScreen).toHaveBeenCalled();
     expect(args.openPrivacyScreen).toHaveBeenCalled();
-    expect(args.openProfileScreen).toHaveBeenCalled();
+    expect(args.openProfileScreen).not.toHaveBeenCalled();
     expect(args.loadDashboard).toHaveBeenCalled();
     expect(args.closeFaqScreen).toHaveBeenCalled();
     expect(args.closePrivacyScreen).toHaveBeenCalled();
@@ -156,6 +156,50 @@ describe("app controllers", () => {
     expect(args.suggestTournamentBracket).toHaveBeenCalled();
     expect(args.dashboardState.screen).toBe("dashboard");
     expect(hideScoreCard).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reopen the profile when the profile screen is already active", () => {
+    const args = {
+      authActions: document.createElement("div"),
+      createMenu: document.createElement("div"),
+      createMenuButton: document.createElement("button"),
+      closeLanguageSwitchIfOutside: vi.fn(),
+      clearSession: vi.fn(),
+      setIdleState: vi.fn(),
+      openFaqScreen: vi.fn(),
+      openPrivacyScreen: vi.fn(),
+      syncAuthState: vi.fn(),
+      syncDashboardState: vi.fn(),
+      loadDashboard: vi.fn().mockResolvedValue(undefined),
+      openProfileScreen: vi.fn().mockResolvedValue(undefined),
+      resetScoreInputs: vi.fn(),
+      showScoreCard: vi.fn(),
+      hideScoreCard: vi.fn(),
+      populateTournamentPlannerLoadOptions: vi.fn(),
+      renderTournamentPlanner: vi.fn(),
+      resetTournamentForm: vi.fn(),
+      resetSeasonForm: vi.fn(),
+      populateSeasonManagerLoadOptions: vi.fn(),
+      renderSeasonEditor: vi.fn(),
+      closeFaqScreen: vi.fn(),
+      closePrivacyScreen: vi.fn(),
+      applyFairMatchSuggestion: vi.fn().mockResolvedValue(undefined),
+      suggestTournamentBracket: vi.fn(),
+      dashboardState: {
+        screen: "profile" as const,
+        seasonFormError: "",
+        seasonFormMessage: "",
+        tournamentFormMessage: "",
+      },
+      tournamentPlannerState: { error: "" },
+      menuState: { authMenuOpen: true, createMenuOpen: false },
+    };
+
+    const handlers = createTopLevelUiHandlers(args);
+    handlers.onOpenProfile();
+
+    expect(args.openProfileScreen).not.toHaveBeenCalled();
+    expect(args.syncAuthState).toHaveBeenCalled();
   });
 
   it("handles selection and draft form workflows", async () => {

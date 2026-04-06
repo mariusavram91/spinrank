@@ -1,6 +1,7 @@
 import type {
   GetDashboardData,
   GetMatchesData,
+  LeaderboardEntry,
   MatchBracketContext,
   MatchFeedFilter,
   SegmentType,
@@ -33,6 +34,29 @@ export const createDashboardActions = (args: {
   t: TranslationFn;
   getMatchLimitForFilter: (filter: MatchFeedFilter) => number;
 }) => {
+  const mergePlayers = (
+    ...groups: Array<
+      Array<
+        Pick<LeaderboardEntry, "userId" | "displayName" | "avatarUrl" | "elo"> &
+        Partial<Pick<LeaderboardEntry, "wins" | "losses" | "streak" | "rank">>
+      >
+    >
+  ): LeaderboardEntry[] => {
+    const players = new Map<string, LeaderboardEntry>();
+    groups.flat().forEach((player) => {
+      const existing = players.get(player.userId);
+      players.set(player.userId, {
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        rank: Number.MAX_SAFE_INTEGER,
+        ...existing,
+        ...player,
+      });
+    });
+    return [...players.values()];
+  };
+
   const isVisibleSeasonId = (seasonId: string): boolean =>
     Boolean(seasonId && args.dashboardState.seasons.some((season) => season.id === seasonId));
 
@@ -74,6 +98,7 @@ export const createDashboardActions = (args: {
         segmentType: "season",
         segmentId: args.dashboardState.selectedSeasonId,
       });
+      args.dashboardState.players = mergePlayers(args.dashboardState.players, data.leaderboard);
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
       args.dashboardState.leaderboardStats = data.stats;
@@ -100,6 +125,11 @@ export const createDashboardActions = (args: {
         tournamentId: args.dashboardState.selectedTournamentId,
       }),
     ]);
+    args.dashboardState.players = mergePlayers(
+      args.dashboardState.players,
+      leaderboardData.leaderboard,
+      bracketData.participants,
+    );
     args.dashboardState.leaderboard = leaderboardData.leaderboard;
     args.dashboardState.leaderboardUpdatedAt = leaderboardData.updatedAt;
     args.dashboardState.leaderboardStats = leaderboardData.stats;
@@ -129,7 +159,7 @@ export const createDashboardActions = (args: {
       args.dashboardState.selectedTournamentId = visibleTournamentIds.has(args.dashboardState.selectedTournamentId)
         ? args.dashboardState.selectedTournamentId
         : data.tournaments[0]?.id || "";
-      args.dashboardState.players = data.leaderboard;
+      args.dashboardState.players = mergePlayers(data.players ?? [], data.leaderboard);
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.leaderboardUpdatedAt;
       args.dashboardState.tournamentBracket = [];
@@ -169,6 +199,7 @@ export const createDashboardActions = (args: {
     const cursor = options.reset ? undefined : args.dashboardState.matchesCursor ?? undefined;
 
     args.dashboardState.matchesLoading = true;
+    args.setGlobalLoading(true, args.t("loadingOverlay"));
     args.syncDashboardState();
 
     try {
@@ -184,6 +215,7 @@ export const createDashboardActions = (args: {
       );
 
       args.dashboardState.matches = options.reset ? data.matches : [...args.dashboardState.matches, ...data.matches];
+      args.dashboardState.players = mergePlayers(args.dashboardState.players, data.players ?? []);
       args.dashboardState.matchesCursor = data.nextCursor;
       args.dashboardState.matchBracketContextByMatchId = options.reset
         ? bracketContext
@@ -196,6 +228,7 @@ export const createDashboardActions = (args: {
       args.dashboardState.error = error instanceof Error ? error.message : "Failed to load matches.";
     } finally {
       args.dashboardState.matchesLoading = false;
+      args.setGlobalLoading(false);
       args.syncDashboardState();
     }
   }
@@ -228,6 +261,7 @@ export const createDashboardActions = (args: {
     args.dashboardState.segmentMode = mode;
     args.dashboardState.loading = true;
     args.dashboardState.error = "";
+    args.setGlobalLoading(true, args.t("loadingOverlay"));
     args.syncDashboardState();
 
     try {
@@ -236,6 +270,7 @@ export const createDashboardActions = (args: {
       args.dashboardState.error = error instanceof Error ? error.message : "Failed to load leaderboard.";
     } finally {
       args.dashboardState.loading = false;
+      args.setGlobalLoading(false);
       args.syncDashboardState();
     }
   };

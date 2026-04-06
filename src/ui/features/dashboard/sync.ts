@@ -143,9 +143,7 @@ export const createDashboardSync = (args: {
     syncDashboardState: (): void => {
       const statusMessage = args.dashboardState.error
         ? args.dashboardState.error
-        : args.dashboardState.loading
-          ? "Refreshing..."
-          : args.dashboardState.shareNotice || "";
+        : args.dashboardState.shareNotice || "";
       args.dom.dashboardStatus.textContent = statusMessage;
       args.dom.dashboardStatus.dataset.status = args.dashboardState.error ? "error" : "ready";
       args.dom.shareAlert.textContent = args.dashboardState.shareAlertMessage;

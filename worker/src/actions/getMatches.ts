@@ -1,6 +1,6 @@
 import { decodeCursor, encodeCursor, parseJsonArray, parseJsonObject } from "../db";
 import { successResponse } from "../responses";
-import type { ApiRequest, Env, GetMatchesPayload, MatchRecord, UserRow } from "../types";
+import type { ApiRequest, Env, GetMatchesPayload, LeaderboardEntry, MatchRecord, UserRow } from "../types";
 
 type MatchRow = {
   id: string;
@@ -91,6 +91,10 @@ function buildCursorPredicate(alias: string): string {
   `;
 }
 
+function buildInClausePlaceholders(count: number): string {
+  return Array.from({ length: count }, (_, index) => `?${index + 1}`).join(", ");
+}
+
 function mapMatchRow(row: MatchRow): MatchRecord {
   return {
     id: row.id,
@@ -116,12 +120,54 @@ function mapMatchRow(row: MatchRow): MatchRecord {
   };
 }
 
-function buildMatchPageResponse(requestId: string, rows: MatchRow[], limit: number) {
+async function loadPlayersForMatches(env: Env, rows: MatchRow[]): Promise<LeaderboardEntry[]> {
+  const userIds = [...new Set(rows.flatMap((row) => [
+    ...parseJsonArray<string>(row.team_a_player_ids_json),
+    ...parseJsonArray<string>(row.team_b_player_ids_json),
+  ]))];
+
+  if (userIds.length === 0) {
+    return [];
+  }
+
+  const result = await env.DB.prepare(
+    `
+      SELECT id, display_name, avatar_url, global_elo, wins, losses, streak
+      FROM users
+      WHERE id IN (${buildInClausePlaceholders(userIds.length)})
+    `,
+  )
+    .bind(...userIds)
+    .all<{
+      id: string;
+      display_name: string;
+      avatar_url: string | null;
+      global_elo: number;
+      wins: number;
+      losses: number;
+      streak: number;
+    }>();
+
+  return result.results.map<LeaderboardEntry>((row, index) => ({
+    userId: row.id,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    elo: Number(row.global_elo),
+    wins: Number(row.wins),
+    losses: Number(row.losses),
+    streak: Number(row.streak),
+    rank: index + 1,
+  }));
+}
+
+async function buildMatchPageResponse(requestId: string, env: Env, rows: MatchRow[], limit: number) {
   const page = rows.slice(0, limit);
   const last = page.at(-1);
+  const players = await loadPlayersForMatches(env, page);
 
   return successResponse(requestId, {
     matches: page.map<MatchRecord>(mapMatchRow),
+    players,
     nextCursor:
       rows.length > limit && last
         ? encodeCursor({
@@ -230,7 +276,7 @@ export async function handleGetMatches(
 
   if (dashboardPreview) {
     const rows = await loadDashboardPreviewMatches(env, sessionUser.id, filter, limit);
-    return buildMatchPageResponse(request.requestId, rows, limit);
+    return buildMatchPageResponse(request.requestId, env, rows, limit);
   }
 
   const rows =
@@ -238,5 +284,5 @@ export async function handleGetMatches(
       ? await loadMineMatches(env, sessionUser.id, cursor, limit)
       : await loadRecentOrAllMatches(env, sessionUser.id, cursor, limit);
 
-  return buildMatchPageResponse(request.requestId, rows, limit);
+  return buildMatchPageResponse(request.requestId, env, rows, limit);
 }

@@ -627,6 +627,10 @@ button:disabled,
   background: transparent;
 }
 
+.matches-load-more-button {
+  margin-top: 12px;
+}
+
 .dashboard {
   margin-top: 24px;
   display: grid;

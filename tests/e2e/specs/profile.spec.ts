@@ -103,4 +103,25 @@ test.describe("profile flow", () => {
     await page.locator(".profile-segment-card").filter({ hasText: seasonName }).click();
     await expect(page.getByTestId("season-name")).toHaveValue(seasonName, { timeout: 30000 });
   });
+
+  test("does not reload profile data when the avatar is clicked again from the profile screen", async ({ page }) => {
+    let profileMatchesRequests = 0;
+
+    await page.route("**/api", async (route, request) => {
+      if (request.method() === "POST") {
+        const body = request.postDataJSON?.();
+        if (body?.action === "getMatches" && body?.payload?.filter === "mine") {
+          profileMatchesRequests += 1;
+        }
+      }
+
+      await route.continue();
+    });
+
+    await page.getByRole("button", { name: /open profile/i }).click();
+    await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
+    await page.getByRole("button", { name: /open profile/i }).click();
+
+    await expect.poll(() => profileMatchesRequests).toBe(1);
+  });
 });

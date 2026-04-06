@@ -255,4 +255,61 @@ describe("worker integration: getDashboard", () => {
       await context.cleanup();
     }
   });
+
+  it("includes match players outside the dashboard leaderboard preview in the player directory", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+      await seedUser(context.env, { id: "user_z", displayName: "Zed" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      const bob = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_b").first<any>();
+
+      for (let index = 0; index < 10; index += 1) {
+        await seedUser(context.env, { id: `user_rank_${index}`, displayName: `Rank ${index}` });
+      }
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_dashboard_preview_hidden_player_match_1",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_b"],
+            teamBPlayerIds: ["user_z"],
+            score: [{ teamA: 11, teamB: 8 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        bob,
+        context.env,
+      );
+
+      const refreshedAlice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      const response = await handleGetDashboard(
+        {
+          action: "getDashboard",
+          requestId: "req_dashboard_hidden_match_players",
+          payload: { matchesLimit: 4, matchesFilter: "all" },
+        },
+        refreshedAlice,
+        context.env,
+      );
+
+      expect(response.ok).toBe(true);
+      expect(response.data?.matches).toHaveLength(1);
+      expect(response.data?.players).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ userId: "user_b", displayName: "Bob" }),
+          expect.objectContaining({ userId: "user_z", displayName: "Zed" }),
+        ]),
+      );
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

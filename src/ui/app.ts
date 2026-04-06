@@ -77,7 +77,7 @@ import type {
   TournamentPlannerState,
   ViewState,
 } from "./shared/types/app";
-import { hasUnreadAchievements, markAchievementsAsSeen } from "./shared/utils/achievements";
+import { getUnreadAchievementKeys, hasUnreadAchievements, markAchievementsAsSeen } from "./shared/utils/achievements";
 import { setAvatarImage } from "./shared/utils/avatar";
 import { formatCount, formatDate, formatDateTime, getTodayDateValue, toLocalDateTimeValue } from "./shared/utils/format";
 import { createAppAuthRuntime } from "./features/app/authRuntime";
@@ -749,15 +749,16 @@ export const buildApp = (): HTMLElement => {
     }
     replaceOptions(
       matchBracketSelect,
-      [
-        {
-          value: "",
-          label: options.length > 0 ? t("matchBracketSelectPrompt") : t("matchBracketNoEligible"),
-        },
-        ...options.map((option) => ({ value: option.id, label: option.label })),
-      ],
+      options.length > 0
+        ? options.map((option) => ({ value: option.id, label: option.label }))
+        : [
+            {
+              value: "",
+              label: t("matchBracketNoEligible"),
+            },
+          ],
       activeTournamentBracketMatchId || "",
-      options.length > 0 ? t("matchBracketSelectPrompt") : t("matchBracketNoEligible"),
+      options.length > 0 ? options[0]?.label ?? t("matchBracketSelectPrompt") : t("matchBracketNoEligible"),
     );
     matchBracketSelect.disabled = options.length === 0;
     if (activeTournamentBracketMatchId) {
@@ -1400,6 +1401,11 @@ export const buildApp = (): HTMLElement => {
           .map((match) => [match.id, match.bracketContext as MatchBracketContext]),
       );
       dashboardState.profileMatches = reset ? data.matches : [...dashboardState.profileMatches, ...data.matches];
+      dashboardState.players = [
+        ...new Map(
+          [...dashboardState.players, ...(data.players ?? [])].map((player) => [player.userId, player]),
+        ).values(),
+      ];
       dashboardState.profileMatchesCursor = data.nextCursor;
       dashboardState.matchBracketContextByMatchId = {
         ...dashboardState.matchBracketContextByMatchId,
@@ -1446,10 +1452,12 @@ export const buildApp = (): HTMLElement => {
       return;
     }
 
+    dashboardState.profileRecentlySeenAchievementKeys = getUnreadAchievementKeys(dashboardState.achievements);
     markAchievementsAsSeen(dashboardState.achievements);
     dashboardState.hasNewAchievements = false;
     dashboardState.screen = "profile";
     dashboardState.profileLoading = true;
+    setGlobalLoading(true, t("loadingOverlay"));
     syncAuthState();
     syncDashboardState();
 
@@ -1471,6 +1479,7 @@ export const buildApp = (): HTMLElement => {
       dashboardState.error = error instanceof Error ? error.message : "Failed to load profile.";
     } finally {
       dashboardState.profileLoading = false;
+      setGlobalLoading(false);
       syncDashboardState();
     }
   };

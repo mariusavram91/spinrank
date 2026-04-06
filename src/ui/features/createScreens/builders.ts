@@ -30,7 +30,7 @@ export interface MatchScreenElements {
 export interface SeasonScreenElements {
   seasonActionsWrapper: HTMLDivElement;
   seasonBaseEloToggle: HTMLDivElement;
-  seasonStateToggle: HTMLDivElement;
+  seasonStateToggle: HTMLDivElement | null;
   seasonVisibilityToggle: HTMLDivElement;
 }
 
@@ -517,20 +517,6 @@ export const buildSeasonScreen = (args: {
     },
   );
 
-  const seasonStateToggle = buildSegmentedControl(
-    [
-      { value: "active", labelKey: "seasonStateActive" },
-      { value: "inactive", labelKey: "seasonStateDeactivated" },
-    ],
-    (value) => {
-      if (!seasonActiveInput) {
-        return;
-      }
-      seasonActiveInput.checked = value === "active";
-      seasonActiveInput.dispatchEvent(new Event("change", { bubbles: true }));
-    },
-  );
-
   const seasonVisibilityToggle = buildSegmentedControl(
     [
       { value: "public", labelKey: "seasonVisibilityPublic" },
@@ -548,10 +534,9 @@ export const buildSeasonScreen = (args: {
   const seasonRulesSection = createPanelSection(
     "rankingRules",
     seasonBaseEloToggle,
-    seasonStateToggle,
-    seasonVisibilityToggle,
   );
   seasonRulesSection.classList.add("panel-section--editor", "panel-section--editor-rules");
+  seasonDetailsSection.append(seasonVisibilityToggle);
 
   args.seasonForm.append(
     seasonEntrySection,
@@ -566,7 +551,7 @@ export const buildSeasonScreen = (args: {
   return {
     seasonActionsWrapper,
     seasonBaseEloToggle,
-    seasonStateToggle,
+    seasonStateToggle: null,
     seasonVisibilityToggle,
   };
 };

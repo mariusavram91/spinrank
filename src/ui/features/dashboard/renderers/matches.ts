@@ -64,12 +64,10 @@ const createTeamBlock = (
 
 export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () => void } => ({
   render: () => {
-    args.matchesMeta.textContent = args.dashboardState.matchesLoading ? args.t("loadingMatches") : "";
+    args.matchesMeta.textContent = "";
 
     if (args.dashboardState.matches.length === 0) {
-      const emptyMessage = args.dashboardState.matchesLoading
-        ? args.t("loadingMatches")
-        : getMatchFilterEmptyText(args.dashboardState.matchesFilter, args.t);
+      const emptyMessage = getMatchFilterEmptyText(args.dashboardState.matchesFilter, args.t);
       args.matchesList.replaceChildren(createEmptyState(emptyMessage));
       return;
     }

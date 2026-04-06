@@ -77,6 +77,10 @@ export const createTopLevelUiHandlers = (args: {
   },
   onOpenProfile: () => {
     args.menuState.authMenuOpen = false;
+    if (args.dashboardState.screen === "profile") {
+      args.syncAuthState();
+      return;
+    }
     void args.openProfileScreen();
   },
   onToggleAuthMenu: () => {

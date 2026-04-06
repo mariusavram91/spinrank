@@ -331,23 +331,21 @@ export const renderProfileScreen = (args: {
   onOpenTournament: (tournamentId: string) => void;
   onLoadMoreMatches: () => void;
 }): void => {
-  args.status.textContent = args.dashboardState.profileLoading ? args.t("loadingOverlay") : "";
-  args.status.hidden = !args.dashboardState.profileLoading;
+  args.status.textContent = "";
+  args.status.hidden = true;
 
   const allAchievements = args.dashboardState.achievements?.items ?? [];
   const unlockedAchievements = allAchievements.filter((item) => item.unlockedAt);
-  const achievementNodes = [...allAchievements]
+  const recentlySeenAchievementKeys = new Set(args.dashboardState.profileRecentlySeenAchievementKeys);
+  const visibleAchievements = allAchievements.filter(
+    (item) => !item.unlockedAt || recentlySeenAchievementKeys.has(item.key),
+  );
+  const achievementNodes = [...visibleAchievements]
     .sort((left, right) => {
       const leftUnlocked = Boolean(left.unlockedAt);
       const rightUnlocked = Boolean(right.unlockedAt);
       if (leftUnlocked !== rightUnlocked) {
         return leftUnlocked ? -1 : 1;
-      }
-      if (leftUnlocked && rightUnlocked) {
-        const unlockedAtDiff = Date.parse(left.unlockedAt || "") - Date.parse(right.unlockedAt || "");
-        if (unlockedAtDiff !== 0) {
-          return unlockedAtDiff;
-        }
       }
       return left.points - right.points;
     })
@@ -424,9 +422,7 @@ export const renderProfileScreen = (args: {
   args.loadMoreButton.hidden = true;
 
   if (args.dashboardState.profileMatches.length === 0) {
-    const emptyMessage = args.dashboardState.profileMatchesLoading
-      ? args.t("loadingMatches")
-      : args.t("matchFilterEmptyMine");
+    const emptyMessage = args.t("matchFilterEmptyMine");
     args.matchesList.replaceChildren(createEmptyState(emptyMessage));
     return;
   }

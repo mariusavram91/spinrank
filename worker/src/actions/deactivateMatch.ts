@@ -127,6 +127,27 @@ async function hasLaterActiveMatches(
   return Boolean(laterMatch);
 }
 
+async function hasLaterDependentTournamentMatches(env: Env, matchId: string): Promise<boolean> {
+  const laterMatch = await env.DB.prepare(
+    `
+      SELECT 1
+      FROM tournament_bracket_matches current
+      INNER JOIN tournament_bracket_matches later
+        ON later.tournament_id = current.tournament_id
+       AND later.round_index > current.round_index
+      INNER JOIN matches m
+        ON m.id = later.created_match_id
+      WHERE current.created_match_id = ?1
+        AND m.status = 'active'
+      LIMIT 1
+    `,
+  )
+    .bind(matchId)
+    .first<{ 1: number }>();
+
+  return Boolean(laterMatch);
+}
+
 async function loadPlayerHistoryRows(
   env: Env,
   userIds: string[],
@@ -277,6 +298,9 @@ export async function handleDeactivateMatch(
   }
   if (match.created_by_user_id !== sessionUser.id) {
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can delete this item.");
+  }
+  if (match.tournament_id && !match.season_id && (await hasLaterDependentTournamentMatches(env, match.id))) {
+    return errorResponse(request.requestId, "CONFLICT", "Only the latest tournament match can be deleted.");
   }
 
   const nowIso = isoNow(env.runtime);

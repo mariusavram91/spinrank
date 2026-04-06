@@ -10,6 +10,11 @@ function getUnlockedTokens(overview: AchievementOverview | null): string[] {
   return [...new Set(unlockedItems.map((item) => `${item.key}:${item.unlockedAt}`))];
 }
 
+function getUnreadUnlockedTokens(overview: AchievementOverview | null): string[] {
+  const seen = new Set(loadSeenTokens());
+  return getUnlockedTokens(overview).filter((token) => !seen.has(token));
+}
+
 function loadSeenTokens(): string[] {
   if (typeof window === "undefined") {
     return [];
@@ -37,13 +42,18 @@ function saveSeenTokens(tokens: string[]): void {
 }
 
 export function hasUnreadAchievements(overview: AchievementOverview | null): boolean {
-  const unlockedTokens = getUnlockedTokens(overview);
-  if (unlockedTokens.length === 0) {
-    return false;
+  return getUnreadUnlockedTokens(overview).length > 0;
+}
+
+export function getUnreadAchievementKeys(overview: AchievementOverview | null): string[] {
+  if (!overview) {
+    return [];
   }
 
-  const seen = new Set(loadSeenTokens());
-  return unlockedTokens.some((token) => !seen.has(token));
+  const unreadTokens = new Set(getUnreadUnlockedTokens(overview));
+  return overview.items
+    .filter((item) => item.unlockedAt && unreadTokens.has(`${item.key}:${item.unlockedAt}`))
+    .map((item) => item.key);
 }
 
 export function markAchievementsAsSeen(overview: AchievementOverview | null): void {
