@@ -161,7 +161,9 @@ export interface SegmentLeaderboardStats {
   tournamentWinnerPlayer: SegmentTournamentWinner | null;
 }
 
-export interface GetLeaderboardPayload {}
+export interface GetLeaderboardPayload {
+  mode?: "default" | "dashboard_preview";
+}
 
 export interface GetLeaderboardData {
   leaderboard: LeaderboardEntry[];
@@ -292,6 +294,7 @@ export interface GetMatchesPayload {
   cursor?: string;
   limit?: number;
   filter?: MatchFeedFilter;
+  mode?: "default" | "dashboard_preview";
 }
 
 export interface MatchScoreGame {

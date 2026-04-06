@@ -19,12 +19,12 @@ export async function handleGetDashboard(
   const [seasons, tournaments, leaderboard, matches, userProgress, achievements] = await Promise.all([
     handleGetSeasons({ ...request, action: "getSeasons", payload: {} }, sessionUser, env),
     handleGetTournaments({ ...request, action: "getTournaments", payload: {} }, sessionUser, env),
-    handleGetLeaderboard({ ...request, action: "getLeaderboard", payload: {} }, sessionUser, env),
+    handleGetLeaderboard({ ...request, action: "getLeaderboard", payload: { mode: "dashboard_preview" } }, sessionUser, env),
     handleGetMatches(
       {
         ...request,
         action: "getMatches",
-        payload: { filter: matchesFilter, limit: matchesLimit ?? 4 },
+        payload: { filter: matchesFilter, limit: matchesLimit ?? 4, mode: "dashboard_preview" },
       },
       sessionUser,
       env,

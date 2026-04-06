@@ -118,7 +118,7 @@ describe("worker getDashboard action", () => {
     expect(handleGetMatches).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "getMatches",
-        payload: { filter: "recent", limit: 4 },
+        payload: { filter: "recent", limit: 4, mode: "dashboard_preview" },
       }),
       sessionUser,
       env,
@@ -127,6 +127,14 @@ describe("worker getDashboard action", () => {
       expect.objectContaining({
         action: "getUserProgress",
         payload: { mode: "summary" },
+      }),
+      sessionUser,
+      env,
+    );
+    expect(handleGetLeaderboard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "getLeaderboard",
+        payload: { mode: "dashboard_preview" },
       }),
       sessionUser,
       env,
@@ -213,7 +221,7 @@ describe("worker getDashboard action", () => {
     expect(handleGetMatches).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "getMatches",
-        payload: { filter: "mine", limit: 9 },
+        payload: { filter: "mine", limit: 9, mode: "dashboard_preview" },
       }),
       sessionUser,
       env,

@@ -4,6 +4,7 @@ import { bootstrapTestUser, persistAppSession } from "../helpers/bootstrap";
 test.describe("tournament bracket match flow", () => {
   let rivalDisplayName = "";
   let rivalId = "";
+  let ownerId = "";
 
   test.beforeEach(async ({ page, request }) => {
     const timestamp = Date.now();
@@ -16,6 +17,7 @@ test.describe("tournament bracket match flow", () => {
       displayName: "E2E Bracket Rival",
     });
 
+    ownerId = sessionUser.user.id;
     rivalDisplayName = rival.user.displayName;
     rivalId = rival.user.id;
     await persistAppSession(page, sessionUser);
@@ -71,24 +73,28 @@ test.describe("tournament bracket match flow", () => {
     await page.getByTestId("participant-add-button").first().click();
     await expect(page.getByTestId("participant-chip")).toHaveCount(2);
     await page.getByTestId("tournament-suggest").click();
+    await expect(page.locator(".bracket-board")).toContainText("Final");
+    await page.locator(".bracket-board select").nth(0).selectOption(ownerId);
+    await page.locator(".bracket-board select").nth(1).selectOption(rivalId);
+    await expect(page.locator(".bracket-board").getByRole("button", { name: "Create match" })).toBeVisible();
     await page.getByTestId("tournament-save").click();
 
     await expect(page.getByTestId("tournament-status")).toContainText("Tournament created", {
       timeout: 30000,
     });
-    await expect(page.getByTestId("tournament-load-select")).not.toHaveValue("");
+    await page.locator(".bracket-board").getByRole("button", { name: "Create match" }).click();
 
-    await page.getByTestId("create-menu-toggle").click();
-    await page.getByTestId("open-match-button").click();
-    await page.getByTestId("match-context-tournament").click();
-
-    await expect(page.getByTestId("match-tournament-select")).not.toHaveValue("");
-    await expect(page.getByTestId("match-bracket-select")).toBeEnabled({ timeout: 30000 });
-    await expect(page.getByTestId("match-bracket-select")).toContainText("Select a bracket match");
-    await expect(page.getByTestId("match-team-a-1")).not.toHaveValue("");
-    await expect(page.getByTestId("match-team-b-1")).not.toHaveValue("");
-
-    await page.getByTestId("match-bracket-select").selectOption({ index: 1 });
+    const savedTournamentOptionValue = await page.getByTestId("match-tournament-select").evaluate((select, name) => {
+      if (!(select instanceof HTMLSelectElement)) {
+        return "";
+      }
+      return Array.from(select.options).find((option) => option.label.includes(name))?.value
+        ?? Array.from(select.options).find((option) => option.value !== "")?.value
+        ?? "";
+    }, tournamentName);
+    await expect(savedTournamentOptionValue).not.toBe("");
+    await expect(page.getByTestId("match-tournament-select")).toHaveValue(savedTournamentOptionValue);
+    await expect(page.getByTestId("match-bracket-select")).not.toHaveValue("");
     await expect(page.getByTestId("match-team-a-1")).not.toHaveValue("");
     await expect(page.getByTestId("match-team-b-1")).not.toHaveValue("");
 
@@ -97,6 +103,7 @@ test.describe("tournament bracket match flow", () => {
     await page.getByTestId("match-submit").click();
 
     await expect(page.getByTestId("tournament-load-select")).not.toHaveValue("", { timeout: 30000 });
+    await expect(page.locator(".bracket-board")).toContainText("Match created", { timeout: 30000 });
     await page.getByTestId("close-create-tournament-button").click();
     await expect(page.getByTestId("matches-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`), {
       timeout: 30000,

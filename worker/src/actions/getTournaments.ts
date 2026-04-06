@@ -12,39 +12,41 @@ export async function handleGetTournaments(
     `
       WITH visible AS (
         ${buildVisibleTournamentsSql()}
+      ),
+      participant_summary AS (
+        SELECT
+          tp.tournament_id,
+          json_group_array(tp.user_id) AS participant_ids_json,
+          COUNT(*) AS participant_count
+        FROM (
+          SELECT tournament_id, user_id
+          FROM tournament_participants
+          ORDER BY tournament_id ASC, user_id ASC
+        ) tp
+        GROUP BY tp.tournament_id
+      ),
+      bracket_summary AS (
+        SELECT
+          tbm.tournament_id,
+          MAX(CASE WHEN tbm.is_final = 1 AND tbm.winner_player_id IS NOT NULL THEN 1 ELSE 0 END) AS has_completed_final,
+          MAX(CASE WHEN tbm.created_match_id IS NOT NULL OR tbm.winner_player_id IS NOT NULL THEN 1 ELSE 0 END) AS has_progress
+        FROM tournament_bracket_matches tbm
+        GROUP BY tbm.tournament_id
       )
       SELECT
         v.*,
         s.name AS season_name,
-        (
-          SELECT json_group_array(tp.user_id)
-          FROM tournament_participants tp
-          WHERE tp.tournament_id = v.id
-          ORDER BY tp.user_id ASC
-        ) AS participant_ids_json,
-        (
-          SELECT COUNT(*)
-          FROM tournament_participants tp
-          WHERE tp.tournament_id = v.id
-        ) AS participant_count,
+        ps.participant_ids_json,
+        COALESCE(ps.participant_count, 0) AS participant_count,
         CASE
-          WHEN EXISTS (
-            SELECT 1
-            FROM tournament_bracket_matches tbm
-            WHERE tbm.tournament_id = v.id
-              AND tbm.is_final = 1
-              AND tbm.winner_player_id IS NOT NULL
-          ) THEN 'completed'
-          WHEN EXISTS (
-            SELECT 1
-            FROM tournament_bracket_matches tbm
-            WHERE tbm.tournament_id = v.id
-              AND (tbm.created_match_id IS NOT NULL OR tbm.winner_player_id IS NOT NULL)
-          ) THEN 'in_progress'
+          WHEN COALESCE(bs.has_completed_final, 0) = 1 THEN 'completed'
+          WHEN COALESCE(bs.has_progress, 0) = 1 THEN 'in_progress'
           ELSE 'draft'
         END AS bracket_status
       FROM visible v
       LEFT JOIN seasons s ON s.id = v.season_id
+      LEFT JOIN participant_summary ps ON ps.tournament_id = v.id
+      LEFT JOIN bracket_summary bs ON bs.tournament_id = v.id
       WHERE (?3 = '' OR v.season_id = ?3)
       ORDER BY v.date DESC, v.id DESC
     `,

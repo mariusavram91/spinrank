@@ -21,6 +21,9 @@ function createPreparedStatement(
       this.args = args;
       return this;
     },
+    async all<T>() {
+      return (await responder(sql, this.args)) as T;
+    },
     async first<T>() {
       return (await responder(sql, this.args)) as T;
     },
@@ -33,7 +36,7 @@ function createPreparedStatement(
 }
 
 describe("worker deactivateMatch action", () => {
-  it("rebuilds dependent state with a single ranking recomputation", async () => {
+  it("uses the incremental rollback path for a latest non-season match", async () => {
     const sessionUser = {
       id: "user_a",
       provider: "google",
@@ -54,12 +57,31 @@ describe("worker deactivateMatch action", () => {
         batch: vi.fn(async () => []),
         prepare: vi.fn((sql: string) =>
           createPreparedStatement(sql, async (statementSql) => {
-            if (statementSql.includes("FROM matches")) {
+            if (statementSql.includes("FROM matches") && statementSql.includes("WHERE id = ?1")) {
               return {
                 id: "match_1",
                 created_by_user_id: "user_a",
                 status: "active",
-                tournament_id: "tournament_1",
+                tournament_id: null,
+                season_id: null,
+                match_type: "singles",
+                team_a_player_ids_json: JSON.stringify(["user_a"]),
+                team_b_player_ids_json: JSON.stringify(["user_b"]),
+                winner_team: "A",
+                global_elo_delta_json: JSON.stringify({ user_a: 20, user_b: -20 }),
+                segment_elo_delta_json: JSON.stringify({}),
+                played_at: "2026-04-05T12:00:00.000Z",
+                created_at: "2026-04-05T12:05:00.000Z",
+              };
+            }
+
+            if (statementSql.includes("SELECT 1") && statementSql.includes("INNER JOIN match_players mp")) {
+              return null;
+            }
+
+            if (statementSql.includes("SELECT") && statementSql.includes("m.global_elo_delta_json")) {
+              return {
+                results: [],
               };
             }
 
@@ -80,6 +102,73 @@ describe("worker deactivateMatch action", () => {
       {
         action: "deactivateMatch",
         requestId: "req_deactivate_match_single_recompute",
+        payload: { id: "match_1", reason: "cleanup" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(rebuildTournamentBracket).not.toHaveBeenCalled();
+    expect(recomputeAllRankings).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a full recomputation for season-backed match deletions", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1200,
+      wins: 0,
+      losses: 0,
+      streak: 0,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        batch: vi.fn(async () => []),
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("FROM matches") && statementSql.includes("WHERE id = ?1")) {
+              return {
+                id: "match_1",
+                created_by_user_id: "user_a",
+                status: "active",
+                tournament_id: "tournament_1",
+                season_id: "season_1",
+                match_type: "singles",
+                team_a_player_ids_json: JSON.stringify(["user_a"]),
+                team_b_player_ids_json: JSON.stringify(["user_b"]),
+                winner_team: "A",
+                global_elo_delta_json: JSON.stringify({ user_a: 20, user_b: -20 }),
+                segment_elo_delta_json: JSON.stringify({ season_1: {}, tournament_1: { user_a: 20, user_b: -20 } }),
+                played_at: "2026-04-05T12:00:00.000Z",
+                created_at: "2026-04-05T12:05:00.000Z",
+              };
+            }
+
+            return { success: true };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+        randomId: (() => {
+          let index = 0;
+          return () => `generated_${++index}`;
+        })(),
+      },
+    } as unknown as Env;
+
+    const response = await handleDeactivateMatch(
+      {
+        action: "deactivateMatch",
+        requestId: "req_deactivate_match_season_fallback",
         payload: { id: "match_1", reason: "cleanup" },
       },
       sessionUser,

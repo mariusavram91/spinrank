@@ -344,6 +344,7 @@ export interface GetMatchesPayload {
   cursor?: string;
   limit?: number;
   filter?: "recent" | "mine" | "all";
+  mode?: "default" | "dashboard_preview";
 }
 
 export interface GetMatchesData {

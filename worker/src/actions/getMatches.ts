@@ -21,6 +21,195 @@ type MatchRow = {
   is_final: number | null;
 };
 
+type MatchCursor = {
+  playedAt: string;
+  createdAt: string;
+  id: string;
+} | null;
+
+function buildSelectColumns(): string {
+  return `
+    m.id,
+    m.match_type,
+    m.format_type,
+    m.points_to_win,
+    m.team_a_player_ids_json,
+    m.team_b_player_ids_json,
+    m.score_json,
+    m.winner_team,
+    m.played_at,
+    m.season_id,
+    m.tournament_id,
+    m.created_by_user_id,
+    m.status,
+    m.created_at,
+    tbm.round_title,
+    tbm.is_final
+  `;
+}
+
+function buildVisibilityJoins(userBinding: string): string {
+  return `
+    LEFT JOIN seasons s
+      ON s.id = m.season_id
+    LEFT JOIN season_participants sp
+      ON sp.season_id = m.season_id AND sp.user_id = ${userBinding}
+    LEFT JOIN tournaments t
+      ON t.id = m.tournament_id
+    LEFT JOIN tournament_participants tp
+      ON tp.tournament_id = m.tournament_id AND tp.user_id = ${userBinding}
+    LEFT JOIN tournament_bracket_matches tbm
+      ON tbm.created_match_id = m.id
+  `;
+}
+
+function buildVisibilityPredicate(userBinding: string): string {
+  return `
+    m.status = 'active'
+    AND (s.id IS NULL OR s.status != 'deleted')
+    AND (t.id IS NULL OR t.status != 'deleted')
+    AND (
+      (m.season_id IS NULL AND m.tournament_id IS NULL)
+      OR (m.tournament_id IS NOT NULL AND (t.created_by_user_id = ${userBinding} OR tp.user_id IS NOT NULL))
+      OR (m.tournament_id IS NULL AND m.season_id IS NOT NULL AND (
+        s.is_public = 1 OR s.created_by_user_id = ${userBinding} OR sp.user_id IS NOT NULL
+      ))
+    )
+  `;
+}
+
+function isDashboardPreviewMode(payload: GetMatchesPayload | undefined): boolean {
+  return payload?.mode === "dashboard_preview";
+}
+
+function buildCursorPredicate(alias: string): string {
+  return `
+    ?2 IS NULL
+    OR ${alias}.played_at < ?2
+    OR (${alias}.played_at = ?2 AND ${alias}.created_at < ?3)
+    OR (${alias}.played_at = ?2 AND ${alias}.created_at = ?3 AND ${alias}.id < ?4)
+  `;
+}
+
+function mapMatchRow(row: MatchRow): MatchRecord {
+  return {
+    id: row.id,
+    matchType: row.match_type,
+    formatType: row.format_type,
+    pointsToWin: row.points_to_win as 11 | 21,
+    teamAPlayerIds: parseJsonArray<string>(row.team_a_player_ids_json),
+    teamBPlayerIds: parseJsonArray<string>(row.team_b_player_ids_json),
+    score: parseJsonObject(row.score_json, []),
+    winnerTeam: row.winner_team,
+    playedAt: row.played_at,
+    seasonId: row.season_id,
+    tournamentId: row.tournament_id,
+    createdByUserId: row.created_by_user_id,
+    status: row.status,
+    createdAt: row.created_at,
+    bracketContext: row.round_title
+      ? {
+          roundTitle: row.round_title,
+          isFinal: Boolean(row.is_final),
+        }
+      : null,
+  };
+}
+
+function buildMatchPageResponse(requestId: string, rows: MatchRow[], limit: number) {
+  const page = rows.slice(0, limit);
+  const last = page.at(-1);
+
+  return successResponse(requestId, {
+    matches: page.map<MatchRecord>(mapMatchRow),
+    nextCursor:
+      rows.length > limit && last
+        ? encodeCursor({
+            playedAt: last.played_at,
+            createdAt: last.created_at,
+            id: last.id,
+          })
+        : null,
+  });
+}
+
+async function loadDashboardPreviewMatches(
+  env: Env,
+  sessionUserId: string,
+  filter: GetMatchesPayload["filter"],
+  limit: number,
+): Promise<MatchRow[]> {
+  const viewerJoin =
+    filter === "mine" ? "INNER JOIN match_players viewer_mp ON viewer_mp.match_id = m.id AND viewer_mp.user_id = ?1" : "";
+
+  const result = await env.DB.prepare(
+    `
+      SELECT
+        ${buildSelectColumns()}
+      FROM matches m
+      ${viewerJoin}
+      ${buildVisibilityJoins("?1")}
+      WHERE ${buildVisibilityPredicate("?1")}
+      ORDER BY m.played_at DESC, m.created_at DESC, m.id DESC
+      LIMIT ?2
+    `,
+  )
+    .bind(sessionUserId, limit + 1)
+    .all<MatchRow>();
+
+  return result.results;
+}
+
+async function loadRecentOrAllMatches(
+  env: Env,
+  sessionUserId: string,
+  cursor: MatchCursor,
+  limit: number,
+): Promise<MatchRow[]> {
+  const result = await env.DB.prepare(
+    `
+      SELECT
+        ${buildSelectColumns()}
+      FROM matches m
+      ${buildVisibilityJoins("?1")}
+      WHERE ${buildVisibilityPredicate("?1")}
+        AND (${buildCursorPredicate("m")})
+      ORDER BY m.played_at DESC, m.created_at DESC, m.id DESC
+      LIMIT ?5
+    `,
+  )
+    .bind(sessionUserId, cursor?.playedAt ?? null, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1)
+    .all<MatchRow>();
+
+  return result.results;
+}
+
+async function loadMineMatches(
+  env: Env,
+  sessionUserId: string,
+  cursor: MatchCursor,
+  limit: number,
+): Promise<MatchRow[]> {
+  const result = await env.DB.prepare(
+    `
+      SELECT
+        ${buildSelectColumns()}
+      FROM matches m
+      INNER JOIN match_players viewer_mp
+        ON viewer_mp.match_id = m.id AND viewer_mp.user_id = ?1
+      ${buildVisibilityJoins("?1")}
+      WHERE ${buildVisibilityPredicate("?1")}
+        AND (${buildCursorPredicate("m")})
+      ORDER BY m.played_at DESC, m.created_at DESC, m.id DESC
+      LIMIT ?5
+    `,
+  )
+    .bind(sessionUserId, cursor?.playedAt ?? null, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1)
+    .all<MatchRow>();
+
+  return result.results;
+}
+
 function normalizeMatchFilter(value: unknown): GetMatchesPayload["filter"] {
   if (value === "mine" || value === "all") {
     return value;
@@ -37,118 +226,17 @@ export async function handleGetMatches(
   const filter = normalizeMatchFilter(request.payload?.filter);
   const limit = Math.min(Math.max(request.payload?.limit ?? (filter === "recent" ? 4 : 20), 1), 50);
   const cursor = decodeCursor(request.payload?.cursor);
+  const dashboardPreview = isDashboardPreviewMode(request.payload) && !cursor;
 
-  const result = await env.DB.prepare(
-    `
-      WITH visible_matches AS (
-        SELECT
-          m.id,
-          m.match_type,
-          m.format_type,
-          m.points_to_win,
-          m.team_a_player_ids_json,
-          m.team_b_player_ids_json,
-          m.score_json,
-          m.winner_team,
-          m.played_at,
-          m.season_id,
-          m.tournament_id,
-          m.created_by_user_id,
-          m.status,
-          m.created_at,
-          tbm.round_title,
-          tbm.is_final
-        FROM matches m
-        LEFT JOIN seasons s
-          ON s.id = m.season_id
-        LEFT JOIN season_participants sp
-          ON sp.season_id = m.season_id AND sp.user_id = ?1
-        LEFT JOIN tournaments t
-          ON t.id = m.tournament_id
-        LEFT JOIN tournament_participants tp
-          ON tp.tournament_id = m.tournament_id AND tp.user_id = ?1
-        LEFT JOIN tournament_bracket_matches tbm
-          ON tbm.created_match_id = m.id
-        WHERE m.status = 'active'
-          AND (s.id IS NULL OR s.status != 'deleted')
-          AND (t.id IS NULL OR t.status != 'deleted')
-          AND (
-            (m.season_id IS NULL AND m.tournament_id IS NULL)
-            OR (m.tournament_id IS NOT NULL AND (t.created_by_user_id = ?1 OR tp.user_id IS NOT NULL))
-            OR (m.tournament_id IS NULL AND m.season_id IS NOT NULL AND (
-              s.is_public = 1 OR s.created_by_user_id = ?1 OR sp.user_id IS NOT NULL
-            ))
-          )
-      )
-      SELECT *
-      FROM visible_matches
-      WHERE (
-        ?2 = 'recent'
-        OR ?2 = 'all'
-        OR (
-          ?2 = 'mine'
-          AND EXISTS (
-            SELECT 1
-            FROM match_players mp
-            WHERE mp.match_id = visible_matches.id
-              AND mp.user_id = ?1
-          )
-        )
-      )
-        AND (
-          ?3 IS NULL
-          OR visible_matches.played_at < ?3
-          OR (visible_matches.played_at = ?3 AND visible_matches.created_at < ?4)
-          OR (visible_matches.played_at = ?3 AND visible_matches.created_at = ?4 AND visible_matches.id < ?5)
-        )
-      ORDER BY visible_matches.played_at DESC, visible_matches.created_at DESC, visible_matches.id DESC
-      LIMIT ?6
-    `,
-  )
-    .bind(
-      sessionUser.id,
-      filter,
-      cursor?.playedAt ?? null,
-      cursor?.createdAt ?? null,
-      cursor?.id ?? null,
-      limit + 1,
-    )
-    .all<MatchRow>();
+  if (dashboardPreview) {
+    const rows = await loadDashboardPreviewMatches(env, sessionUser.id, filter, limit);
+    return buildMatchPageResponse(request.requestId, rows, limit);
+  }
 
-  const rows = result.results;
-  const page = rows.slice(0, limit);
-  const last = page.at(-1);
+  const rows =
+    filter === "mine"
+      ? await loadMineMatches(env, sessionUser.id, cursor, limit)
+      : await loadRecentOrAllMatches(env, sessionUser.id, cursor, limit);
 
-  return successResponse(request.requestId, {
-    matches: page.map<MatchRecord>((row) => ({
-      id: row.id,
-      matchType: row.match_type,
-      formatType: row.format_type,
-      pointsToWin: row.points_to_win as 11 | 21,
-      teamAPlayerIds: parseJsonArray<string>(row.team_a_player_ids_json),
-      teamBPlayerIds: parseJsonArray<string>(row.team_b_player_ids_json),
-      score: parseJsonObject(row.score_json, []),
-      winnerTeam: row.winner_team,
-      playedAt: row.played_at,
-      seasonId: row.season_id,
-      tournamentId: row.tournament_id,
-      createdByUserId: row.created_by_user_id,
-      status: row.status,
-      createdAt: row.created_at,
-      bracketContext: row.round_title
-        ? {
-            roundTitle: row.round_title,
-            isFinal: Boolean(row.is_final),
-          }
-        : null,
-    })),
-    nextCursor:
-      rows.length > limit && last
-        ? encodeCursor({
-            playedAt: last.played_at,
-            createdAt: last.created_at,
-            id: last.id,
-          })
-        : null,
-  });
+  return buildMatchPageResponse(request.requestId, rows, limit);
 }
