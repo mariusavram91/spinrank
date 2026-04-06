@@ -1,16 +1,17 @@
 import { createDashboardSelectors, createFormStatusOrchestration, createShareOrchestration } from "../../../src/ui/features/app/orchestration";
-import type { DashboardState, SharePanelElements, TournamentPlannerState } from "../../../src/ui/shared/types/app";
+import type { SharePanelElements, TournamentPlannerState } from "../../../src/ui/shared/types/app";
 
 const createSharePanel = (): SharePanelElements =>
   ({
     section: document.createElement("section"),
     createButton: document.createElement("button"),
     copyButton: document.createElement("button"),
-    status: document.createElement("div"),
+    status: document.createElement("p"),
     qrWrapper: document.createElement("div"),
     qrCanvas: document.createElement("canvas"),
+    copyFeedback: document.createElement("span"),
     animationTimer: null,
-  }) as SharePanelElements;
+  });
 
 describe("app orchestration helpers", () => {
   beforeEach(() => {
@@ -95,7 +96,7 @@ describe("app orchestration helpers", () => {
       },
       shareNotice: "",
       shareAlertMessage: "",
-    } as DashboardState;
+    };
     const syncDashboardState = vi.fn();
     const renderShareQr = vi.fn().mockResolvedValue(undefined);
     const setShareAlertVisible = vi.fn();

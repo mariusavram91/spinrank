@@ -50,6 +50,7 @@ export interface ScoreCardElements {
   openButton: HTMLButtonElement;
   closeButton: HTMLButtonElement;
   resetButton: HTMLButtonElement;
+  switchServeButton: HTMLButtonElement;
   saveButton: HTMLButtonElement;
   nextGameButton: HTMLButtonElement;
   isVisible: () => boolean;
@@ -710,6 +711,9 @@ export const buildScoreCard = (args: {
     return currentWinner ? [...previousGames, { ...scoreState, winnerTeam: currentWinner }] : [...previousGames];
   };
 
+  const isAtMatchStart = (): boolean =>
+    previousGames.length === 0 && scoreState.teamA === 0 && scoreState.teamB === 0;
+
   const getMatchWinner = (): TeamKey | null => {
     const currentWinner = getGameWinner(scoreState, pointsToWin);
     const games = currentWinner ? [...previousGames, { ...scoreState, winnerTeam: currentWinner }] : [...previousGames];
@@ -1045,6 +1049,7 @@ export const buildScoreCard = (args: {
     nextGameButton.hidden = !(formatType === "best_of_3" && currentWinner && !matchWinner);
     nextGameButton.disabled = !(formatType === "best_of_3" && currentWinner && !matchWinner) || saving;
     resetButton.disabled = saving;
+    switchServeButton.disabled = saving || !isAtMatchStart();
   };
 
   const sync = (): void => {
@@ -1246,6 +1251,18 @@ export const buildScoreCard = (args: {
   bindLocalizedText(resetButton, "resetScoreCard");
   resetButton.addEventListener("click", reset);
 
+  const switchServeButton = document.createElement("button");
+  switchServeButton.type = "button";
+  switchServeButton.className = "secondary-button";
+  bindLocalizedText(switchServeButton, "scoreCardSwitchServe");
+  switchServeButton.addEventListener("click", () => {
+    if (!isAtMatchStart() || saving) {
+      return;
+    }
+    currentServeStartTeam = oppositeTeam(currentServeStartTeam);
+    sync();
+  });
+
   const nextGameButton = document.createElement("button");
   nextGameButton.type = "button";
   nextGameButton.className = "secondary-button";
@@ -1260,7 +1277,7 @@ export const buildScoreCard = (args: {
     void saveMatch();
   });
 
-  scoreActions.append(resetButton, nextGameButton, saveButton);
+  scoreActions.append(resetButton, switchServeButton, nextGameButton, saveButton);
 
   header.append(titleBlock);
   topLine.append(statusPanel);
@@ -1308,6 +1325,7 @@ export const buildScoreCard = (args: {
     openButton,
     closeButton,
     resetButton,
+    switchServeButton,
     saveButton,
     nextGameButton,
     isVisible: () => visible,

@@ -1,10 +1,67 @@
 import { createDashboardSync } from "../../../src/ui/features/dashboard/sync";
-import type { DashboardState, TournamentPlannerState } from "../../../src/ui/shared/types/app";
+import type { MatchFeedFilter, SeasonRecord, TournamentRecord } from "../../../src/api/contract";
+import type { DashboardState, SharePanelElements, TournamentPlannerState } from "../../../src/ui/shared/types/app";
 
 const makeButton = () => document.createElement("button");
 const makeInput = () => document.createElement("input");
 const makeSelect = () => document.createElement("select");
 const makeDiv = () => document.createElement("div");
+const makeParagraph = () => document.createElement("p");
+
+const createSharePanelElements = (): SharePanelElements => ({
+  section: document.createElement("section"),
+  createButton: makeButton(),
+  copyButton: makeButton(),
+  status: makeParagraph(),
+  qrCanvas: document.createElement("canvas"),
+  qrWrapper: makeDiv(),
+  copyFeedback: document.createElement("span"),
+  animationTimer: null,
+});
+
+const createSeasonRecord = (overrides?: Partial<SeasonRecord>): SeasonRecord => ({
+  id: "season_1",
+  name: "Spring",
+  startDate: "2026-04-01",
+  endDate: "2026-04-30",
+  isActive: true,
+  status: "active",
+  baseEloMode: "carry_over",
+  participantIds: ["user_1", "user_2"],
+  createdByUserId: "user_1",
+  createdAt: "2026-04-01T00:00:00.000Z",
+  completedAt: null,
+  isPublic: true,
+  ...overrides,
+});
+
+const createTournamentRecord = (overrides?: Partial<TournamentRecord>): TournamentRecord => ({
+  id: "tournament_1",
+  name: "Cup",
+  date: "2026-04-06",
+  seasonId: "season_1",
+  seasonName: "Spring",
+  status: "active",
+  createdByUserId: "user_1",
+  createdAt: "2026-04-01T00:00:00.000Z",
+  completedAt: null,
+  participantCount: 2,
+  participantIds: ["user_1", "user_2"],
+  bracketStatus: "draft",
+  ...overrides,
+});
+
+const createLeaderboardEntry = (overrides?: Record<string, unknown>) => ({
+  userId: "user_1",
+  displayName: "Ada",
+  avatarUrl: null,
+  elo: 1200,
+  wins: 7,
+  losses: 1,
+  streak: 4,
+  rank: 1,
+  ...overrides,
+});
 
 const createDom = () => ({
   dashboardStatus: makeDiv(),
@@ -48,7 +105,8 @@ const createDom = () => ({
   saveTournamentButton: makeButton(),
   suggestTournamentButton: makeButton(),
   loadMoreButton: makeButton(),
-  matchFilterButtons: new Map([
+  matchFilterButtons: new Map<MatchFeedFilter, HTMLButtonElement>([
+    ["recent", makeButton()],
     ["mine", makeButton()],
     ["all", makeButton()],
   ]),
@@ -112,8 +170,35 @@ const createDashboardState = (overrides?: Partial<DashboardState>) =>
     shareNotice: "",
     shareAlertMessage: "",
     segmentMode: "global",
-    seasons: [{ id: "season_1", status: "active" }],
-    tournaments: [{ id: "tournament_1", status: "active" }],
+    screen: "dashboard",
+    players: [],
+    leaderboardUpdatedAt: "",
+    tournamentBracket: [],
+    userProgress: null,
+    selectedSeasonId: "",
+    selectedTournamentId: "",
+    matches: [],
+    profileMatches: [],
+    profileMatchesCursor: null,
+    profileLoading: false,
+    profileMatchesLoading: false,
+    profileSegmentSummaries: {},
+    profileSegmentSummaryLoadingKeys: [],
+    matchBracketContextByMatchId: {},
+    seasonParticipantQuery: "",
+    seasonParticipantResults: [],
+    seasonParticipantSearchLoading: false,
+    seasonParticipantSearchError: "",
+    editingSeasonId: "",
+    editingSeasonParticipantIds: [],
+    pendingCreateRequestId: "",
+    shareCache: {},
+    shareErrors: {},
+    shareLoadingSegmentKey: "",
+    pendingShareToken: "",
+    matchTournamentBracketCache: {},
+    seasons: [createSeasonRecord()],
+    tournaments: [createTournamentRecord()],
     matchesLoading: false,
     seasonDraftMode: "create",
     matchSubmitting: false,
@@ -127,13 +212,36 @@ const createDashboardState = (overrides?: Partial<DashboardState>) =>
     matchesCursor: null,
     matchesFilter: "mine",
     leaderboard: [
-      { userId: "user_1", displayName: "Ada", streak: 4, wins: 7 },
-      { userId: "user_2", displayName: "Bob", streak: 2, wins: 3 },
+      createLeaderboardEntry(),
+      createLeaderboardEntry({
+        userId: "user_2",
+        displayName: "Bob",
+        elo: 1180,
+        wins: 3,
+        losses: 4,
+        streak: 2,
+        rank: 2,
+      }),
     ],
     leaderboardStats: {
       totalMatches: 12,
-      mostMatchesPlayer: { displayName: "Ada", matchesPlayed: 8 },
-      mostWinsPlayer: { displayName: "Ada", wins: 7 },
+      mostMatchesPlayer: {
+        userId: "user_1",
+        displayName: "Ada",
+        avatarUrl: null,
+        matchesPlayed: 8,
+        wins: 7,
+        losses: 1,
+      },
+      mostWinsPlayer: {
+        userId: "user_1",
+        displayName: "Ada",
+        avatarUrl: null,
+        matchesPlayed: 8,
+        wins: 7,
+        losses: 1,
+      },
+      tournamentWinnerPlayer: null,
     },
     sharePanelSeasonTargetId: "season_1",
     sharePanelTournamentTargetId: "tournament_1",
@@ -161,8 +269,8 @@ describe("dashboard sync", () => {
       progress: { render: vi.fn() },
     };
     const sharePanels = {
-      season: { section: document.createElement("section") },
-      tournament: { section: document.createElement("section") },
+      season: createSharePanelElements(),
+      tournament: createSharePanelElements(),
       getSeasonShareTargetId: () => "season_1",
       getTournamentShareTargetId: () => "tournament_1",
       getSeasonSharePanelRenderedUrl: () => "",
@@ -179,8 +287,8 @@ describe("dashboard sync", () => {
       renderMatchDraftSummary: vi.fn(),
       syncMatchFormLockState: vi.fn(),
       scheduleFormStatusHide: vi.fn(),
-      getEditingSeason: () => ({ createdByUserId: "user_1", status: "active" }),
-      getEditingTournament: () => ({ createdByUserId: "user_1", status: "active" }),
+      getEditingSeason: () => createSeasonRecord(),
+      getEditingTournament: () => createTournamentRecord(),
       hasTournamentProgress: () => false,
       isLockedSeason: () => false,
       isLockedTournament: () => false,
@@ -246,8 +354,8 @@ describe("dashboard sync", () => {
       renderMatchDraftSummary: vi.fn(),
       syncMatchFormLockState: vi.fn(),
       scheduleFormStatusHide: vi.fn(),
-      getEditingSeason: () => ({ createdByUserId: "user_1", status: "completed" }),
-      getEditingTournament: () => ({ createdByUserId: "user_1", status: "deleted" }),
+      getEditingSeason: () => createSeasonRecord({ status: "completed" }),
+      getEditingTournament: () => createTournamentRecord({ status: "deleted" }),
       hasTournamentProgress: () => true,
       isLockedSeason: () => true,
       isLockedTournament: () => true,
@@ -260,8 +368,23 @@ describe("dashboard sync", () => {
         segmentMode: "tournament",
         leaderboardStats: {
           totalMatches: 5,
-          mostMatchesPlayer: { displayName: "Ada", matchesPlayed: 5 },
-          mostWinsPlayer: { displayName: "Ada", wins: 4 },
+          mostMatchesPlayer: {
+            userId: "user_1",
+            displayName: "Ada",
+            avatarUrl: null,
+            matchesPlayed: 5,
+            wins: 4,
+            losses: 1,
+          },
+          mostWinsPlayer: {
+            userId: "user_1",
+            displayName: "Ada",
+            avatarUrl: null,
+            matchesPlayed: 5,
+            wins: 4,
+            losses: 1,
+          },
+          tournamentWinnerPlayer: null,
         },
       }),
       tournamentPlannerState: createTournamentPlannerState({ tournamentId: "tournament_1" }),

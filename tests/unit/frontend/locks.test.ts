@@ -80,7 +80,16 @@ describe("match lock helpers", () => {
     const lockedBracket = makeHarness({
       activeBracketMatchId: "match_2",
       tournamentPlannerState: {
-        rounds: [{ matches: [{ id: "match_2", locked: true, createdMatchId: null }] }],
+        rounds: [{
+          title: "Final",
+          matches: [{
+            id: "match_2",
+            leftPlayerId: "user_1",
+            rightPlayerId: "user_2",
+            locked: true,
+            createdMatchId: null,
+          }],
+        }],
       },
     });
     lockedBracket.formTournamentSelect.value = "tournament_1";
@@ -91,7 +100,15 @@ describe("match lock helpers", () => {
   it("detects tournament progress from completed or advanced matches", () => {
     const completed = makeHarness({
       tournamentPlannerState: {
-        rounds: [{ matches: [{ id: "match_1", createdMatchId: "created_1" }] }],
+        rounds: [{
+          title: "Round 1",
+          matches: [{
+            id: "match_1",
+            leftPlayerId: "user_1",
+            rightPlayerId: "user_2",
+            createdMatchId: "created_1",
+          }],
+        }],
       },
     });
     expect(completed.helpers.hasTournamentProgress()).toBe(true);
@@ -99,8 +116,8 @@ describe("match lock helpers", () => {
     const advanced = makeHarness({
       tournamentPlannerState: {
         rounds: [
-          { matches: [{ id: "match_1" }] },
-          { matches: [{ id: "match_2", leftPlayerId: "user_1", rightPlayerId: null }] },
+          { title: "Round 1", matches: [{ id: "match_1", leftPlayerId: null, rightPlayerId: null }] },
+          { title: "Round 2", matches: [{ id: "match_2", leftPlayerId: "user_1", rightPlayerId: null }] },
         ],
       },
     });

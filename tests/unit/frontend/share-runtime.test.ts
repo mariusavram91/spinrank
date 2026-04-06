@@ -3,14 +3,14 @@ import type { DashboardState, SharePanelElements } from "../../../src/ui/shared/
 
 const createSharePanel = (): SharePanelElements => ({
   section: document.createElement("section"),
-  title: document.createElement("h3"),
-  hint: document.createElement("p"),
-  input: document.createElement("input"),
+  createButton: document.createElement("button"),
   copyButton: document.createElement("button"),
-  refreshButton: document.createElement("button"),
+  status: document.createElement("p"),
   qrCanvas: document.createElement("canvas"),
-  notice: document.createElement("span"),
-}) as SharePanelElements;
+  qrWrapper: document.createElement("div"),
+  copyFeedback: document.createElement("span"),
+  animationTimer: null,
+});
 
 const createHarness = (overrides?: {
   dashboardState?: Partial<DashboardState>;
