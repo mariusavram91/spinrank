@@ -319,14 +319,12 @@ export const renderProfileScreen = (args: {
         return leftUnlocked ? -1 : 1;
       }
       if (leftUnlocked && rightUnlocked) {
-        return Date.parse(right.unlockedAt || "") - Date.parse(left.unlockedAt || "");
+        const unlockedAtDiff = Date.parse(left.unlockedAt || "") - Date.parse(right.unlockedAt || "");
+        if (unlockedAtDiff !== 0) {
+          return unlockedAtDiff;
+        }
       }
-      const leftRatio = left.progressTarget ? left.progressValue / left.progressTarget : 0;
-      const rightRatio = right.progressTarget ? right.progressValue / right.progressTarget : 0;
-      if (rightRatio !== leftRatio) {
-        return rightRatio - leftRatio;
-      }
-      return right.points - left.points;
+      return left.points - right.points;
     })
     .map((item) => buildAchievementChip(item, args.t));
   const summaryNodes = unlockedAchievements.map((item) => {

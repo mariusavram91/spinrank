@@ -1,3 +1,4 @@
+import { isoNow } from "../db";
 import type { AchievementOverview, AchievementSummaryItem, Env } from "../types";
 import { ACHIEVEMENTS, type AchievementDefinition } from "./achievementCatalog";
 
@@ -162,41 +163,172 @@ async function unlockSimpleAchievement(
   });
 }
 
+async function loadCreatedCounts(
+  env: Env,
+  table: "seasons" | "tournaments",
+  userIds: string[],
+): Promise<Array<{ user_id: string; created_count: number }>> {
+  if (userIds.length === 0) {
+    return [];
+  }
+  const placeholders = userIds.map((_, index) => `?${index + 1}`).join(",");
+  const rows = await env.DB.prepare(
+    `
+      SELECT created_by_user_id AS user_id, COUNT(*) AS created_count
+      FROM ${table}
+      WHERE created_by_user_id IN (${placeholders})
+      GROUP BY created_by_user_id
+    `,
+  )
+    .bind(...userIds)
+    .all<{ user_id: string; created_count: number }>();
+
+  return rows.results;
+}
+
+async function loadSegmentPlayedCounts(
+  env: Env,
+  segment: "season" | "tournament",
+  userIds: string[],
+): Promise<Array<{ user_id: string; played_count: number }>> {
+  if (userIds.length === 0) {
+    return [];
+  }
+  const placeholders = userIds.map((_, index) => `?${index + 1}`).join(",");
+  const column = segment === "season" ? "m.season_id" : "m.tournament_id";
+  const rows = await env.DB.prepare(
+    `
+      SELECT mp.user_id, COUNT(DISTINCT ${column}) AS played_count
+      FROM match_players mp
+      JOIN matches m
+        ON m.id = mp.match_id
+      WHERE mp.user_id IN (${placeholders})
+        AND m.status = 'active'
+        AND ${column} IS NOT NULL
+      GROUP BY mp.user_id
+    `,
+  )
+    .bind(...userIds)
+    .all<{ user_id: string; played_count: number }>();
+
+  return rows.results;
+}
+
+async function loadMatchTypeCounts(
+  env: Env,
+  userIds: string[],
+): Promise<Array<{ user_id: string; singles_count: number; doubles_count: number }>> {
+  if (userIds.length === 0) {
+    return [];
+  }
+  const placeholders = userIds.map((_, index) => `?${index + 1}`).join(",");
+  const rows = await env.DB.prepare(
+    `
+      SELECT
+        mp.user_id,
+        SUM(CASE WHEN m.match_type = 'singles' THEN 1 ELSE 0 END) AS singles_count,
+        SUM(CASE WHEN m.match_type = 'doubles' THEN 1 ELSE 0 END) AS doubles_count
+      FROM match_players mp
+      JOIN matches m
+        ON m.id = mp.match_id
+      WHERE mp.user_id IN (${placeholders})
+        AND m.status = 'active'
+      GROUP BY mp.user_id
+    `,
+  )
+    .bind(...userIds)
+    .all<{ user_id: string; singles_count: number; doubles_count: number }>();
+
+  return rows.results;
+}
+
 async function evaluateMatchMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
-  const rows = await loadUserMatchStats(env, [...new Set(userIds)]);
+  const uniqueUserIds = [...new Set(userIds)];
+  const [rows, seasonPlayedRows, tournamentPlayedRows, matchTypeRows] = await Promise.all([
+    loadUserMatchStats(env, uniqueUserIds),
+    loadSegmentPlayedCounts(env, "season", uniqueUserIds),
+    loadSegmentPlayedCounts(env, "tournament", uniqueUserIds),
+    loadMatchTypeCounts(env, uniqueUserIds),
+  ]);
+  const seasonsPlayedByUserId = new Map(seasonPlayedRows.map((row) => [row.user_id, Number(row.played_count)]));
+  const tournamentsPlayedByUserId = new Map(tournamentPlayedRows.map((row) => [row.user_id, Number(row.played_count)]));
+  const matchTypeCountsByUserId = new Map(
+    matchTypeRows.map((row) => [row.user_id, { singles: Number(row.singles_count), doubles: Number(row.doubles_count) }]),
+  );
 
   for (const row of rows) {
     const matchesPlayed = Number(row.matches_played);
     const wins = Number(row.wins);
     const streak = Number(row.streak);
+    const seasonsPlayed = seasonsPlayedByUserId.get(row.id) ?? 0;
+    const tournamentsPlayed = tournamentsPlayedByUserId.get(row.id) ?? 0;
+    const matchTypeCounts = matchTypeCountsByUserId.get(row.id) ?? { singles: 0, doubles: 0 };
 
-    await upsertAchievementProgress({
-      env,
-      userId: row.id,
-      achievementKey: "first_match",
-      progressValue: Math.min(matchesPlayed, 1),
-      progressTarget: 1,
-      nowIso,
-      unlock: matchesPlayed >= 1,
-    });
-    await upsertAchievementProgress({
-      env,
-      userId: row.id,
-      achievementKey: "matches_10",
-      progressValue: Math.min(matchesPlayed, 10),
-      progressTarget: 10,
-      nowIso,
-      unlock: matchesPlayed >= 10,
-    });
-    await upsertAchievementProgress({
-      env,
-      userId: row.id,
-      achievementKey: "matches_25",
-      progressValue: Math.min(matchesPlayed, 25),
-      progressTarget: 25,
-      nowIso,
-      unlock: matchesPlayed >= 25,
-    });
+    for (const [achievementKey, target] of [
+      ["first_match", 1],
+      ["matches_3", 3],
+      ["matches_5", 5],
+      ["matches_10", 10],
+      ["matches_25", 25],
+      ["matches_50", 50],
+      ["matches_100", 100],
+    ] as const) {
+      await upsertAchievementProgress({
+        env,
+        userId: row.id,
+        achievementKey,
+        progressValue: Math.min(matchesPlayed, target),
+        progressTarget: target,
+        nowIso,
+        unlock: matchesPlayed >= target,
+      });
+    }
+    for (const [achievementKey, target, value] of [
+      ["first_singles", 1, matchTypeCounts.singles],
+      ["singles_10", 10, matchTypeCounts.singles],
+      ["first_doubles", 1, matchTypeCounts.doubles],
+      ["doubles_10", 10, matchTypeCounts.doubles],
+    ] as const) {
+      await upsertAchievementProgress({
+        env,
+        userId: row.id,
+        achievementKey,
+        progressValue: Math.min(value, target),
+        progressTarget: target,
+        nowIso,
+        unlock: value >= target,
+      });
+    }
+    for (const [achievementKey, target] of [
+      ["season_played", 1],
+      ["seasons_played_3", 3],
+      ["seasons_played_5", 5],
+    ] as const) {
+      await upsertAchievementProgress({
+        env,
+        userId: row.id,
+        achievementKey,
+        progressValue: Math.min(seasonsPlayed, target),
+        progressTarget: target,
+        nowIso,
+        unlock: seasonsPlayed >= target,
+      });
+    }
+    for (const [achievementKey, target] of [
+      ["tournament_played", 1],
+      ["tournaments_played_3", 3],
+      ["tournaments_played_5", 5],
+    ] as const) {
+      await upsertAchievementProgress({
+        env,
+        userId: row.id,
+        achievementKey,
+        progressValue: Math.min(tournamentsPlayed, target),
+        progressTarget: target,
+        nowIso,
+        unlock: tournamentsPlayed >= target,
+      });
+    }
     await upsertAchievementProgress({
       env,
       userId: row.id,
@@ -229,11 +361,101 @@ async function evaluateMatchMilestones(env: Env, userIds: string[], nowIso: stri
   }
 }
 
-async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
-  const rows = await loadUserRanks(env, [...new Set(userIds)]);
+async function evaluateTimeMilestones(env: Env, userId: string, nowIso: string): Promise<void> {
+  const user = await env.DB.prepare(
+    `
+      SELECT created_at
+      FROM users
+      WHERE id = ?1
+    `,
+  )
+    .bind(userId)
+    .first<{ created_at: string }>();
 
-  for (const row of rows) {
+  if (!user?.created_at) {
+    return;
+  }
+
+  const elapsedDays = Math.max(
+    0,
+    Math.floor((Date.parse(nowIso) - Date.parse(user.created_at)) / (1000 * 60 * 60 * 24)),
+  );
+
+  for (const [achievementKey, target] of [
+    ["days_30", 30],
+    ["days_180", 180],
+    ["days_365", 365],
+  ] as const) {
+    await upsertAchievementProgress({
+      env,
+      userId,
+      achievementKey,
+      progressValue: Math.min(elapsedDays, target),
+      progressTarget: target,
+      nowIso,
+      unlock: elapsedDays >= target,
+    });
+  }
+}
+
+async function evaluateCreationMilestones(
+  env: Env,
+  table: "seasons" | "tournaments",
+  userIds: string[],
+  nowIso: string,
+): Promise<void> {
+  const uniqueUserIds = [...new Set(userIds)];
+  const rows = await loadCreatedCounts(env, table, uniqueUserIds);
+  const countsByUserId = new Map(rows.map((row) => [row.user_id, Number(row.created_count)]));
+
+  const milestones =
+    table === "seasons"
+      ? ([
+          ["season_creator", 1],
+          ["seasons_3", 3],
+          ["seasons_5", 5],
+        ] as const)
+      : ([
+          ["tournament_creator", 1],
+          ["tournaments_3", 3],
+          ["tournaments_5", 5],
+        ] as const);
+
+  for (const userId of uniqueUserIds) {
+    const createdCount = countsByUserId.get(userId) ?? 0;
+    for (const [achievementKey, target] of milestones) {
+      await upsertAchievementProgress({
+        env,
+        userId,
+        achievementKey,
+        progressValue: Math.min(createdCount, target),
+        progressTarget: target,
+        nowIso,
+        unlock: createdCount >= target,
+      });
+    }
+  }
+}
+
+async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
+  const uniqueUserIds = [...new Set(userIds)];
+  const [rankRows, eloRows] = await Promise.all([
+    loadUserRanks(env, uniqueUserIds),
+    env.DB.prepare(
+      `
+        SELECT id, global_elo
+        FROM users
+        WHERE id IN (${uniqueUserIds.map((_, index) => `?${index + 1}`).join(",")})
+      `,
+    )
+      .bind(...uniqueUserIds)
+      .all<{ id: string; global_elo: number }>(),
+  ]);
+  const eloByUserId = new Map(eloRows.results.map((row) => [row.id, Number(row.global_elo)]));
+
+  for (const row of rankRows) {
     const rank = Number(row.rank);
+    const elo = eloByUserId.get(row.id) ?? 1200;
     await upsertAchievementProgress({
       env,
       userId: row.id,
@@ -254,6 +476,23 @@ async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: strin
       unlock: rank === 1,
       context: rank === 1 ? { rank } : undefined,
     });
+    for (const [achievementKey, target] of [
+      ["elo_1250", 1250],
+      ["elo_1350", 1350],
+      ["elo_1500", 1500],
+      ["elo_1700", 1700],
+    ] as const) {
+      await upsertAchievementProgress({
+        env,
+        userId: row.id,
+        achievementKey,
+        progressValue: Math.min(elo, target),
+        progressTarget: target,
+        nowIso,
+        unlock: elo >= target,
+        context: elo >= target ? { elo } : undefined,
+      });
+    }
   }
 }
 
@@ -265,10 +504,10 @@ export async function evaluateAchievementsForTrigger(env: Env, trigger: Achievem
       await unlockSimpleAchievement(env, trigger.userId, "account_created", trigger.nowIso);
       break;
     case "season_created":
-      await unlockSimpleAchievement(env, trigger.actorUserId, "season_creator", trigger.nowIso);
+      await evaluateCreationMilestones(env, "seasons", [trigger.actorUserId], trigger.nowIso);
       break;
     case "tournament_created":
-      await unlockSimpleAchievement(env, trigger.actorUserId, "tournament_creator", trigger.nowIso);
+      await evaluateCreationMilestones(env, "tournaments", [trigger.actorUserId], trigger.nowIso);
       break;
     case "match_created":
       await evaluateMatchMilestones(env, trigger.userIds, trigger.nowIso);
@@ -281,6 +520,7 @@ export async function evaluateAchievementsForTrigger(env: Env, trigger: Achievem
 
 export async function getAchievementOverview(env: Env, userId: string): Promise<AchievementOverview> {
   await ensureAchievementCatalog(env);
+  await evaluateTimeMilestones(env, userId, isoNow(env.runtime));
 
   const rows = await env.DB.prepare(
     `
