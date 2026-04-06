@@ -542,7 +542,7 @@ async function evaluateIncrementalMatchMilestones(
     "tournaments_played_3",
     "tournaments_played_5",
   ];
-  const [rows, progressRows, seasonParticipants, tournamentParticipants] = await Promise.all([
+  const [rows, progressRows, seasonParticipants, tournamentParticipants, matchTypeRows, seasonPlayedRows, tournamentPlayedRows] = await Promise.all([
     loadUserMatchStats(env, uniqueUserIds),
     loadAchievementProgressRows(env, uniqueUserIds, trackedKeys),
     trigger.seasonId
@@ -551,8 +551,16 @@ async function evaluateIncrementalMatchMilestones(
     trigger.tournamentId
       ? loadUsersWithExistingSegmentParticipation(env, "tournament", trigger.tournamentId, uniqueUserIds, trigger.matchId)
       : Promise.resolve(new Set<string>()),
+    loadMatchTypeCounts(env, uniqueUserIds),
+    trigger.seasonId ? loadSegmentPlayedCounts(env, "season", uniqueUserIds) : Promise.resolve([]),
+    trigger.tournamentId ? loadSegmentPlayedCounts(env, "tournament", uniqueUserIds) : Promise.resolve([]),
   ]);
   const progressByUserId = buildAchievementProgressIndex(progressRows);
+  const matchTypeCountsByUserId = new Map(
+    matchTypeRows.map((row) => [row.user_id, { singles: Number(row.singles_count), doubles: Number(row.doubles_count) }]),
+  );
+  const seasonsPlayedByUserId = new Map(seasonPlayedRows.map((row) => [row.user_id, Number(row.played_count)]));
+  const tournamentsPlayedByUserId = new Map(tournamentPlayedRows.map((row) => [row.user_id, Number(row.played_count)]));
   const mutations: AchievementProgressMutation[] = [];
 
   for (const row of rows) {
@@ -579,7 +587,8 @@ async function evaluateIncrementalMatchMilestones(
     }
 
     if (trigger.matchType === "singles") {
-      const singlesPlayed = getProgressValue(progressByUserId, row.id, ["first_singles", "singles_10"]) + 1;
+      const optimisticSinglesPlayed = getProgressValue(progressByUserId, row.id, ["first_singles", "singles_10"]) + 1;
+      const singlesPlayed = Math.max(optimisticSinglesPlayed, matchTypeCountsByUserId.get(row.id)?.singles ?? 0);
       for (const [achievementKey, target] of [
         ["first_singles", 1],
         ["singles_10", 10],
@@ -595,7 +604,8 @@ async function evaluateIncrementalMatchMilestones(
     }
 
     if (trigger.matchType === "doubles") {
-      const doublesPlayed = getProgressValue(progressByUserId, row.id, ["first_doubles", "doubles_10"]) + 1;
+      const optimisticDoublesPlayed = getProgressValue(progressByUserId, row.id, ["first_doubles", "doubles_10"]) + 1;
+      const doublesPlayed = Math.max(optimisticDoublesPlayed, matchTypeCountsByUserId.get(row.id)?.doubles ?? 0);
       for (const [achievementKey, target] of [
         ["first_doubles", 1],
         ["doubles_10", 10],
@@ -611,9 +621,10 @@ async function evaluateIncrementalMatchMilestones(
     }
 
     if (trigger.seasonId) {
-      const seasonsPlayed =
+      const optimisticSeasonsPlayed =
         getProgressValue(progressByUserId, row.id, ["season_played", "seasons_played_3", "seasons_played_5"]) +
         (seasonParticipants.has(row.id) ? 0 : 1);
+      const seasonsPlayed = Math.max(optimisticSeasonsPlayed, seasonsPlayedByUserId.get(row.id) ?? 0);
       for (const [achievementKey, target] of [
         ["season_played", 1],
         ["seasons_played_3", 3],
@@ -630,9 +641,13 @@ async function evaluateIncrementalMatchMilestones(
     }
 
     if (trigger.tournamentId) {
-      const tournamentsPlayed =
+      const optimisticTournamentsPlayed =
         getProgressValue(progressByUserId, row.id, ["tournament_played", "tournaments_played_3", "tournaments_played_5"]) +
         (tournamentParticipants.has(row.id) ? 0 : 1);
+      const tournamentsPlayed = Math.max(
+        optimisticTournamentsPlayed,
+        tournamentsPlayedByUserId.get(row.id) ?? 0,
+      );
       for (const [achievementKey, target] of [
         ["tournament_played", 1],
         ["tournaments_played_3", 3],

@@ -3,7 +3,6 @@ import type { AchievementSummaryItem } from "../../../src/api/contract";
 import type { DashboardState } from "../../../src/ui/shared/types/app";
 
 const createAchievement = (overrides: Partial<AchievementSummaryItem> & { key: string }): AchievementSummaryItem => ({
-  key: overrides.key,
   category: "activity",
   tier: "bronze",
   icon: "single_dot",
@@ -17,8 +16,9 @@ const createAchievement = (overrides: Partial<AchievementSummaryItem> & { key: s
 });
 
 describe("profile render", () => {
-  it("sorts visible achievements by unlocked state and points ascending within each group", () => {
+  it("sorts visible achievements by unlocked state first and points ascending within each group", () => {
     const achievementsSummary = document.createElement("div");
+    const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
     const seasonsList = document.createElement("div");
@@ -43,7 +43,7 @@ describe("profile render", () => {
         nextUp: null,
       },
       profileAchievementsExpanded: true,
-      profileRecentlySeenAchievementKeys: ["unlocked_low", "unlocked_high"],
+      profileRecentlySeenAchievementKeys: [],
       seasons: [],
       tournaments: [],
       profileMatches: [],
@@ -58,6 +58,7 @@ describe("profile render", () => {
     renderProfileScreen({
       dashboardState,
       achievementsSummary,
+      achievementsUnread,
       achievementsToggle,
       achievementsList,
       currentUserId: "user_1",
@@ -78,10 +79,12 @@ describe("profile render", () => {
 
     const titles = [...achievementsList.querySelectorAll(".profile-segment-card__title")].map((node) => node.textContent);
     expect(titles).toEqual(["unlocked_low", "unlocked_high", "locked_low", "locked_high"]);
+    expect(achievementsUnread.hidden).toBe(true);
   });
 
-  it("hides previously seen unlocked achievements from the profile list", () => {
+  it("shows unread unlocked achievements in the summary without duplicating them in the profile list", () => {
     const achievementsSummary = document.createElement("div");
+    const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
     const seasonsList = document.createElement("div");
@@ -100,7 +103,9 @@ describe("profile render", () => {
           createAchievement({ key: "unlocked_seen", points: 10, unlockedAt: "2026-04-01T00:00:00.000Z" }),
           createAchievement({ key: "unlocked_new", points: 20, unlockedAt: "2026-04-02T00:00:00.000Z" }),
         ],
-        recentUnlocks: [],
+        recentUnlocks: [
+          createAchievement({ key: "unlocked_new", points: 20, unlockedAt: "2026-04-02T00:00:00.000Z" }),
+        ],
         featured: [],
         nextUp: null,
       },
@@ -120,6 +125,7 @@ describe("profile render", () => {
     renderProfileScreen({
       dashboardState,
       achievementsSummary,
+      achievementsUnread,
       achievementsToggle,
       achievementsList,
       currentUserId: "user_1",
@@ -138,7 +144,12 @@ describe("profile render", () => {
       onLoadMoreMatches: () => undefined,
     });
 
+    const summaryTitles = [...achievementsSummary.querySelectorAll(".achievement-card__icon")].map((node) => node.getAttribute("aria-label"));
+    const unreadTitles = [...achievementsUnread.querySelectorAll(".profile-segment-card__title")].map((node) => node.textContent);
     const titles = [...achievementsList.querySelectorAll(".profile-segment-card__title")].map((node) => node.textContent);
-    expect(titles).toEqual(["unlocked_new", "locked_mid"]);
+    expect(titles).toEqual(["unlocked_seen", "locked_mid"]);
+    expect(summaryTitles).toEqual(["unlocked_seen", "unlocked_new"]);
+    expect(unreadTitles).toEqual(["unlocked_new"]);
+    expect(achievementsUnread.hidden).toBe(false);
   });
 });

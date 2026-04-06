@@ -88,6 +88,7 @@ import { createHelpNavigation } from "./features/app/navigation";
 import { createLockHelpers } from "./features/app/locks";
 import { createMatchPlayerSearchInputs } from "./features/app/matchPlayerSearchInputs";
 import { createParticipantEditors } from "./features/app/participantEditors";
+import { createScreenScrollReset } from "./features/app/scroll";
 import { assembleAppScreens } from "./features/app/screenAssembly";
 import { createShareRuntime } from "./features/app/shareRuntime";
 import { createSessionActions } from "./features/app/sessionActions";
@@ -136,6 +137,7 @@ export const buildApp = (): HTMLElement => {
     closeProfileButton,
     profileStatus,
     profileAchievementsSummary,
+    profileAchievementsUnread,
     profileAchievementsToggle,
     profileAchievementsList,
     profileSeasonsList,
@@ -861,6 +863,7 @@ export const buildApp = (): HTMLElement => {
     syncAuthState,
     syncDashboardState: () => syncDashboardState(),
   });
+  const resetScrollForScreenChange = createScreenScrollReset(() => dashboardState.screen);
 
   const { clearFormStatus, scheduleFormStatusHide } = createFormStatusOrchestration({
     dashboardState,
@@ -1035,6 +1038,7 @@ export const buildApp = (): HTMLElement => {
       renderProfileScreen({
         dashboardState,
         achievementsSummary: profileAchievementsSummary,
+        achievementsUnread: profileAchievementsUnread,
         achievementsToggle: profileAchievementsToggle,
         achievementsList: profileAchievementsList,
         currentUserId,
@@ -1112,6 +1116,7 @@ export const buildApp = (): HTMLElement => {
     syncSegmentedToggle(seasonBaseEloToggle, seasonBaseEloSelect.value || "carry_over");
     syncSegmentedToggle(seasonStateToggle, seasonIsActiveInput.checked ? "active" : "inactive");
     syncSegmentedToggle(seasonVisibilityToggle, seasonIsPublicInput.checked ? "public" : "private");
+    resetScrollForScreenChange();
   };
 
   const setShareAlertVisible = (visible: boolean): void => {

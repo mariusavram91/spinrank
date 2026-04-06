@@ -129,7 +129,7 @@ export default {
         response.ok &&
         ["bootstrapUser", "createMatch", "createSeason", "createTournament"].includes(apiRequest.action)
       ) {
-        ctx?.waitUntil(processPendingAchievementJobs(env));
+        await processPendingAchievementJobs(env);
       }
       return json(env, response, response.ok ? 200 : 400, requestOrigin);
     } catch (error) {

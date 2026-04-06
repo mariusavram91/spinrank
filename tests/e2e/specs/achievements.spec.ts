@@ -89,15 +89,22 @@ test.describe("achievements", () => {
 
     await page.locator(".auth-avatar-button").click();
     await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
-    await expect(page.locator(".profile-achievements__summary")).toBeVisible();
-    await expect(page.locator(".profile-achievements__summary .achievement-card__icon").first()).toBeVisible();
-    await expect(page.locator(".achievement-chip-list")).toBeHidden();
+    const summary = page.locator(".profile-achievements__summary");
+    const unreadList = page.locator(".achievement-chip-list--profile-unread");
+    const expandedList = page.locator(".achievement-chip-list--profile:not(.achievement-chip-list--profile-unread)");
+    await expect(summary).toBeVisible();
+    await expect(summary.getByLabel("First match")).toBeVisible();
+    await expect(summary.getByLabel("First win")).toBeVisible();
+    await expect(unreadList).toBeVisible();
+    await expect(unreadList).toContainText("First match");
+    await expect(unreadList).toContainText("First win");
+    await expect(expandedList).toBeHidden();
     await page.getByTestId("profile-achievements-toggle").click();
-    await expect(page.locator(".achievement-chip-list")).toBeVisible();
-    await expect(page.locator(".achievement-chip-list")).toContainText("First match");
-    await expect(page.locator(".achievement-chip-list")).toContainText("First win");
-    await expect(page.locator(".achievement-chip-list")).toContainText("10 matches");
-    await expect(page.locator(".achievement-chip-list")).toContainText("Rank #1");
+    await expect(expandedList).toBeVisible();
+    await expect(expandedList).not.toContainText("First match");
+    await expect(expandedList).not.toContainText("First win");
+    await expect(expandedList).toContainText("10 matches");
+    await expect(expandedList).toContainText("Tournament starter");
     await expect(page.locator(".achievement-card.profile-segment-card--completed").first()).toHaveAttribute(
       "aria-disabled",
       "true",
@@ -108,11 +115,12 @@ test.describe("achievements", () => {
     await expect(page.getByTestId("leaderboard-list")).toBeVisible();
     await expect(page.getByTestId("achievements-avatar-badge")).toBeHidden();
     await page.locator(".auth-avatar-button").click();
-    await expect(page.locator(".profile-achievements__summary")).toBeVisible();
-    await expect(page.locator(".achievement-chip-list")).toBeHidden();
+    await expect(summary).toBeVisible();
+    await expect(unreadList).toBeHidden();
+    await expect(expandedList).toBeHidden();
     await page.getByTestId("profile-achievements-toggle").click();
-    await expect(page.locator(".achievement-chip-list")).toBeVisible();
-    await expect(page.locator(".achievement-chip-list")).not.toContainText("First match");
-    await expect(page.locator(".achievement-chip-list")).not.toContainText("First win");
+    await expect(expandedList).toBeVisible();
+    await expect(expandedList).toContainText("First match");
+    await expect(expandedList).toContainText("First win");
   });
 });

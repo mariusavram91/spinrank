@@ -213,9 +213,17 @@ export const createAppDom = (args: {
   profileAchievementsToggle.dataset.testid = "profile-achievements-toggle";
   const profileAchievementsSummary = document.createElement("div");
   profileAchievementsSummary.className = "profile-achievements__summary";
+  const profileAchievementsUnread = document.createElement("div");
+  profileAchievementsUnread.className = "achievement-chip-list achievement-chip-list--profile achievement-chip-list--profile-unread";
+  profileAchievementsUnread.hidden = true;
   const profileAchievementsList = document.createElement("div");
   profileAchievementsList.className = "achievement-chip-list achievement-chip-list--profile";
-  profileAchievementsSection.append(profileAchievementsHeader, profileAchievementsSummary, profileAchievementsList);
+  profileAchievementsSection.append(
+    profileAchievementsHeader,
+    profileAchievementsSummary,
+    profileAchievementsUnread,
+    profileAchievementsList,
+  );
   profileAchievementsHeader.append(profileAchievementsTitle, profileAchievementsToggle);
 
   profileBody.append(
@@ -712,6 +720,7 @@ export const createAppDom = (args: {
     closeProfileButton,
     profileStatus,
     profileAchievementsSummary,
+    profileAchievementsUnread,
     profileAchievementsToggle,
     profileAchievementsList,
     profileSeasonsList,

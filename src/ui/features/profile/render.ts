@@ -61,10 +61,11 @@ const ACHIEVEMENT_ICONS: Record<AchievementSummaryItem["icon"], string> = {
 const buildAchievementChip = (
   item: AchievementSummaryItem,
   t: TranslationFn,
+  options?: { shellClassName?: string },
 ): HTMLElement => {
   const locked = !item.unlockedAt;
   const shell = document.createElement("div");
-  shell.className = "profile-segment-card-shell";
+  shell.className = ["profile-segment-card-shell", options?.shellClassName].filter(Boolean).join(" ");
 
   const chip = document.createElement("article");
   chip.className = [
@@ -308,6 +309,7 @@ const buildSegmentCard = (args: {
 export const renderProfileScreen = (args: {
   dashboardState: DashboardState;
   achievementsSummary: HTMLElement;
+  achievementsUnread: HTMLElement;
   achievementsToggle: HTMLButtonElement;
   achievementsList: HTMLElement;
   currentUserId: string;
@@ -336,10 +338,19 @@ export const renderProfileScreen = (args: {
 
   const allAchievements = args.dashboardState.achievements?.items ?? [];
   const unlockedAchievements = allAchievements.filter((item) => item.unlockedAt);
-  const recentlySeenAchievementKeys = new Set(args.dashboardState.profileRecentlySeenAchievementKeys);
-  const visibleAchievements = allAchievements.filter(
-    (item) => !item.unlockedAt || recentlySeenAchievementKeys.has(item.key),
+  const unreadAchievementKeys = new Set(args.dashboardState.profileRecentlySeenAchievementKeys);
+  const recentUnlocks = args.dashboardState.achievements?.recentUnlocks ?? [];
+  const unreadUnlockedAchievements = (
+    recentUnlocks.length > 0
+      ? recentUnlocks.filter((item) => item.unlockedAt && unreadAchievementKeys.has(item.key))
+      : unlockedAchievements.filter((item) => unreadAchievementKeys.has(item.key))
   );
+  const visibleAchievements = allAchievements.filter(
+    (item) => !item.unlockedAt || !unreadAchievementKeys.has(item.key),
+  );
+  const unreadAchievementNodes = unreadUnlockedAchievements
+    .sort((left, right) => left.points - right.points)
+    .map((item) => buildAchievementChip(item, args.t));
   const achievementNodes = [...visibleAchievements]
     .sort((left, right) => {
       const leftUnlocked = Boolean(left.unlockedAt);
@@ -351,16 +362,18 @@ export const renderProfileScreen = (args: {
     })
     .map((item) => buildAchievementChip(item, args.t));
   const summaryNodes = unlockedAchievements.map((item) => {
-    const icon = document.createElement("span");
-    icon.className = "achievement-card__icon profile-achievements__summary-icon";
-    icon.textContent = ACHIEVEMENT_ICONS[item.icon];
-    icon.title = args.t(item.titleKey as TextKey);
-    icon.setAttribute("aria-label", args.t(item.titleKey as TextKey));
-    return icon;
-  });
+      const icon = document.createElement("span");
+      icon.className = "achievement-card__icon profile-achievements__summary-icon";
+      icon.textContent = ACHIEVEMENT_ICONS[item.icon];
+      icon.title = args.t(item.titleKey as TextKey);
+      icon.setAttribute("aria-label", args.t(item.titleKey as TextKey));
+      return icon;
+    });
   args.achievementsSummary.replaceChildren(
     ...(summaryNodes.length > 0 ? summaryNodes : [createEmptyState(args.t("achievementsEmpty"))]),
   );
+  args.achievementsUnread.hidden = unreadAchievementNodes.length === 0;
+  args.achievementsUnread.replaceChildren(...unreadAchievementNodes);
   args.achievementsToggle.hidden = achievementNodes.length === 0;
   args.achievementsToggle.textContent = args.dashboardState.profileAchievementsExpanded
     ? args.t("achievementsHideAll")

@@ -445,7 +445,7 @@ describe("worker unit: achievements", () => {
     expect(batchCalls[1].some((sql) => sql.includes("ROW_NUMBER() OVER"))).toBe(false);
   });
 
-  it("uses the incremental match-created path without scanning historical match tables", async () => {
+  it("uses the incremental match-created path with targeted history reconciliation queries", async () => {
     const prepareSql: string[] = [];
     const batchCalls: string[][] = [];
 
@@ -466,6 +466,15 @@ describe("worker unit: achievements", () => {
                   return {
                     results: [{ id: "user_a", wins: 4, losses: 8, streak: 4, matches_played: 12 }],
                   } as T;
+                }
+                if (sql.includes("SUM(CASE WHEN m.match_type = 'singles'")) {
+                  return { results: [{ user_id: "user_a", singles_count: 12, doubles_count: 0 }] } as T;
+                }
+                if (sql.includes("COUNT(DISTINCT m.season_id)")) {
+                  return { results: [] } as T;
+                }
+                if (sql.includes("COUNT(DISTINCT m.tournament_id)")) {
+                  return { results: [] } as T;
                 }
                 if (sql.includes("FROM user_achievements")) {
                   return { results: [] } as T;
@@ -489,6 +498,15 @@ describe("worker unit: achievements", () => {
                 return {
                   results: [{ id: "user_a", wins: 4, losses: 8, streak: 4, matches_played: 12 }],
                 } as T;
+              }
+              if (sql.includes("SUM(CASE WHEN m.match_type = 'singles'")) {
+                return { results: [{ user_id: "user_a", singles_count: 12, doubles_count: 0 }] } as T;
+              }
+              if (sql.includes("COUNT(DISTINCT m.season_id)")) {
+                return { results: [] } as T;
+              }
+              if (sql.includes("COUNT(DISTINCT m.tournament_id)")) {
+                return { results: [] } as T;
               }
               if (sql.includes("FROM user_achievements")) {
                 return { results: [] } as T;
@@ -529,8 +547,8 @@ describe("worker unit: achievements", () => {
       prepareSql.some(
         (sql) => sql.includes("COUNT(DISTINCT m.season_id)") || sql.includes("COUNT(DISTINCT m.tournament_id)"),
       ),
-    ).toBe(false);
-    expect(prepareSql.some((sql) => sql.includes("SUM(CASE WHEN m.match_type = 'singles'"))).toBe(false);
+    ).toBe(true);
+    expect(prepareSql.some((sql) => sql.includes("SUM(CASE WHEN m.match_type = 'singles'"))).toBe(true);
   });
 
   it("rebuilds achievement state for users through the explicit repair path", async () => {
@@ -606,6 +624,71 @@ describe("worker unit: achievements", () => {
       expect(itemsByKey.get("elo_1350")).toMatchObject({
         unlockedAt: "2026-04-20T12:03:00.000Z",
         progressValue: 1350,
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("repairs season participation achievements from actual history when earlier progress was missed", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      await context.env.DB.prepare(
+        `
+          INSERT INTO seasons (
+            id, name, start_date, end_date, is_active, status, base_elo_mode, participant_ids_json,
+            created_by_user_id, created_at, completed_at, is_public
+          ) VALUES ('season_1', 'Season 1', '2026-04-01', '2026-04-30', 1, 'active', 'carry_over', '["user_a","user_b"]', 'user_a', '2026-04-01T00:00:00.000Z', NULL, 1)
+        `,
+      ).run();
+
+      for (const matchId of ["match_1", "match_2"]) {
+        await context.env.DB.prepare(
+          `
+            INSERT INTO matches (
+              id, match_type, format_type, points_to_win, team_a_player_ids_json, team_b_player_ids_json,
+              score_json, winner_team, global_elo_delta_json, segment_elo_delta_json, played_at, season_id,
+              tournament_id, created_by_user_id, status, deactivated_at, deactivated_by_user_id,
+              deactivation_reason, created_at
+            ) VALUES (
+              ?1, 'singles', 'single_game', 11, '["user_a"]', '["user_b"]',
+              '[{"teamA":11,"teamB":6}]', 'A', '{}', '{}', '2026-04-05T10:00:00.000Z', 'season_1',
+              NULL, 'user_a', 'active', NULL, NULL, NULL, '2026-04-05T10:00:00.000Z'
+            )
+          `,
+        )
+          .bind(matchId)
+          .run();
+        await context.env.DB.prepare(
+          `
+            INSERT INTO match_players (match_id, user_id, team)
+            VALUES (?1, 'user_a', 'A'), (?1, 'user_b', 'B')
+          `,
+        )
+          .bind(matchId)
+          .run();
+      }
+
+      await evaluateAchievementsForTrigger(context.env, {
+        type: "match_created",
+        userIds: ["user_a"],
+        actorUserId: "user_a",
+        matchId: "match_2",
+        nowIso: "2026-04-05T12:00:00.000Z",
+        matchType: "singles",
+        seasonId: "season_1",
+      });
+
+      const overview = await getAchievementOverview(context.env, "user_a");
+      const item = overview.items.find((entry) => entry.key === "season_played");
+      expect(item).toMatchObject({
+        key: "season_played",
+        unlockedAt: "2026-04-05T12:00:00.000Z",
+        progressValue: 1,
+        progressTarget: 1,
       });
     } finally {
       await context.cleanup();

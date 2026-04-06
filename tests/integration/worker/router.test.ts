@@ -166,4 +166,98 @@ describe("worker router/index", () => {
       await context.cleanup();
     }
   });
+
+  it("returns season-played achievements on the first dashboard read after creating a season match", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(
+        `
+          SELECT *
+          FROM users
+          WHERE id = ?1
+        `,
+      )
+        .bind("user_a")
+        .first<UserRow>();
+
+      if (!owner) {
+        throw new Error("Owner missing");
+      }
+
+      const { token } = await signSessionToken(owner.id, context.env);
+
+      const createSeasonResponse = await worker.fetch(
+        makeApiRequest(
+          "req_api_achievement_create_season",
+          "createSeason",
+          {
+            name: "Achievement Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+          token,
+        ),
+        context.env,
+      );
+      const createSeasonBody = await createSeasonResponse.json();
+      expect(createSeasonResponse.status).toBe(200);
+      expect(createSeasonBody.ok).toBe(true);
+
+      const seasonId = createSeasonBody.data?.season?.id;
+      expect(seasonId).toBeTruthy();
+
+      const createMatchResponse = await worker.fetch(
+        makeApiRequest(
+          "req_api_achievement_create_match",
+          "createMatch",
+          {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 6 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T12:00:00.000Z",
+            seasonId,
+          },
+          token,
+        ),
+        context.env,
+      );
+      const createMatchBody = await createMatchResponse.json();
+      expect(createMatchResponse.status).toBe(200);
+      expect(createMatchBody.ok).toBe(true);
+
+      const dashboardResponse = await worker.fetch(
+        makeApiRequest(
+          "req_api_achievement_dashboard",
+          "getDashboard",
+          { matchesLimit: 4, matchesFilter: "mine" },
+          token,
+        ),
+        context.env,
+      );
+      const dashboardBody = await dashboardResponse.json();
+      expect(dashboardResponse.status).toBe(200);
+      expect(dashboardBody.ok).toBe(true);
+
+      const seasonPlayed = dashboardBody.data?.achievements?.items?.find(
+        (item: { key: string; unlockedAt: string | null }) => item.key === "season_played",
+      );
+      expect(seasonPlayed).toMatchObject({
+        key: "season_played",
+        unlockedAt: expect.any(String),
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
 });
