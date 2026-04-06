@@ -1,4 +1,4 @@
-import { evaluateAchievementsForTrigger, getAchievementOverview } from "../../../worker/src/services/achievements";
+import { evaluateAchievementsForTrigger, getAchievementOverview, rebuildAchievementsForUsers } from "../../../worker/src/services/achievements";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 import type { Env } from "../../../worker/src/types";
 
@@ -346,7 +346,7 @@ describe("worker unit: achievements", () => {
         prepare: vi.fn((sql: string) => ({
           bind: (...args: unknown[]) => ({
             first: async <T>() => {
-              if (sql.includes("ROW_NUMBER() OVER")) {
+              if (sql.includes("SELECT\n        u.id,")) {
                 return { id: "user_a", rank: 1 } as T;
               }
               if (sql.includes("SELECT created_at")) {
@@ -355,6 +355,11 @@ describe("worker unit: achievements", () => {
               return null as T;
             },
             all: async <T>() => {
+              if (sql.includes("SELECT\n        u.id,")) {
+                return {
+                  results: [{ id: "user_a", rank: 1, global_elo: 1380 }],
+                } as T;
+              }
               if (sql.includes("SELECT id, wins, losses, streak")) {
                 return {
                   results: [{ id: "user_a", wins: 4, losses: 8, streak: 4, matches_played: 12 }],
@@ -378,7 +383,7 @@ describe("worker unit: achievements", () => {
             toSql: () => sql,
           }),
           first: async <T>() => {
-            if (sql.includes("ROW_NUMBER() OVER")) {
+            if (sql.includes("SELECT\n        u.id,")) {
               return { id: "user_a", rank: 1 } as T;
             }
             if (sql.includes("SELECT created_at")) {
@@ -387,6 +392,11 @@ describe("worker unit: achievements", () => {
             return null as T;
           },
           all: async <T>() => {
+            if (sql.includes("SELECT\n        u.id,")) {
+              return {
+                results: [{ id: "user_a", rank: 1, global_elo: 1380 }],
+              } as T;
+            }
             if (sql.includes("SELECT id, wins, losses, streak")) {
               return {
                 results: [{ id: "user_a", wins: 4, losses: 8, streak: 4, matches_played: 12 }],
@@ -432,6 +442,7 @@ describe("worker unit: achievements", () => {
     expect(batchCalls[1]).toHaveLength(20);
     expect(batchCalls[1].every((sql) => sql.includes("INSERT INTO user_achievements"))).toBe(true);
     expect(runCalls.filter((sql) => sql.includes("INSERT INTO user_achievements"))).toEqual([]);
+    expect(batchCalls[1].some((sql) => sql.includes("ROW_NUMBER() OVER"))).toBe(false);
   });
 
   it("uses the incremental match-created path without scanning historical match tables", async () => {
@@ -520,5 +531,84 @@ describe("worker unit: achievements", () => {
       ),
     ).toBe(false);
     expect(prepareSql.some((sql) => sql.includes("SUM(CASE WHEN m.match_type = 'singles'"))).toBe(false);
+  });
+
+  it("rebuilds achievement state for users through the explicit repair path", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await context.env.DB.prepare(
+        `
+          UPDATE users
+          SET global_elo = 1380, wins = 4, losses = 8, streak = 4, created_at = '2025-03-15T12:00:00.000Z'
+          WHERE id = ?1
+        `,
+      )
+        .bind("user_a")
+        .run();
+      await context.env.DB.prepare(
+        `
+          INSERT INTO seasons (
+            id, name, start_date, end_date, is_active, status, base_elo_mode, participant_ids_json,
+            created_by_user_id, created_at, completed_at, is_public
+          ) VALUES ('season_1', 'Season 1', '2026-04-01', '2026-04-30', 1, 'active', 'carry_over', '["user_a"]', 'user_a', '2026-04-01T10:00:00.000Z', NULL, 1)
+        `,
+      ).run();
+      await context.env.DB.prepare(
+        `
+          INSERT INTO tournaments (
+            id, name, date, status, season_id, created_by_user_id, created_at, completed_at
+          ) VALUES ('tournament_1', 'Tournament 1', '2026-04-05', 'active', 'season_1', 'user_a', '2026-04-11T10:00:00.000Z', '')
+        `,
+      ).run();
+      await context.env.DB.prepare(
+        `
+          INSERT INTO matches (
+            id, match_type, format_type, points_to_win, team_a_player_ids_json, team_b_player_ids_json,
+            score_json, winner_team, global_elo_delta_json, segment_elo_delta_json, played_at, season_id,
+            tournament_id, created_by_user_id, status, deactivated_at, deactivated_by_user_id,
+            deactivation_reason, created_at
+          ) VALUES (
+            'match_1', 'singles', 'single_game', 11, '["user_a"]', '["user_b"]',
+            '[{"teamA":11,"teamB":6}]', 'A', '{}', '{}', '2026-04-21T10:00:00.000Z', 'season_1', 'tournament_1',
+            'user_a', 'active', NULL, NULL, NULL, '2026-04-21T10:00:00.000Z'
+          )
+        `,
+      ).run();
+      await context.env.DB.prepare(
+        `
+          INSERT INTO match_players (match_id, user_id, team)
+          VALUES ('match_1', 'user_a', 'A')
+        `,
+      ).run();
+
+      await rebuildAchievementsForUsers(context.env, ["user_a"], "2026-04-20T12:03:00.000Z");
+
+      const overview = await getAchievementOverview(context.env, "user_a");
+      const itemsByKey = new Map(overview.items.map((item) => [item.key, item]));
+
+      expect(itemsByKey.get("account_created")).toMatchObject({
+        unlockedAt: "2026-04-20T12:03:00.000Z",
+        progressValue: 1,
+      });
+      expect(itemsByKey.get("first_match")).toMatchObject({
+        unlockedAt: "2026-04-20T12:03:00.000Z",
+        progressValue: 1,
+      });
+      expect(itemsByKey.get("first_win")).toMatchObject({
+        unlockedAt: "2026-04-20T12:03:00.000Z",
+        progressValue: 1,
+      });
+      expect(itemsByKey.get("rank_top_3")).toMatchObject({
+        unlockedAt: "2026-04-20T12:03:00.000Z",
+        progressValue: 3,
+      });
+      expect(itemsByKey.get("elo_1350")).toMatchObject({
+        unlockedAt: "2026-04-20T12:03:00.000Z",
+        progressValue: 1350,
+      });
+    } finally {
+      await context.cleanup();
+    }
   });
 });

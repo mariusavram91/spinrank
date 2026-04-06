@@ -1,6 +1,7 @@
 import { isoNow } from "../db";
 import type { AchievementOverview, AchievementSummaryItem, Env } from "../types";
 import { ACHIEVEMENTS, type AchievementDefinition } from "./achievementCatalog";
+import { buildAchievementState } from "./achievementRebuildShared.js";
 
 export type AchievementTrigger =
   | { type: "bootstrap"; userId: string; nowIso: string }
@@ -201,25 +202,38 @@ async function loadUserMatchStats(
   return rows.results;
 }
 
-async function loadUserRanks(env: Env, userIds: string[]): Promise<Array<{ id: string; rank: number }>> {
+async function loadUserRankSnapshots(
+  env: Env,
+  userIds: string[],
+): Promise<Array<{ id: string; rank: number; global_elo: number }>> {
   if (userIds.length === 0) {
     return [];
   }
   const placeholders = userIds.map((_, index) => `?${index + 1}`).join(",");
   const rows = await env.DB.prepare(
     `
-      SELECT ranked.id, ranked.rank
-      FROM (
-        SELECT
-          id,
-          ROW_NUMBER() OVER (ORDER BY global_elo DESC, wins DESC, losses ASC, display_name ASC) AS rank
-        FROM users
-      ) ranked
-      WHERE ranked.id IN (${placeholders})
+      SELECT
+        u.id,
+        u.global_elo,
+        1 + (
+          SELECT COUNT(*)
+          FROM users ahead
+          WHERE ahead.global_elo > u.global_elo
+             OR (ahead.global_elo = u.global_elo AND ahead.wins > u.wins)
+             OR (ahead.global_elo = u.global_elo AND ahead.wins = u.wins AND ahead.losses < u.losses)
+             OR (
+               ahead.global_elo = u.global_elo
+               AND ahead.wins = u.wins
+               AND ahead.losses = u.losses
+               AND ahead.display_name < u.display_name
+             )
+        ) AS rank
+      FROM users u
+      WHERE u.id IN (${placeholders})
     `,
   )
     .bind(...userIds)
-    .all<{ id: string; rank: number }>();
+    .all<{ id: string; rank: number; global_elo: number }>();
 
   return rows.results;
 }
@@ -778,24 +792,12 @@ async function evaluateCreationMilestones(
 
 async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
   const uniqueUserIds = [...new Set(userIds)];
-  const [rankRows, eloRows] = await Promise.all([
-    loadUserRanks(env, uniqueUserIds),
-    env.DB.prepare(
-      `
-        SELECT id, global_elo
-        FROM users
-        WHERE id IN (${uniqueUserIds.map((_, index) => `?${index + 1}`).join(",")})
-      `,
-    )
-      .bind(...uniqueUserIds)
-      .all<{ id: string; global_elo: number }>(),
-  ]);
-  const eloByUserId = new Map(eloRows.results.map((row) => [row.id, Number(row.global_elo)]));
+  const rankRows = await loadUserRankSnapshots(env, uniqueUserIds);
   const mutations: AchievementProgressMutation[] = [];
 
   for (const row of rankRows) {
     const rank = Number(row.rank);
-    const elo = eloByUserId.get(row.id) ?? 1200;
+    const elo = Number(row.global_elo ?? 1200);
     mutations.push({
       userId: row.id,
       achievementKey: "rank_top_3",
@@ -828,6 +830,104 @@ async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: strin
       });
     }
   }
+
+  await flushAchievementProgressMutations(env, mutations, nowIso);
+}
+
+async function loadAchievementRebuildData(
+  env: Env,
+  userIds: string[],
+): Promise<{
+  users: Array<{
+    id: string;
+    global_elo: number;
+    wins: number;
+    losses: number;
+    streak: number;
+    created_at: string;
+    rank: number;
+    matches_played: number;
+  }>;
+  seasonsCreated: Map<string, number>;
+  tournamentsCreated: Map<string, number>;
+  seasonsPlayed: Map<string, number>;
+  tournamentsPlayed: Map<string, number>;
+  singlesCount: Map<string, number>;
+  doublesCount: Map<string, number>;
+}> {
+  const uniqueUserIds = [...new Set(userIds)];
+  const [users, seasonsCreatedRows, tournamentsCreatedRows, seasonsPlayedRows, tournamentsPlayedRows, matchTypeRows] =
+    await Promise.all([
+      loadUserRankSnapshots(env, uniqueUserIds).then(async (rankRows) => {
+        const stats = await loadUserMatchStats(env, uniqueUserIds);
+        const statsByUserId = new Map(stats.map((row) => [row.id, row]));
+        const createdRows = await env.DB.prepare(
+          `
+            SELECT id, created_at, wins, losses, streak
+            FROM users
+            WHERE id IN (${uniqueUserIds.map((_, index) => `?${index + 1}`).join(",")})
+          `,
+        )
+          .bind(...uniqueUserIds)
+          .all<{ id: string; created_at: string; wins: number; losses: number; streak: number }>();
+
+        const createdByUserId = new Map(createdRows.results.map((row) => [row.id, row]));
+        return rankRows.map((row) => {
+          const base = createdByUserId.get(row.id);
+          const stat = statsByUserId.get(row.id);
+          return {
+            id: row.id,
+            global_elo: Number(row.global_elo),
+            wins: Number(base?.wins ?? stat?.wins ?? 0),
+            losses: Number(base?.losses ?? stat?.losses ?? 0),
+            streak: Number(base?.streak ?? stat?.streak ?? 0),
+            created_at: String(base?.created_at ?? isoNow(env.runtime)),
+            rank: Number(row.rank),
+            matches_played: Number(stat?.matches_played ?? 0),
+          };
+        });
+      }),
+      loadCreatedCounts(env, "seasons", uniqueUserIds),
+      loadCreatedCounts(env, "tournaments", uniqueUserIds),
+      loadSegmentPlayedCounts(env, "season", uniqueUserIds),
+      loadSegmentPlayedCounts(env, "tournament", uniqueUserIds),
+      loadMatchTypeCounts(env, uniqueUserIds),
+    ]);
+
+  return {
+    users,
+    seasonsCreated: new Map(seasonsCreatedRows.map((row) => [row.user_id, Number(row.created_count)])),
+    tournamentsCreated: new Map(tournamentsCreatedRows.map((row) => [row.user_id, Number(row.created_count)])),
+    seasonsPlayed: new Map(seasonsPlayedRows.map((row) => [row.user_id, Number(row.played_count)])),
+    tournamentsPlayed: new Map(tournamentsPlayedRows.map((row) => [row.user_id, Number(row.played_count)])),
+    singlesCount: new Map(matchTypeRows.map((row) => [row.user_id, Number(row.singles_count)])),
+    doublesCount: new Map(matchTypeRows.map((row) => [row.user_id, Number(row.doubles_count)])),
+  };
+}
+
+export async function rebuildAchievementsForUsers(
+  env: Env,
+  userIds: string[],
+  nowIso = isoNow(env.runtime),
+): Promise<void> {
+  await ensureAchievementCatalog(env);
+
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) {
+    return;
+  }
+
+  const data = await loadAchievementRebuildData(env, uniqueUserIds);
+  const mutations: AchievementProgressMutation[] = data.users.flatMap((user) =>
+    buildAchievementState(user, nowIso, data).map((achievement) => ({
+      userId: user.id,
+      achievementKey: achievement.key,
+      progressValue: achievement.progressValue,
+      progressTarget: achievement.progressTarget,
+      unlock: achievement.unlock,
+      context: achievement.context,
+    })),
+  );
 
   await flushAchievementProgressMutations(env, mutations, nowIso);
 }

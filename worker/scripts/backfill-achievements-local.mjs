@@ -1,48 +1,10 @@
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { buildAchievementState } from "../src/services/achievementRebuildShared.js";
 
 const execFileAsync = promisify(execFile);
 const WORKER_DIR = fileURLToPath(new URL("..", import.meta.url));
-
-const ACHIEVEMENTS = [
-  { key: "account_created", category: "onboarding", tier: "bronze", points: 10, sortOrder: 10 },
-  { key: "first_match", category: "onboarding", tier: "bronze", points: 20, sortOrder: 20 },
-  { key: "first_win", category: "performance", tier: "bronze", points: 30, sortOrder: 30 },
-  { key: "first_singles", category: "activity", tier: "bronze", points: 25, sortOrder: 32 },
-  { key: "singles_10", category: "activity", tier: "silver", points: 70, sortOrder: 33 },
-  { key: "first_doubles", category: "activity", tier: "bronze", points: 25, sortOrder: 34 },
-  { key: "doubles_10", category: "activity", tier: "silver", points: 70, sortOrder: 34 },
-  { key: "matches_3", category: "activity", tier: "bronze", points: 25, sortOrder: 35 },
-  { key: "matches_5", category: "activity", tier: "bronze", points: 35, sortOrder: 37 },
-  { key: "matches_10", category: "activity", tier: "silver", points: 50, sortOrder: 40 },
-  { key: "matches_25", category: "activity", tier: "gold", points: 100, sortOrder: 50 },
-  { key: "matches_50", category: "activity", tier: "gold", points: 150, sortOrder: 55 },
-  { key: "matches_100", category: "activity", tier: "platinum", points: 260, sortOrder: 57 },
-  { key: "win_streak_3", category: "performance", tier: "silver", points: 60, sortOrder: 60 },
-  { key: "win_streak_5", category: "performance", tier: "gold", points: 120, sortOrder: 70 },
-  { key: "rank_top_3", category: "performance", tier: "gold", points: 120, sortOrder: 80 },
-  { key: "rank_1", category: "performance", tier: "platinum", points: 200, sortOrder: 90 },
-  { key: "season_creator", category: "community", tier: "silver", points: 70, sortOrder: 100 },
-  { key: "seasons_3", category: "community", tier: "silver", points: 110, sortOrder: 105 },
-  { key: "seasons_5", category: "community", tier: "gold", points: 180, sortOrder: 107 },
-  { key: "season_played", category: "community", tier: "bronze", points: 30, sortOrder: 108 },
-  { key: "seasons_played_3", category: "community", tier: "silver", points: 75, sortOrder: 109 },
-  { key: "seasons_played_5", category: "community", tier: "gold", points: 140, sortOrder: 110 },
-  { key: "tournament_creator", category: "community", tier: "silver", points: 80, sortOrder: 120 },
-  { key: "tournaments_3", category: "community", tier: "silver", points: 120, sortOrder: 125 },
-  { key: "tournaments_5", category: "community", tier: "gold", points: 190, sortOrder: 127 },
-  { key: "tournament_played", category: "community", tier: "bronze", points: 35, sortOrder: 128 },
-  { key: "tournaments_played_3", category: "community", tier: "silver", points: 85, sortOrder: 129 },
-  { key: "tournaments_played_5", category: "community", tier: "gold", points: 150, sortOrder: 130 },
-  { key: "elo_1250", category: "performance", tier: "bronze", points: 40, sortOrder: 140 },
-  { key: "elo_1350", category: "performance", tier: "silver", points: 90, sortOrder: 141 },
-  { key: "elo_1500", category: "performance", tier: "gold", points: 170, sortOrder: 142 },
-  { key: "elo_1700", category: "performance", tier: "platinum", points: 300, sortOrder: 143 },
-  { key: "days_30", category: "onboarding", tier: "bronze", points: 30, sortOrder: 150 },
-  { key: "days_180", category: "community", tier: "silver", points: 90, sortOrder: 151 },
-  { key: "days_365", category: "community", tier: "gold", points: 180, sortOrder: 152 },
-];
 
 function parseArgs(argv) {
   const options = {
@@ -151,91 +113,6 @@ async function d1Execute(options, sql) {
 
 function sqlString(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
-}
-
-function daysBetween(fromIso, toIso) {
-  return Math.max(0, Math.floor((Date.parse(toIso) - Date.parse(fromIso)) / (1000 * 60 * 60 * 24)));
-}
-
-function addThresholdAchievement(items, key, currentValue, target, nowIso, context = null) {
-  items.push({
-    key,
-    progressValue: Math.min(currentValue, target),
-    progressTarget: target,
-    unlock: currentValue >= target,
-    context: currentValue >= target ? context : {},
-    nowIso,
-  });
-}
-
-function buildAchievementState(user, nowIso, maps) {
-  const achievements = [];
-  const matchesPlayed = Number(user.matches_played ?? 0);
-  const wins = Number(user.wins ?? 0);
-  const streak = Number(user.streak ?? 0);
-  const rank = Number(user.rank ?? 0);
-  const elo = Number(user.global_elo ?? 1200);
-  const seasonsCreated = maps.seasonsCreated.get(user.id) ?? 0;
-  const tournamentsCreated = maps.tournamentsCreated.get(user.id) ?? 0;
-  const seasonsPlayed = maps.seasonsPlayed.get(user.id) ?? 0;
-  const tournamentsPlayed = maps.tournamentsPlayed.get(user.id) ?? 0;
-  const singlesCount = maps.singlesCount.get(user.id) ?? 0;
-  const doublesCount = maps.doublesCount.get(user.id) ?? 0;
-  const elapsedDays = daysBetween(user.created_at, nowIso);
-
-  addThresholdAchievement(achievements, "account_created", 1, 1, nowIso);
-  for (const target of [1, 3, 5, 10, 25, 50, 100]) {
-    addThresholdAchievement(achievements, target === 1 ? "first_match" : `matches_${target}`, matchesPlayed, target, nowIso);
-  }
-  addThresholdAchievement(achievements, "first_win", wins, 1, nowIso);
-  addThresholdAchievement(achievements, "first_singles", singlesCount, 1, nowIso);
-  addThresholdAchievement(achievements, "singles_10", singlesCount, 10, nowIso);
-  addThresholdAchievement(achievements, "first_doubles", doublesCount, 1, nowIso);
-  addThresholdAchievement(achievements, "doubles_10", doublesCount, 10, nowIso);
-  addThresholdAchievement(achievements, "win_streak_3", Math.max(streak, 0), 3, nowIso, { streak });
-  addThresholdAchievement(achievements, "win_streak_5", Math.max(streak, 0), 5, nowIso, { streak });
-  addThresholdAchievement(achievements, "rank_top_3", rank <= 3 ? 3 : 0, 3, nowIso, { rank });
-  addThresholdAchievement(achievements, "rank_1", rank === 1 ? 1 : 0, 1, nowIso, { rank });
-  addThresholdAchievement(achievements, "season_creator", seasonsCreated, 1, nowIso);
-  addThresholdAchievement(achievements, "seasons_3", seasonsCreated, 3, nowIso);
-  addThresholdAchievement(achievements, "seasons_5", seasonsCreated, 5, nowIso);
-  addThresholdAchievement(achievements, "season_played", seasonsPlayed, 1, nowIso);
-  addThresholdAchievement(achievements, "seasons_played_3", seasonsPlayed, 3, nowIso);
-  addThresholdAchievement(achievements, "seasons_played_5", seasonsPlayed, 5, nowIso);
-  addThresholdAchievement(achievements, "tournament_creator", tournamentsCreated, 1, nowIso);
-  addThresholdAchievement(achievements, "tournaments_3", tournamentsCreated, 3, nowIso);
-  addThresholdAchievement(achievements, "tournaments_5", tournamentsCreated, 5, nowIso);
-  addThresholdAchievement(achievements, "tournament_played", tournamentsPlayed, 1, nowIso);
-  addThresholdAchievement(achievements, "tournaments_played_3", tournamentsPlayed, 3, nowIso);
-  addThresholdAchievement(achievements, "tournaments_played_5", tournamentsPlayed, 5, nowIso);
-  addThresholdAchievement(achievements, "elo_1250", elo, 1250, nowIso, { elo });
-  addThresholdAchievement(achievements, "elo_1350", elo, 1350, nowIso, { elo });
-  addThresholdAchievement(achievements, "elo_1500", elo, 1500, nowIso, { elo });
-  addThresholdAchievement(achievements, "elo_1700", elo, 1700, nowIso, { elo });
-  addThresholdAchievement(achievements, "days_30", elapsedDays, 30, nowIso);
-  addThresholdAchievement(achievements, "days_180", elapsedDays, 180, nowIso);
-  addThresholdAchievement(achievements, "days_365", elapsedDays, 365, nowIso);
-
-  return achievements;
-}
-
-function buildDefinitionSql() {
-  return [
-    "BEGIN TRANSACTION;",
-    ...ACHIEVEMENTS.map(
-      (achievement) => `
-        INSERT INTO achievement_definitions (key, category, tier, points, sort_order, active)
-        VALUES (${sqlString(achievement.key)}, ${sqlString(achievement.category)}, ${sqlString(achievement.tier)}, ${achievement.points}, ${achievement.sortOrder}, 1)
-        ON CONFLICT(key) DO UPDATE SET
-          category = excluded.category,
-          tier = excluded.tier,
-          points = excluded.points,
-          sort_order = excluded.sort_order,
-          active = 1;
-      `,
-    ),
-    "COMMIT;",
-  ].join("\n");
 }
 
 function buildUserUpsertSql(userId, achievementStates) {
@@ -386,7 +263,8 @@ async function main() {
       options.remote ? "remote" : "local"
     } ${options.env} D1${options.remote ? "" : ` (${options.persistTo})`}.`,
   );
-  console.log(`Calculated ${plan.length * ACHIEVEMENTS.length} achievement states, ${wouldUnlock} currently unlocked milestones.`);
+  const totalAchievementStates = plan.reduce((sum, entry) => sum + entry.achievements.length, 0);
+  console.log(`Calculated ${totalAchievementStates} achievement states, ${wouldUnlock} currently unlocked milestones.`);
   console.log("The backfill is idempotent: it only inserts or advances achievement progress and never deletes data.");
 
   if (!options.write) {
@@ -399,7 +277,6 @@ async function main() {
     return;
   }
 
-  await d1Execute(options, buildDefinitionSql());
   for (const entry of plan) {
     await d1Execute(options, buildUserUpsertSql(entry.userId, entry.achievements));
   }
