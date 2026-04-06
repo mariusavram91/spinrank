@@ -16,6 +16,9 @@ test.describe("achievements", () => {
       displayName: "E2E Achievement Rival",
     });
 
+    await page.addInitScript(() => {
+      localStorage.removeItem("spinrank.seen-achievements");
+    });
     await persistAppSession(page, sessionUser);
     await page.goto("/", { waitUntil: "networkidle" });
     await expect(page.getByTestId("leaderboard-list")).toBeVisible();
@@ -83,8 +86,19 @@ test.describe("achievements", () => {
 
     await page.locator(".auth-avatar-button").click();
     await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
+    await expect(page.locator(".profile-achievements__summary")).toBeVisible();
+    await expect(page.locator(".profile-achievements__summary .achievement-card__icon").first()).toBeVisible();
+    await expect(page.locator(".achievement-chip-list")).toBeHidden();
+    await page.getByTestId("profile-achievements-toggle").click();
+    await expect(page.locator(".achievement-chip-list")).toBeVisible();
     await expect(page.locator(".achievement-chip-list")).toContainText("First match");
     await expect(page.locator(".achievement-chip-list")).toContainText("First win");
+    await expect(page.locator(".achievement-chip-list")).toContainText("10 matches");
+    await expect(page.locator(".achievement-chip-list")).toContainText("Rank #1");
+    await expect(page.locator(".achievement-card.profile-segment-card--completed").first()).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     await expect(page.getByTestId("achievements-avatar-badge")).toBeHidden();
   });
 });

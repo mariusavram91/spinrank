@@ -23,6 +23,11 @@ describe("worker unit: achievements", () => {
       expect(overview.totalUnlocked).toBe(1);
       expect(overview.totalAvailable).toBe(11);
       expect(overview.score).toBe(10);
+      expect(overview.items).toHaveLength(11);
+      expect(overview.items[0]).toMatchObject({
+        key: "account_created",
+        unlockedAt: "2026-04-04T12:00:00.000Z",
+      });
       expect(overview.recentUnlocks).toEqual([
         expect.objectContaining({
           key: "account_created",

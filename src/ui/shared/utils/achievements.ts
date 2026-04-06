@@ -6,7 +6,7 @@ function getUnlockedTokens(overview: AchievementOverview | null): string[] {
   if (!overview) {
     return [];
   }
-  const unlockedItems = [...overview.recentUnlocks, ...overview.featured].filter((item) => item.unlockedAt);
+  const unlockedItems = overview.items.filter((item) => item.unlockedAt);
   return [...new Set(unlockedItems.map((item) => `${item.key}:${item.unlockedAt}`))];
 }
 

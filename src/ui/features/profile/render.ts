@@ -36,32 +36,57 @@ const ACHIEVEMENT_ICONS: Record<AchievementSummaryItem["icon"], string> = {
 const buildAchievementChip = (
   item: AchievementSummaryItem,
   t: TranslationFn,
-  locked = false,
 ): HTMLElement => {
+  const locked = !item.unlockedAt;
+  const shell = document.createElement("div");
+  shell.className = "profile-segment-card-shell";
+
   const chip = document.createElement("article");
-  chip.className = `achievement-chip achievement-chip--${item.tier}${locked ? " achievement-chip--locked" : ""}`;
+  chip.className = [
+    "profile-segment-card",
+    "achievement-card",
+    `achievement-card--${item.tier}`,
+    locked ? "profile-segment-card--completed" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  chip.setAttribute("aria-disabled", locked ? "true" : "false");
 
   const icon = document.createElement("span");
-  icon.className = "achievement-chip__icon";
+  icon.className = "achievement-card__icon";
   icon.textContent = ACHIEVEMENT_ICONS[item.icon];
   icon.setAttribute("aria-hidden", "true");
 
   const content = document.createElement("div");
-  content.className = "achievement-chip__content";
+  content.className = "achievement-card__content";
+
+  const top = document.createElement("div");
+  top.className = "profile-segment-card__top";
+
+  const titleBlock = document.createElement("div");
+  titleBlock.className = "profile-segment-card__title-block";
 
   const title = document.createElement("p");
-  title.className = "achievement-chip__title";
+  title.className = "profile-segment-card__title";
   title.textContent = t(item.titleKey as TextKey);
 
-  const meta = document.createElement("p");
-  meta.className = "achievement-chip__meta";
-  meta.textContent = locked && item.progressTarget
-    ? `${item.progressValue}/${item.progressTarget}`
-    : `${item.points} pts`;
+  const description = document.createElement("p");
+  description.className = "profile-segment-card__meta achievement-card__description";
+  description.textContent = t(item.descriptionKey as TextKey);
 
-  content.append(title, meta);
+  titleBlock.append(title, description);
+  top.append(titleBlock);
+
+  const meta = document.createElement("p");
+  meta.className = "achievement-card__meta";
+  meta.textContent = locked && item.progressTarget
+    ? `${t("achievementProgressLabel")} ${item.progressValue}/${item.progressTarget}`
+    : `${t("achievementPointsLabel")} ${item.points}`;
+
+  content.append(top, meta);
   chip.append(icon, content);
-  return chip;
+  shell.append(chip);
+  return shell;
 };
 
 const getPodiumMedal = (rank: number | null | undefined): string | null => {
@@ -257,6 +282,8 @@ const buildSegmentCard = (args: {
 
 export const renderProfileScreen = (args: {
   dashboardState: DashboardState;
+  achievementsSummary: HTMLElement;
+  achievementsToggle: HTMLButtonElement;
   achievementsList: HTMLElement;
   currentUserId: string;
   seasonsList: HTMLElement;
@@ -282,12 +309,43 @@ export const renderProfileScreen = (args: {
   args.status.textContent = args.dashboardState.profileLoading ? args.t("loadingOverlay") : "";
   args.status.hidden = !args.dashboardState.profileLoading;
 
-  const featuredAchievements = args.dashboardState.achievements?.featured ?? [];
-  const nextAchievement = args.dashboardState.achievements?.nextUp;
-  const achievementNodes = [
-    ...featuredAchievements.map((item) => buildAchievementChip(item, args.t)),
-    ...(nextAchievement ? [buildAchievementChip(nextAchievement, args.t, true)] : []),
-  ];
+  const allAchievements = args.dashboardState.achievements?.items ?? [];
+  const unlockedAchievements = allAchievements.filter((item) => item.unlockedAt);
+  const achievementNodes = [...allAchievements]
+    .sort((left, right) => {
+      const leftUnlocked = Boolean(left.unlockedAt);
+      const rightUnlocked = Boolean(right.unlockedAt);
+      if (leftUnlocked !== rightUnlocked) {
+        return leftUnlocked ? -1 : 1;
+      }
+      if (leftUnlocked && rightUnlocked) {
+        return Date.parse(right.unlockedAt || "") - Date.parse(left.unlockedAt || "");
+      }
+      const leftRatio = left.progressTarget ? left.progressValue / left.progressTarget : 0;
+      const rightRatio = right.progressTarget ? right.progressValue / right.progressTarget : 0;
+      if (rightRatio !== leftRatio) {
+        return rightRatio - leftRatio;
+      }
+      return right.points - left.points;
+    })
+    .map((item) => buildAchievementChip(item, args.t));
+  const summaryNodes = unlockedAchievements.map((item) => {
+    const icon = document.createElement("span");
+    icon.className = "achievement-card__icon profile-achievements__summary-icon";
+    icon.textContent = ACHIEVEMENT_ICONS[item.icon];
+    icon.title = args.t(item.titleKey as TextKey);
+    icon.setAttribute("aria-label", args.t(item.titleKey as TextKey));
+    return icon;
+  });
+  args.achievementsSummary.replaceChildren(
+    ...(summaryNodes.length > 0 ? summaryNodes : [createEmptyState(args.t("achievementsEmpty"))]),
+  );
+  args.achievementsToggle.hidden = achievementNodes.length === 0;
+  args.achievementsToggle.textContent = args.dashboardState.profileAchievementsExpanded
+    ? args.t("achievementsHideAll")
+    : args.t("achievementsShowAll");
+  args.achievementsToggle.setAttribute("aria-expanded", String(args.dashboardState.profileAchievementsExpanded));
+  args.achievementsList.hidden = !args.dashboardState.profileAchievementsExpanded;
   args.achievementsList.replaceChildren(
     ...(achievementNodes.length > 0 ? achievementNodes : [createEmptyState(args.t("achievementsEmpty"))]),
   );

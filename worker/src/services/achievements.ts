@@ -338,6 +338,7 @@ export async function getAchievementOverview(env: Env, userId: string): Promise<
     totalUnlocked: unlocked.length,
     totalAvailable: items.length,
     score: unlocked.reduce((sum, item) => sum + item.points, 0),
+    items,
     recentUnlocks,
     featured,
     nextUp,

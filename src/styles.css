@@ -1093,48 +1093,60 @@ button:disabled,
   gap: 1rem;
 }
 
+.profile-achievements__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.profile-achievements__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.profile-achievements__summary-icon {
+  width: 32px;
+  height: 32px;
+}
+
 .achievement-chip-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
 }
 
-.achievement-chip {
+.achievement-card {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.8rem 0.9rem;
-  border-radius: 18px;
-  border: 1px solid rgba(82, 61, 36, 0.1);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 242, 232, 0.92));
+  align-items: flex-start;
+  gap: 0.85rem;
+  cursor: default;
 }
 
-.achievement-chip--locked {
-  opacity: 0.72;
-  background: rgba(255, 255, 255, 0.72);
+.achievement-card:hover,
+.achievement-card:focus-visible {
+  transform: none;
+  box-shadow: none;
 }
 
-.achievement-chip--bronze .achievement-chip__icon {
-  background: rgba(191, 91, 4, 0.14);
-  color: var(--accent-strong);
+.achievement-card--bronze {
+  border-left-color: rgba(191, 91, 4, 0.52);
 }
 
-.achievement-chip--silver .achievement-chip__icon {
-  background: rgba(11, 74, 141, 0.12);
-  color: var(--brand-spin-dark);
+.achievement-card--silver {
+  border-left-color: rgba(11, 74, 141, 0.48);
 }
 
-.achievement-chip--gold .achievement-chip__icon {
-  background: rgba(198, 148, 20, 0.16);
-  color: #926100;
+.achievement-card--gold {
+  border-left-color: rgba(198, 148, 20, 0.58);
 }
 
-.achievement-chip--platinum .achievement-chip__icon {
-  background: rgba(77, 88, 120, 0.14);
-  color: #33415f;
+.achievement-card--platinum {
+  border-left-color: rgba(77, 88, 120, 0.56);
 }
 
-.achievement-chip__icon {
+.achievement-card__icon {
   width: 36px;
   height: 36px;
   border-radius: 12px;
@@ -1146,18 +1158,53 @@ button:disabled,
   flex-shrink: 0;
 }
 
-.achievement-chip__content {
+.achievement-card--bronze .achievement-card__icon {
+  background: rgba(191, 91, 4, 0.14);
+  color: var(--accent-strong);
+}
+
+.achievement-card--silver .achievement-card__icon {
+  background: rgba(11, 74, 141, 0.12);
+  color: var(--brand-spin-dark);
+}
+
+.achievement-card--gold .achievement-card__icon {
+  background: rgba(198, 148, 20, 0.16);
+  color: #926100;
+}
+
+.achievement-card--platinum .achievement-card__icon {
+  background: rgba(77, 88, 120, 0.14);
+  color: #33415f;
+}
+
+.achievement-card__content {
   min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 0.6rem;
 }
 
-.achievement-chip__title {
-  font-size: 0.95rem;
-  color: #2d261d;
+.achievement-card__description {
+  max-width: 42ch;
 }
 
-.achievement-chip__meta {
-  font-size: 0.8rem;
-  color: var(--text-muted);
+.achievement-card__meta {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.75);
+}
+
+.achievement-card.profile-segment-card--completed .achievement-card__icon,
+.achievement-card.profile-segment-card--completed .achievement-card__meta {
+  filter: grayscale(1);
+  opacity: 0.75;
 }
 
 .profile-section {

@@ -103,6 +103,7 @@ describe("worker integration: achievements", () => {
       expect(dashboardBeforeDelete.ok).toBe(true);
       expect(dashboardBeforeDelete.data?.achievements.totalUnlocked).toBe(6);
       expect(dashboardBeforeDelete.data?.achievements.score).toBe(520);
+      expect(dashboardBeforeDelete.data?.achievements.items).toHaveLength(11);
       expect(dashboardBeforeDelete.data?.achievements.recentUnlocks).toHaveLength(3);
 
       await handleDeactivateMatch(
@@ -132,6 +133,7 @@ describe("worker integration: achievements", () => {
 
       expect(dashboardAfterDelete.ok).toBe(true);
       expect(dashboardAfterDelete.data?.achievements.totalUnlocked).toBe(6);
+      expect(dashboardAfterDelete.data?.achievements.items).toHaveLength(11);
       const persistedUnlocks = await context.env.DB.prepare(
         `
           SELECT achievement_key, unlocked_at

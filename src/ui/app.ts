@@ -135,6 +135,8 @@ export const buildApp = (): HTMLElement => {
     profileScreen,
     closeProfileButton,
     profileStatus,
+    profileAchievementsSummary,
+    profileAchievementsToggle,
     profileAchievementsList,
     profileSeasonsList,
     profileTournamentsList,
@@ -1031,6 +1033,8 @@ export const buildApp = (): HTMLElement => {
       const currentUserId = getCurrentUserId(state.current);
       renderProfileScreen({
         dashboardState,
+        achievementsSummary: profileAchievementsSummary,
+        achievementsToggle: profileAchievementsToggle,
         achievementsList: profileAchievementsList,
         currentUserId,
         seasonsList: profileSeasonsList,
@@ -1470,6 +1474,11 @@ export const buildApp = (): HTMLElement => {
       syncDashboardState();
     }
   };
+
+  profileAchievementsToggle.addEventListener("click", () => {
+    dashboardState.profileAchievementsExpanded = !dashboardState.profileAchievementsExpanded;
+    syncDashboardState();
+  });
 
   const topLevelUiHandlers = createTopLevelUiHandlers({
     authActions,

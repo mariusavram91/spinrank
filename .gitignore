@@ -17,3 +17,4 @@ worker/.wrangler/tmp/
 tests/e2e/.worker-server.pid
 *.swp
 plans
+tmp

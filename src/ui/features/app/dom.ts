@@ -202,12 +202,21 @@ export const createAppDom = (args: {
 
   const profileAchievementsSection = document.createElement("section");
   profileAchievementsSection.className = "profile-section";
+  const profileAchievementsHeader = document.createElement("div");
+  profileAchievementsHeader.className = "profile-achievements__header";
   const profileAchievementsTitle = document.createElement("h4");
   profileAchievementsTitle.className = "card-title profile-section__title";
   bindLocalizedText(profileAchievementsTitle, "achievementsTitle");
+  const profileAchievementsToggle = document.createElement("button");
+  profileAchievementsToggle.type = "button";
+  profileAchievementsToggle.className = "secondary-button";
+  profileAchievementsToggle.dataset.testid = "profile-achievements-toggle";
+  const profileAchievementsSummary = document.createElement("div");
+  profileAchievementsSummary.className = "profile-achievements__summary";
   const profileAchievementsList = document.createElement("div");
   profileAchievementsList.className = "achievement-chip-list achievement-chip-list--profile";
-  profileAchievementsSection.append(profileAchievementsTitle, profileAchievementsList);
+  profileAchievementsSection.append(profileAchievementsHeader, profileAchievementsSummary, profileAchievementsList);
+  profileAchievementsHeader.append(profileAchievementsTitle, profileAchievementsToggle);
 
   profileBody.append(
     profileAchievementsSection,
@@ -702,6 +711,8 @@ export const createAppDom = (args: {
     profilePanel,
     closeProfileButton,
     profileStatus,
+    profileAchievementsSummary,
+    profileAchievementsToggle,
     profileAchievementsList,
     profileSeasonsList,
     profileTournamentsList,

@@ -60,6 +60,7 @@ export interface DashboardState {
   profileMatchesCursor: string | null;
   profileLoading: boolean;
   profileMatchesLoading: boolean;
+  profileAchievementsExpanded: boolean;
   profileSegmentSummaries: Record<string, ProfileSegmentSummary>;
   profileSegmentSummaryLoadingKeys: string[];
   matchBracketContextByMatchId: Record<string, { roundTitle: string; isFinal: boolean }>;

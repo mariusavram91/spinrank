@@ -237,6 +237,7 @@ export interface AchievementOverview {
   totalUnlocked: number;
   totalAvailable: number;
   score: number;
+  items: AchievementSummaryItem[];
   recentUnlocks: AchievementSummaryItem[];
   featured: AchievementSummaryItem[];
   nextUp: AchievementSummaryItem | null;
