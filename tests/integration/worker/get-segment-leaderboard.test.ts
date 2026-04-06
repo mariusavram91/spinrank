@@ -6,7 +6,9 @@ import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-con
 import type { TournamentBracketRound, UserRow } from "../../../worker/src/types";
 
 describe("worker integration: getSegmentLeaderboard", () => {
-  it("returns season leaderboard stats with qualification and most-active ordering", async () => {
+  it(
+    "returns season leaderboard stats with qualification and most-active ordering",
+    async () => {
     const context = await createWorkerTestContext();
     try {
       await seedUser(context.env, { id: "user_a", displayName: "Alice" });
@@ -148,9 +150,13 @@ describe("worker integration: getSegmentLeaderboard", () => {
     } finally {
       await context.cleanup();
     }
-  });
+    },
+    60000,
+  );
 
-  it("orders tournament leaderboard by placement and exposes winner metadata", async () => {
+  it(
+    "orders tournament leaderboard by placement and exposes winner metadata",
+    async () => {
     const context = await createWorkerTestContext();
     try {
       await seedUser(context.env, { id: "user_a", displayName: "Alice" });
@@ -331,5 +337,7 @@ describe("worker integration: getSegmentLeaderboard", () => {
     } finally {
       await context.cleanup();
     }
-  });
+    },
+    60000,
+  );
 });

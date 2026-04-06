@@ -89,9 +89,11 @@ test.describe("profile flow", () => {
       timeout: 30000,
     });
 
-    await page.locator(".auth-avatar").click();
+    await page.getByRole("button", { name: /open profile/i }).click();
     await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
-    const seasonsSection = page.locator(".profile-section").filter({ hasText: "Seasons" });
+    const seasonsSection = page.locator(".profile-section", {
+      has: page.locator(".profile-section__title", { hasText: "Seasons" }),
+    });
     await expect(seasonsSection).toContainText(seasonName, { timeout: 30000 });
     await expect(seasonsSection).toContainText("Participants 2", { timeout: 30000 });
     await expect(page.locator(".profile-match-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`), {

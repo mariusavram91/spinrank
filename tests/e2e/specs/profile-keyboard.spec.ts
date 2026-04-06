@@ -13,7 +13,7 @@ test.describe("profile keyboard access", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await expect(page.getByTestId("leaderboard-list")).toBeVisible();
 
-    await page.locator(".auth-avatar").focus();
+    await page.getByRole("button", { name: /open profile/i }).focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
 

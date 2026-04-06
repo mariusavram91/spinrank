@@ -42,6 +42,16 @@ const sessionUser = {
 } as UserRow;
 
 const env = {
+  DB: {
+    batch: vi.fn(async () => []),
+    prepare: vi.fn(() => ({
+      bind() {
+        return this;
+      },
+      first: async () => null,
+      all: async () => ({ results: [] }),
+    })),
+  },
   runtime: {
     nowIso: () => "2026-04-06T12:00:00.000Z",
   },
@@ -112,6 +122,15 @@ describe("worker getDashboard action", () => {
       leaderboard: [{ userId: "user_1", rank: 1 }],
       leaderboardUpdatedAt: "2026-04-06T12:00:00.000Z",
       userProgress: { currentRank: 1 },
+      achievements: {
+        totalUnlocked: 0,
+        totalAvailable: 0,
+        score: 0,
+        items: [],
+        recentUnlocks: [],
+        featured: [],
+        nextUp: null,
+      },
       matches: [
         { id: "match_1", bracketContext: { roundTitle: "Final", isFinal: true } },
         { id: "match_2", bracketContext: null },

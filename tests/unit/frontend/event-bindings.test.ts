@@ -13,8 +13,7 @@ describe("event bindings", () => {
     const onScoreCardOverlayClick = vi.fn();
     const onDocumentClick = vi.fn();
 
-    const authAvatar = document.createElement("img");
-    authAvatar.tabIndex = 0;
+    const authAvatarButton = document.createElement("button");
 
     const scoreCardOverlay = document.createElement("div");
     const overlayTarget = document.createElement("div");
@@ -25,7 +24,7 @@ describe("event bindings", () => {
       faqMenuButton: createButton(),
       footerFaqButton: createButton(),
       footerPrivacyButton: createButton(),
-      authAvatar,
+      authAvatarButton,
       authMenuButton: createButton(),
       createMenuButton: createButton(),
       refreshButton: createButton(),
@@ -67,11 +66,8 @@ describe("event bindings", () => {
       onSuggestTournament: vi.fn(),
     });
 
-    authAvatar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    authAvatar.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    authAvatar.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
-    authAvatar.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(onOpenProfile).toHaveBeenCalledTimes(3);
+    authAvatarButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onOpenProfile).toHaveBeenCalledTimes(1);
 
     document.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onDocumentClick).toHaveBeenCalled();

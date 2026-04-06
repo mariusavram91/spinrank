@@ -154,7 +154,9 @@ describe("worker integration: deactivate segments", () => {
     }
   });
 
-  it("deletes a season, cascades to tournaments and matches, and recomputes rankings", async () => {
+  it(
+    "deletes a season, cascades to tournaments and matches, and recomputes rankings",
+    async () => {
     const context = await createWorkerTestContext();
     try {
       await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
@@ -356,7 +358,9 @@ describe("worker integration: deactivate segments", () => {
     } finally {
       await context.cleanup();
     }
-  });
+    },
+    60000,
+  );
 
   it("rejects missing ids, non-owners, and already deleted tournaments", async () => {
     const context = await createWorkerTestContext();

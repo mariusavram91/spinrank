@@ -141,10 +141,13 @@ const createPanel = (): SharePanelElements =>
 const createHarness = (dashboardState: DashboardState, runAuthedAction = vi.fn()) => {
   const markLeaderboardDirty = vi.fn();
   const syncDashboardState = vi.fn();
+  const syncAuthState = vi.fn();
   const setGlobalLoading = vi.fn();
   const args = {
     dashboardState,
     runAuthedAction,
+    hasUnreadAchievements: vi.fn(() => false),
+    syncAuthState,
     syncDashboardState,
     setGlobalLoading,
     markLeaderboardDirty,
@@ -166,6 +169,7 @@ const createHarness = (dashboardState: DashboardState, runAuthedAction = vi.fn()
   return {
     actions: createDashboardActions(args),
     args,
+    syncAuthState,
     syncDashboardState,
     setGlobalLoading,
     markLeaderboardDirty,
