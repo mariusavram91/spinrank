@@ -29,7 +29,7 @@ export async function handleGetDashboard(
       sessionUser,
       env,
     ),
-    handleGetUserProgress({ ...request, action: "getUserProgress", payload: {} }, sessionUser, env),
+    handleGetUserProgress({ ...request, action: "getUserProgress", payload: { mode: "summary" } }, sessionUser, env),
     getAchievementOverview(env, sessionUser.id),
   ]);
 

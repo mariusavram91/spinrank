@@ -1,8 +1,91 @@
 import { errorResponse, successResponse } from "../responses";
 import { getBracketRounds, getPlanParticipantIds } from "../services/brackets";
 import { canAccessTournament, getTournamentById } from "../services/visibility";
-import { handleGetTournaments } from "./getTournaments";
-import type { ApiRequest, Env, GetTournamentBracketPayload, UserRow } from "../types";
+import type { ApiRequest, Env, GetTournamentBracketPayload, TournamentRecord, UserRow } from "../types";
+
+async function getTournamentDetailForUser(
+  env: Env,
+  tournamentId: string,
+  userId: string,
+): Promise<TournamentRecord | null> {
+  const row = await env.DB.prepare(
+    `
+      SELECT
+        t.id,
+        t.name,
+        t.date,
+        t.status,
+        t.season_id,
+        s.name AS season_name,
+        t.created_by_user_id,
+        t.created_at,
+        t.completed_at,
+        (
+          SELECT COUNT(*)
+          FROM tournament_participants tp
+          WHERE tp.tournament_id = t.id
+        ) AS participant_count,
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM tournament_bracket_matches tbm
+            WHERE tbm.tournament_id = t.id
+              AND tbm.is_final = 1
+              AND tbm.winner_player_id IS NOT NULL
+          ) THEN 'completed'
+          WHEN EXISTS (
+            SELECT 1
+            FROM tournament_bracket_matches tbm
+            WHERE tbm.tournament_id = t.id
+              AND (tbm.created_match_id IS NOT NULL OR tbm.winner_player_id IS NOT NULL)
+          ) THEN 'in_progress'
+          ELSE 'draft'
+        END AS bracket_status
+      FROM tournaments t
+      LEFT JOIN seasons s ON s.id = t.season_id
+      LEFT JOIN tournament_participants viewer_tp
+        ON viewer_tp.tournament_id = t.id AND viewer_tp.user_id = ?2
+      WHERE t.id = ?1
+        AND t.status != 'deleted'
+        AND (
+          t.created_by_user_id = ?2
+          OR viewer_tp.user_id IS NOT NULL
+        )
+    `,
+  )
+    .bind(tournamentId, userId)
+    .first<{
+      id: string;
+      name: string;
+      date: string;
+      status: TournamentRecord["status"];
+      season_id: string | null;
+      season_name: string | null;
+      created_by_user_id: string | null;
+      created_at: string;
+      completed_at: string | null;
+      participant_count: number;
+      bracket_status: TournamentRecord["bracketStatus"];
+    }>();
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    date: row.date,
+    seasonId: row.season_id,
+    seasonName: row.season_name,
+    status: row.status,
+    createdByUserId: row.created_by_user_id,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+    participantCount: Number(row.participant_count || 0),
+    bracketStatus: row.bracket_status,
+  };
+}
 
 export async function handleGetTournamentBracket(
   request: ApiRequest<"getTournamentBracket", GetTournamentBracketPayload>,
@@ -19,17 +102,7 @@ export async function handleGetTournamentBracket(
     return errorResponse(request.requestId, "NOT_FOUND", "Tournament bracket was not found.");
   }
 
-  const tournamentsResponse = await handleGetTournaments(
-    { ...request, action: "getTournaments", payload: {} },
-    sessionUser,
-    env,
-  );
-
-  if (!tournamentsResponse.ok || !tournamentsResponse.data) {
-    return errorResponse(request.requestId, "INTERNAL_ERROR", "Could not load tournament details.");
-  }
-
-  const tournamentRecord = tournamentsResponse.data.tournaments.find((entry) => entry.id === tournamentId);
+  const tournamentRecord = await getTournamentDetailForUser(env, tournamentId, sessionUser.id);
   if (!tournamentRecord) {
     return errorResponse(request.requestId, "NOT_FOUND", "Tournament bracket was not found.");
   }

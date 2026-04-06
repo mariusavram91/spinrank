@@ -23,18 +23,6 @@ vi.mock("../../../worker/src/services/brackets", () => ({
   getPlanParticipantIds: vi.fn(async () => ["user_a", "user_b"]),
 }));
 
-vi.mock("../../../worker/src/actions/getTournaments", () => ({
-  handleGetTournaments: vi.fn(async () => ({
-    ok: true,
-    data: {
-      tournaments: [
-        { id: "tournament_2", name: "Ignore Me" },
-        { id: "tournament_1", name: "Target Cup", status: "active" },
-      ],
-    },
-  })),
-}));
-
 import { handleGetTournamentBracket } from "../../../worker/src/actions/getTournamentBracket";
 import type { Env, UserRow } from "../../../worker/src/types";
 
@@ -49,6 +37,9 @@ function createPreparedStatement(
       return this;
     },
     async all<T>() {
+      return (await responder(sql, this.args)) as T;
+    },
+    async first<T>() {
       return (await responder(sql, this.args)) as T;
     },
   };
@@ -76,12 +67,30 @@ describe("worker getTournamentBracket action", () => {
     const env = {
       DB: {
         prepare: vi.fn((sql: string) =>
-          createPreparedStatement(sql, async () => ({
-            results: [
-              { id: "user_b", display_name: "Bob", avatar_url: null, global_elo: 1180 },
-              { id: "user_a", display_name: "Alice", avatar_url: "https://example.com/a.png", global_elo: 1215 },
-            ],
-          })),
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("FROM tournaments t")) {
+              return {
+                id: "tournament_1",
+                name: "Target Cup",
+                date: "2026-04-05",
+                status: "active",
+                season_id: null,
+                season_name: null,
+                created_by_user_id: "user_a",
+                created_at: "2026-04-05T00:00:00.000Z",
+                completed_at: null,
+                participant_count: 2,
+                bracket_status: "draft",
+              };
+            }
+
+            return {
+              results: [
+                { id: "user_b", display_name: "Bob", avatar_url: null, global_elo: 1180 },
+                { id: "user_a", display_name: "Alice", avatar_url: "https://example.com/a.png", global_elo: 1215 },
+              ],
+            };
+          }),
         ),
       },
     } as unknown as Env;
@@ -98,7 +107,19 @@ describe("worker getTournamentBracket action", () => {
 
     expect(response.ok).toBe(true);
     expect(response.data).toEqual({
-      tournament: { id: "tournament_1", name: "Target Cup", status: "active" },
+      tournament: {
+        id: "tournament_1",
+        name: "Target Cup",
+        date: "2026-04-05",
+        seasonId: null,
+        seasonName: null,
+        status: "active",
+        createdByUserId: "user_a",
+        createdAt: "2026-04-05T00:00:00.000Z",
+        completedAt: null,
+        participantCount: 2,
+        bracketStatus: "draft",
+      },
       participantIds: ["user_a", "user_b"],
       participants: [
         {

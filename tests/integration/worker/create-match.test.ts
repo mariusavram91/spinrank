@@ -4,6 +4,86 @@ import { handleCreateTournament } from "../../../worker/src/actions/createTourna
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 
 describe("worker integration: createMatch", () => {
+  it("stays within a coarse latency budget while persisting ratings and bracket-safe deltas", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+      await seedUser(context.env, { id: "user_c", displayName: "Cara" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_create_match_budget_season",
+          payload: {
+            name: "Budget Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b", "user_c"],
+            isPublic: true,
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_create_match_budget_seed",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_c"],
+            score: [{ teamA: 11, teamB: 8 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T09:00:00.000Z",
+            seasonId: seasonResponse.data?.season.id,
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      const startedAt = performance.now();
+      const response = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_create_match_budget_target",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+            seasonId: seasonResponse.data?.season.id,
+          },
+        },
+        alice,
+        context.env,
+      );
+      const elapsedMs = performance.now() - startedAt;
+
+      expect(response.ok).toBe(true);
+      expect(elapsedMs).toBeLessThan(4000);
+      expect(response.data?.match).toMatchObject({
+        seasonId: seasonResponse.data?.season.id,
+        winnerTeam: "A",
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it("creates a match and recomputes leaderboard state against the real schema", async () => {
     const context = await createWorkerTestContext();
     try {

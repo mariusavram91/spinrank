@@ -6,6 +6,158 @@ import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-con
 import type { TournamentBracketRound, UserRow } from "../../../worker/src/types";
 
 describe("worker integration: getSegmentLeaderboard", () => {
+  it("ignores deleted and unrelated matches while staying within a coarse latency budget", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+      await seedUser(context.env, { id: "user_c", displayName: "Cara" });
+      await seedUser(context.env, { id: "user_d", displayName: "Dina" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner missing");
+      }
+
+      const primarySeason = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_segment_budget_primary",
+          payload: {
+            name: "Primary Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b", "user_c"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const otherSeason = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_segment_budget_other",
+          payload: {
+            name: "Other Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_d"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const activeMatch = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_segment_budget_active",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T09:00:00.000Z",
+            seasonId: primarySeason.data?.season.id,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_segment_budget_other_match",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_d"],
+            score: [{ teamA: 11, teamB: 5 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+            seasonId: otherSeason.data?.season.id,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await context.env.DB.prepare(
+        `
+          UPDATE matches
+          SET status = 'deleted'
+          WHERE id = ?1
+        `,
+      )
+        .bind(activeMatch.data?.match.id)
+        .run();
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_segment_budget_visible",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_c"],
+            score: [{ teamA: 11, teamB: 9 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T11:00:00.000Z",
+            seasonId: primarySeason.data?.season.id,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const startedAt = performance.now();
+      const response = await handleGetSegmentLeaderboard(
+        {
+          action: "getSegmentLeaderboard",
+          requestId: "req_segment_budget_result",
+          payload: { segmentType: "season", segmentId: primarySeason.data?.season.id! },
+        },
+        owner,
+        context.env,
+      );
+      const elapsedMs = performance.now() - startedAt;
+
+      expect(response.ok).toBe(true);
+      expect(elapsedMs).toBeLessThan(4000);
+      expect(response.data?.stats.totalMatches).toBe(1);
+      expect(response.data?.leaderboard.find((entry) => entry.userId === "user_a")).toMatchObject({
+        wins: 1,
+        losses: 0,
+        streak: 1,
+      });
+      expect(response.data?.leaderboard.find((entry) => entry.userId === "user_b")).toMatchObject({
+        wins: 0,
+        losses: 0,
+      });
+      expect(response.data?.leaderboard.find((entry) => entry.userId === "user_c")).toMatchObject({
+        wins: 0,
+        losses: 1,
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it(
     "returns season leaderboard stats with qualification and most-active ordering",
     async () => {

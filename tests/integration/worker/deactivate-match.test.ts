@@ -6,6 +6,74 @@ import { handleDeactivateMatch } from "../../../worker/src/actions/deactivateMat
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 
 describe("worker integration: deactivateMatch", () => {
+  it("stays within a coarse latency budget while restoring ratings after deletion", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      const matchResponse = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_deactivate_match_budget_create",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 6 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T12:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const startedAt = performance.now();
+      const response = await handleDeactivateMatch(
+        {
+          action: "deactivateMatch",
+          requestId: "req_deactivate_match_budget",
+          payload: {
+            id: matchResponse.data!.match.id,
+            reason: "latency baseline",
+          },
+        },
+        owner,
+        context.env,
+      );
+      const elapsedMs = performance.now() - startedAt;
+
+      expect(response.ok).toBe(true);
+      expect(elapsedMs).toBeLessThan(4000);
+
+      const users = await context.env.DB.prepare(
+        `
+          SELECT id, global_elo, wins, losses
+          FROM users
+          WHERE id IN (?1, ?2)
+          ORDER BY id ASC
+        `,
+      )
+        .bind("user_a", "user_b")
+        .all<{ id: string; global_elo: number; wins: number; losses: number }>();
+
+      expect(users.results).toEqual([
+        expect.objectContaining({ id: "user_a", global_elo: 1200, wins: 0, losses: 0 }),
+        expect.objectContaining({ id: "user_b", global_elo: 1200, wins: 0, losses: 0 }),
+      ]);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it("flags the match as deleted, logs the audit trail, and recomputes rankings", async () => {
     const context = await createWorkerTestContext();
     try {

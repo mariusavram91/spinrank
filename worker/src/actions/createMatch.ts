@@ -91,6 +91,51 @@ async function validatePlayers(env: Env, playerIds: string[]): Promise<Record<st
   return byId;
 }
 
+async function loadTournamentRatings(
+  env: Env,
+  tournamentId: string,
+  playerIds: string[],
+): Promise<Record<string, ReturnType<typeof createBlankRatingState>>> {
+  const placeholders = playerIds.map((_, index) => `?${index + 2}`).join(",");
+  const result = await env.DB.prepare(
+    `
+      SELECT user_id, elo, wins, losses, streak, matches_played, matches_played_equivalent, last_match_at, updated_at
+      FROM elo_segments
+      WHERE segment_type = 'tournament'
+        AND segment_id = ?1
+        AND user_id IN (${placeholders})
+    `,
+  )
+    .bind(tournamentId, ...playerIds)
+    .all<{
+      user_id: string;
+      elo: number;
+      wins: number;
+      losses: number;
+      streak: number;
+      matches_played: number;
+      matches_played_equivalent: number;
+      last_match_at: string | null;
+      updated_at: string;
+    }>();
+
+  return Object.fromEntries(
+    result.results.map((row) => [
+      row.user_id,
+      {
+        elo: Number(row.elo),
+        wins: Number(row.wins),
+        losses: Number(row.losses),
+        streak: Number(row.streak),
+        matchesPlayed: Number(row.matches_played),
+        matchEquivalentPlayed: Number(row.matches_played_equivalent),
+        lastMatchAt: row.last_match_at || "",
+        updatedAt: row.updated_at,
+      },
+    ]),
+  );
+}
+
 function ensureSubset(memberIds: string[], playerIds: string[], label: string): string | null {
   const members = new Set(memberIds);
   const missing = playerIds.filter((playerId) => !members.has(playerId));
@@ -202,35 +247,24 @@ export async function handleCreateMatch(
       }
     }
 
-    await validatePlayers(env, allPlayerIds);
-    const snapshots = await recomputeAllRankings(env);
+    const usersById = await validatePlayers(env, allPlayerIds);
     const nowIso = isoNow(env.runtime);
     const globalDelta = computeEloDeltaForTeams(
       teamAPlayerIds,
       teamBPlayerIds,
-      snapshots.globalState,
+      usersById,
       winnerTeam,
       matchType,
     );
     const segmentDelta: Record<string, Record<string, number>> = {};
-    type SegmentRatingState = ReturnType<typeof createBlankRatingState>;
-
-    const ensureSegmentState = (segmentType: "season" | "tournament", segmentId: string): Record<string, SegmentRatingState> => {
-      const segmentKey = `${segmentType}:${segmentId}`;
-      const state: Record<string, SegmentRatingState> = snapshots.segmentStates.get(segmentKey) ?? {};
-      allPlayerIds.forEach((playerId) => {
-        state[playerId] ??= createBlankRatingState(nowIso);
-      });
-      snapshots.segmentStates.set(segmentKey, state);
-      return state;
-    };
-
     if (seasonId) {
-      ensureSegmentState("season", seasonId);
       segmentDelta[seasonId] = {};
     }
     if (tournamentId) {
-      const segmentUsers = ensureSegmentState("tournament", tournamentId);
+      const segmentUsers = await loadTournamentRatings(env, tournamentId, allPlayerIds);
+      allPlayerIds.forEach((playerId) => {
+        segmentUsers[playerId] ??= createBlankRatingState(nowIso);
+      });
       segmentDelta[tournamentId] = computeEloDeltaForTeams(
         teamAPlayerIds,
         teamBPlayerIds,

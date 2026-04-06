@@ -187,7 +187,9 @@ export interface SearchParticipantsData {
   participants: ParticipantSearchEntry[];
 }
 
-export interface GetUserProgressPayload {}
+export interface GetUserProgressPayload {
+  mode?: "summary" | "full";
+}
 
 export interface UserProgressPoint {
   playedAt: string;

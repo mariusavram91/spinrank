@@ -13,72 +13,12 @@ import type {
   UserRow,
 } from "../types";
 
-type SegmentPlayerStats = {
-  matchesPlayed: number;
-  matchEquivalentPlayed: number;
-  wins: number;
-  losses: number;
-  streak: number;
-};
-
-type SegmentMatchStatRow = {
-  match_id: string;
-  match_type: "singles" | "doubles";
-  winner_team: "A" | "B";
-  played_at: string;
-  created_at: string;
-  user_id: string;
-  team: "A" | "B";
-};
-
 type TournamentPlacementMetrics = {
   stageReached: Record<string, number>;
   bracketWins: Record<string, number>;
   bracketLosses: Record<string, number>;
   championIds: Set<string>;
 };
-
-function getMatchEquivalent(matchType: SegmentMatchStatRow["match_type"]): number {
-  return matchType === "singles" ? 1 : 0.7;
-}
-
-function accumulateSegmentPlayerStats(rows: SegmentMatchStatRow[]): {
-  totalMatches: number;
-  players: Map<string, SegmentPlayerStats>;
-} {
-  const players = new Map<string, SegmentPlayerStats>();
-  const seenMatches = new Set<string>();
-
-  rows.forEach((row) => {
-    seenMatches.add(row.match_id);
-
-    const current = players.get(row.user_id) ?? {
-      matchesPlayed: 0,
-      matchEquivalentPlayed: 0,
-      wins: 0,
-      losses: 0,
-      streak: 0,
-    };
-    const isWinner = row.team === row.winner_team;
-
-    current.matchesPlayed += 1;
-    current.matchEquivalentPlayed = Math.round((current.matchEquivalentPlayed + getMatchEquivalent(row.match_type)) * 10) / 10;
-    if (isWinner) {
-      current.wins += 1;
-      current.streak = current.streak >= 0 ? current.streak + 1 : 1;
-    } else {
-      current.losses += 1;
-      current.streak = current.streak <= 0 ? current.streak - 1 : -1;
-    }
-
-    players.set(row.user_id, current);
-  });
-
-  return {
-    totalMatches: seenMatches.size,
-    players,
-  };
-}
 
 function buildTournamentPlacementMetrics(rounds: TournamentBracketRound[]): TournamentPlacementMetrics {
   const metrics: TournamentPlacementMetrics = {
@@ -213,37 +153,24 @@ export async function handleGetSegmentLeaderboard(
   const tournamentPlacementMetrics =
     segmentType === "tournament" ? buildTournamentPlacementMetrics(tournamentRounds) : null;
   const nowIso = isoNow(env.runtime);
-  const segmentMatchStatsRows = await env.DB.prepare(
+  const totalMatchesRow = await env.DB.prepare(
     `
-      SELECT
-        m.id AS match_id,
-        m.match_type,
-        m.winner_team,
-        m.played_at,
-        m.created_at,
-        mp.user_id,
-        mp.team
+      SELECT COUNT(*) AS total_matches
       FROM matches m
-      JOIN match_players mp ON mp.match_id = m.id
       LEFT JOIN tournaments t ON t.id = m.tournament_id
       WHERE m.status = 'active'
         AND (
           (?1 = 'season' AND (m.season_id = ?2 OR t.season_id = ?2))
           OR (?1 = 'tournament' AND m.tournament_id = ?2)
         )
-      ORDER BY m.played_at ASC, m.created_at ASC, m.id ASC, mp.user_id ASC
     `,
   )
     .bind(segmentType, segmentId)
-    .all<SegmentMatchStatRow>();
-  const segmentMatchStats = accumulateSegmentPlayerStats(segmentMatchStatsRows.results);
+    .first<{ total_matches: number }>();
 
   const leaderboard = rows.results
     .map<LeaderboardEntry>((row) => {
-      const computedStats = segmentMatchStats.players.get(row.user_id);
-      const matchEquivalentPlayed = computedStats
-        ? computedStats.matchEquivalentPlayed
-        : Number(row.matches_played_equivalent ?? row.matches_played ?? 0);
+      const matchEquivalentPlayed = Number(row.matches_played_equivalent ?? row.matches_played ?? 0);
       const seasonGlickoRating = row.season_glicko_rating === null ? undefined : Number(row.season_glicko_rating);
       const seasonGlickoRd = row.season_glicko_rd === null ? undefined : Number(row.season_glicko_rd);
       const seasonAttendedWeeks = Number(row.season_attended_weeks ?? 0);
@@ -256,9 +183,9 @@ export async function handleGetSegmentLeaderboard(
         displayName: row.display_name,
         avatarUrl: row.avatar_url,
         elo: Number(row.elo),
-        wins: computedStats?.wins ?? Number(row.wins),
-        losses: computedStats?.losses ?? Number(row.losses),
-        streak: computedStats?.streak ?? Number(row.streak),
+        wins: Number(row.wins),
+        losses: Number(row.losses),
+        streak: Number(row.streak),
         matchEquivalentPlayed,
         lastMatchAt: row.last_match_at || null,
         seasonGlickoRating,
@@ -352,8 +279,8 @@ export async function handleGetSegmentLeaderboard(
   const topMatchesPlayer = leaderboard
     .slice()
     .sort((left, right) => {
-      const leftMatches = segmentMatchStats.players.get(left.userId)?.matchesPlayed ?? 0;
-      const rightMatches = segmentMatchStats.players.get(right.userId)?.matchesPlayed ?? 0;
+      const leftMatches = left.wins + left.losses;
+      const rightMatches = right.wins + right.losses;
       if (rightMatches !== leftMatches) {
         return rightMatches - leftMatches;
       }
@@ -372,8 +299,8 @@ export async function handleGetSegmentLeaderboard(
       if (right.wins !== left.wins) {
         return right.wins - left.wins;
       }
-      const leftMatches = segmentMatchStats.players.get(left.userId)?.matchesPlayed ?? 0;
-      const rightMatches = segmentMatchStats.players.get(right.userId)?.matchesPlayed ?? 0;
+      const leftMatches = left.wins + left.losses;
+      const rightMatches = right.wins + right.losses;
       if (rightMatches !== leftMatches) {
         return rightMatches - leftMatches;
       }
@@ -405,13 +332,13 @@ export async function handleGetSegmentLeaderboard(
       : null;
 
   const stats: SegmentLeaderboardStats = {
-    totalMatches: segmentMatchStats.totalMatches,
+    totalMatches: Number(totalMatchesRow?.total_matches ?? 0),
     mostMatchesPlayer: topMatchesPlayer
       ? {
           userId: topMatchesPlayer.userId,
           displayName: topMatchesPlayer.displayName,
           avatarUrl: topMatchesPlayer.avatarUrl,
-          matchesPlayed: segmentMatchStats.players.get(topMatchesPlayer.userId)?.matchesPlayed ?? 0,
+          matchesPlayed: topMatchesPlayer.wins + topMatchesPlayer.losses,
           wins: topMatchesPlayer.wins,
           losses: topMatchesPlayer.losses,
         }
@@ -421,7 +348,7 @@ export async function handleGetSegmentLeaderboard(
           userId: topWinsPlayer.userId,
           displayName: topWinsPlayer.displayName,
           avatarUrl: topWinsPlayer.avatarUrl,
-          matchesPlayed: segmentMatchStats.players.get(topWinsPlayer.userId)?.matchesPlayed ?? 0,
+          matchesPlayed: topWinsPlayer.wins + topWinsPlayer.losses,
           wins: topWinsPlayer.wins,
           losses: topWinsPlayer.losses,
         }

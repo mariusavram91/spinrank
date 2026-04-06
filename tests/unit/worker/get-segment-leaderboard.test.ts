@@ -68,7 +68,7 @@ function createPreparedStatement(
 }
 
 describe("worker getSegmentLeaderboard action", () => {
-  it("derives tournament ordering and stats from bracket results plus segment match rows", async () => {
+  it("derives tournament ordering and stats from bracket results plus persisted segment rows", async () => {
     const sessionUser = {
       id: "user_a",
       provider: "google",
@@ -96,9 +96,9 @@ describe("worker getSegmentLeaderboard action", () => {
                     elo: 1250,
                     matches_played: 1,
                     matches_played_equivalent: 1,
-                    wins: 0,
+                    wins: 1,
                     losses: 0,
-                    streak: 0,
+                    streak: 1,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: null,
@@ -116,8 +116,8 @@ describe("worker getSegmentLeaderboard action", () => {
                     matches_played: 1,
                     matches_played_equivalent: 1,
                     wins: 0,
-                    losses: 0,
-                    streak: 0,
+                    losses: 1,
+                    streak: -1,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: null,
@@ -152,28 +152,9 @@ describe("worker getSegmentLeaderboard action", () => {
               };
             }
 
-            if (statementSql.includes("FROM matches m")) {
+            if (statementSql.includes("COUNT(*) AS total_matches")) {
               return {
-                results: [
-                  {
-                    match_id: "match_1",
-                    match_type: "singles",
-                    winner_team: "A",
-                    played_at: "2026-04-05T10:00:00.000Z",
-                    created_at: "2026-04-05T10:00:00.000Z",
-                    user_id: "user_a",
-                    team: "A",
-                  },
-                  {
-                    match_id: "match_1",
-                    match_type: "singles",
-                    winner_team: "A",
-                    played_at: "2026-04-05T10:00:00.000Z",
-                    created_at: "2026-04-05T10:00:00.000Z",
-                    user_id: "user_b",
-                    team: "B",
-                  },
-                ],
+                total_matches: 1,
               };
             }
 

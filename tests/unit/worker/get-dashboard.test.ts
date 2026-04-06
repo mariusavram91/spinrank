@@ -62,6 +62,14 @@ describe("worker getDashboard action", () => {
     vi.resetAllMocks();
   });
 
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((res) => {
+      resolve = res;
+    });
+    return { promise, resolve };
+  }
+
   it("composes subresponses, applies defaults, and extracts bracket context", async () => {
     vi.mocked(handleGetSeasons).mockResolvedValue({
       ok: true,
@@ -111,6 +119,14 @@ describe("worker getDashboard action", () => {
       expect.objectContaining({
         action: "getMatches",
         payload: { filter: "recent", limit: 4 },
+      }),
+      sessionUser,
+      env,
+    );
+    expect(handleGetUserProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "getUserProgress",
+        payload: { mode: "summary" },
       }),
       sessionUser,
       env,
@@ -206,5 +222,44 @@ describe("worker getDashboard action", () => {
     expect(response.data?.leaderboardUpdatedAt).toBe("2026-04-05T10:00:00.000Z");
     expect(response.data?.nextCursor).toBe("cursor_2");
     expect(response.data?.matches).toEqual([{ id: "match_9", bracketContext: null }]);
+  });
+
+  it("starts dashboard subrequests in parallel so composition does not serialize slow reads", async () => {
+    const seasons = deferred<any>();
+    const tournaments = deferred<any>();
+    const leaderboard = deferred<any>();
+    const matches = deferred<any>();
+    const userProgress = deferred<any>();
+
+    vi.mocked(handleGetSeasons).mockReturnValue(seasons.promise);
+    vi.mocked(handleGetTournaments).mockReturnValue(tournaments.promise);
+    vi.mocked(handleGetLeaderboard).mockReturnValue(leaderboard.promise);
+    vi.mocked(handleGetMatches).mockReturnValue(matches.promise);
+    vi.mocked(handleGetUserProgress).mockReturnValue(userProgress.promise);
+
+    const responsePromise = handleGetDashboard(
+      {
+        action: "getDashboard",
+        requestId: "req_dashboard_parallel_reads",
+        payload: {},
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(handleGetSeasons).toHaveBeenCalledTimes(1);
+    expect(handleGetTournaments).toHaveBeenCalledTimes(1);
+    expect(handleGetLeaderboard).toHaveBeenCalledTimes(1);
+    expect(handleGetMatches).toHaveBeenCalledTimes(1);
+    expect(handleGetUserProgress).toHaveBeenCalledTimes(1);
+
+    seasons.resolve({ ok: true, data: { seasons: [] } } as never);
+    tournaments.resolve({ ok: true, data: { tournaments: [] } } as never);
+    leaderboard.resolve({ ok: true, data: { leaderboard: [] } } as never);
+    matches.resolve({ ok: true, data: { matches: [], nextCursor: null } } as never);
+    userProgress.resolve({ ok: true, data: { currentRank: 1, currentElo: 1200 } } as never);
+
+    const response = await responsePromise;
+    expect(response.ok).toBe(true);
   });
 });

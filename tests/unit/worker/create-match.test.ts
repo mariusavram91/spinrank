@@ -70,7 +70,7 @@ function createPreparedStatement(
 }
 
 describe("worker createMatch action", () => {
-  it.fails("uses at most one full ranking recomputation per successful match creation", async () => {
+  it("uses at most one full ranking recomputation per successful match creation", async () => {
     const usersById: Record<string, UserRow> = {
       user_a: {
         id: "user_a",

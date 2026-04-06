@@ -4,6 +4,77 @@ import { handleGetDashboard } from "../../../worker/src/actions/getDashboard";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 
 describe("worker integration: getDashboard", () => {
+  it("stays within a coarse latency budget while composing dashboard summaries", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+      await seedUser(context.env, { id: "user_c", displayName: "Cara" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      const bob = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_b").first<any>();
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_dashboard_budget_match_a",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 6 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_dashboard_budget_match_b",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_b"],
+            teamBPlayerIds: ["user_c"],
+            score: [{ teamA: 11, teamB: 9 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T11:00:00.000Z",
+          },
+        },
+        bob,
+        context.env,
+      );
+
+      const refreshedAlice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      const startedAt = performance.now();
+      const response = await handleGetDashboard(
+        {
+          action: "getDashboard",
+          requestId: "req_dashboard_budget",
+          payload: { matchesLimit: 2, matchesFilter: "recent" },
+        },
+        refreshedAlice,
+        context.env,
+      );
+      const elapsedMs = performance.now() - startedAt;
+
+      expect(response.ok).toBe(true);
+      expect(elapsedMs).toBeLessThan(4000);
+      expect(response.data?.matches).toHaveLength(2);
+      expect(response.data?.leaderboard[0]).toMatchObject({ userId: "user_a", rank: 1 });
+      expect(response.data?.userProgress).toMatchObject({ wins: 1, losses: 0 });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it("returns composed season, leaderboard, match, and progress data from persisted state", async () => {
     const context = await createWorkerTestContext();
     try {

@@ -6,6 +6,111 @@ import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-con
 import type { TournamentBracketRound, UserRow } from "../../../worker/src/types";
 
 describe("worker integration: getTournamentBracket", () => {
+  it("stays within a coarse latency budget while loading the requested bracket among other tournaments", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+      await seedUser(context.env, { id: "user_guest", displayName: "Guest" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      await handleCreateTournament(
+        {
+          action: "createTournament",
+          requestId: "req_bracket_budget_other",
+          payload: {
+            name: "Other Cup",
+            participantIds: ["user_owner", "user_guest"],
+            rounds: [
+              {
+                title: "Final",
+                matches: [
+                  {
+                    id: "other_final",
+                    leftPlayerId: "user_owner",
+                    rightPlayerId: "user_guest",
+                    createdMatchId: null,
+                    winnerPlayerId: null,
+                    locked: false,
+                    isFinal: true,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const targetTournament = await handleCreateTournament(
+        {
+          action: "createTournament",
+          requestId: "req_bracket_budget_target",
+          payload: {
+            name: "Target Cup",
+            participantIds: ["user_owner", "user_friend"],
+            rounds: [
+              {
+                title: "Final",
+                matches: [
+                  {
+                    id: "target_final",
+                    leftPlayerId: "user_owner",
+                    rightPlayerId: "user_friend",
+                    createdMatchId: null,
+                    winnerPlayerId: null,
+                    locked: false,
+                    isFinal: true,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const startedAt = performance.now();
+      const response = await handleGetTournamentBracket(
+        {
+          action: "getTournamentBracket",
+          requestId: "req_bracket_budget_result",
+          payload: { tournamentId: targetTournament.data?.tournament.id! },
+        },
+        owner,
+        context.env,
+      );
+      const elapsedMs = performance.now() - startedAt;
+
+      expect(response.ok).toBe(true);
+      expect(elapsedMs).toBeLessThan(4000);
+      expect(response.data?.tournament).toMatchObject({
+        id: targetTournament.data?.tournament.id,
+        name: "Target Cup",
+      });
+      expect(response.data?.rounds).toEqual([
+        {
+          title: "Final",
+          matches: [
+            expect.objectContaining({
+              id: "target_final",
+              leftPlayerId: "user_owner",
+              rightPlayerId: "user_friend",
+            }),
+          ],
+        },
+      ]);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it("returns bracket participants so the client can resolve player labels outside the leaderboard", async () => {
     const context = await createWorkerTestContext();
     try {
