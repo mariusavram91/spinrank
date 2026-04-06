@@ -1,6 +1,6 @@
 import { dateOnly, isoNow, parseJsonArray, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { evaluateAchievementsForTrigger } from "../services/achievements";
+import { createEnqueueAchievementTriggerStatement } from "../services/achievements";
 import { isTournamentBracketCompleted, normalizeRounds, saveTournamentBracket } from "../services/brackets";
 import { getSeasonById, getTournamentById } from "../services/visibility";
 import type { ApiRequest, CreateTournamentPayload, Env, TournamentRecord, TournamentStatus, UserRow } from "../types";
@@ -124,16 +124,19 @@ export async function handleCreateTournament(
         VALUES (?1, 'createTournament', ?2, ?3, ?4, ?5)
       `,
     ).bind(randomId("audit", env.runtime), sessionUser.id, tournamentId, JSON.stringify(payload), nowIso),
+    createEnqueueAchievementTriggerStatement(
+      env,
+      {
+        type: "tournament_created",
+        actorUserId: sessionUser.id,
+        tournamentId,
+        nowIso,
+      },
+      nowIso,
+    ),
   ]);
 
   await saveTournamentBracket(env, tournamentId, participantIds, rounds, sessionUser.id, nowIso);
-
-  await evaluateAchievementsForTrigger(env, {
-    type: "tournament_created",
-    actorUserId: sessionUser.id,
-    tournamentId,
-    nowIso,
-  });
 
   return successResponse(request.requestId, {
     tournament: {

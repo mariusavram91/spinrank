@@ -161,4 +161,50 @@ describe("worker getDashboard action", () => {
       ),
     ).rejects.toThrow("Dashboard composition failed.");
   });
+
+  it("forwards explicit match feed options and preserves leaderboard timestamps", async () => {
+    vi.mocked(handleGetSeasons).mockResolvedValue({ ok: true, data: { seasons: [] } } as never);
+    vi.mocked(handleGetTournaments).mockResolvedValue({ ok: true, data: { tournaments: [] } } as never);
+    vi.mocked(handleGetLeaderboard).mockResolvedValue({
+      ok: true,
+      data: {
+        leaderboard: [{ userId: "user_1", rank: 1 }],
+        updatedAt: "2026-04-05T10:00:00.000Z",
+      },
+    } as never);
+    vi.mocked(handleGetMatches).mockResolvedValue({
+      ok: true,
+      data: {
+        matches: [{ id: "match_9", bracketContext: null }],
+        nextCursor: "cursor_2",
+      },
+    } as never);
+    vi.mocked(handleGetUserProgress).mockResolvedValue({
+      ok: true,
+      data: { currentRank: 1, currentElo: 1210 },
+    } as never);
+
+    const response = await handleGetDashboard(
+      {
+        action: "getDashboard",
+        requestId: "req_dashboard_custom_feed",
+        payload: { matchesLimit: 9, matchesFilter: "mine" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(handleGetMatches).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "getMatches",
+        payload: { filter: "mine", limit: 9 },
+      }),
+      sessionUser,
+      env,
+    );
+    expect(response.ok).toBe(true);
+    expect(response.data?.leaderboardUpdatedAt).toBe("2026-04-05T10:00:00.000Z");
+    expect(response.data?.nextCursor).toBe("cursor_2");
+    expect(response.data?.matches).toEqual([{ id: "match_9", bracketContext: null }]);
+  });
 });

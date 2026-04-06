@@ -1,6 +1,6 @@
 import { dateOnly, isoNow, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { evaluateAchievementsForTrigger } from "../services/achievements";
+import { createEnqueueAchievementTriggerStatement } from "../services/achievements";
 import { getSeasonById } from "../services/visibility";
 import type { ApiRequest, CreateSeasonPayload, Env, SeasonRecord, UserRow } from "../types";
 
@@ -137,16 +137,19 @@ export async function handleCreateSeason(
         VALUES (?1, 'createSeason', ?2, ?3, ?4, ?5)
       `,
     ).bind(randomId("audit", env.runtime), sessionUser.id, seasonId, JSON.stringify(payload), nowIso),
+    createEnqueueAchievementTriggerStatement(
+      env,
+      {
+        type: "season_created",
+        actorUserId: sessionUser.id,
+        seasonId,
+        nowIso,
+      },
+      nowIso,
+    ),
   );
 
   await env.DB.batch(batch);
-
-  await evaluateAchievementsForTrigger(env, {
-    type: "season_created",
-    actorUserId: sessionUser.id,
-    seasonId,
-    nowIso,
-  });
 
   return successResponse(request.requestId, {
     season: toSeasonRecord({

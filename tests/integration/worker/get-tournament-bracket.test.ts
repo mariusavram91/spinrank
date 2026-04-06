@@ -238,4 +238,109 @@ describe("worker integration: getTournamentBracket", () => {
       await context.cleanup();
     }
   });
+
+  it("returns only the requested tournament when multiple brackets exist", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+      await seedUser(context.env, { id: "user_guest", displayName: "Guest" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      const firstTournament = await handleCreateTournament(
+        {
+          action: "createTournament",
+          requestId: "req_target_tournament",
+          payload: {
+            name: "Target Cup",
+            participantIds: ["user_owner", "user_friend"],
+            rounds: [
+              {
+                title: "Final",
+                matches: [
+                  {
+                    id: "target_final",
+                    leftPlayerId: "user_owner",
+                    rightPlayerId: "user_friend",
+                    createdMatchId: null,
+                    winnerPlayerId: null,
+                    locked: false,
+                    isFinal: true,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await handleCreateTournament(
+        {
+          action: "createTournament",
+          requestId: "req_other_tournament",
+          payload: {
+            name: "Other Cup",
+            participantIds: ["user_owner", "user_guest"],
+            rounds: [
+              {
+                title: "Final",
+                matches: [
+                  {
+                    id: "other_final",
+                    leftPlayerId: "user_owner",
+                    rightPlayerId: "user_guest",
+                    createdMatchId: null,
+                    winnerPlayerId: null,
+                    locked: false,
+                    isFinal: true,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const response = await handleGetTournamentBracket(
+        {
+          action: "getTournamentBracket",
+          requestId: "req_target_bracket_only",
+          payload: { tournamentId: firstTournament.data?.tournament.id! },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(response.ok).toBe(true);
+      expect(response.data?.tournament).toMatchObject({
+        id: firstTournament.data?.tournament.id,
+        name: "Target Cup",
+      });
+      expect(response.data?.participants).toEqual([
+        expect.objectContaining({ userId: "user_friend", displayName: "Friend" }),
+        expect.objectContaining({ userId: "user_owner", displayName: "Owner" }),
+      ]);
+      expect(response.data?.rounds).toEqual([
+        {
+          title: "Final",
+          matches: [
+            expect.objectContaining({
+              id: "target_final",
+              rightPlayerId: "user_friend",
+            }),
+          ],
+        },
+      ]);
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

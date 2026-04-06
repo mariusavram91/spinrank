@@ -17,7 +17,10 @@ test.describe("achievements", () => {
     });
 
     await page.addInitScript(() => {
-      localStorage.removeItem("spinrank.seen-achievements");
+      if (!sessionStorage.getItem("spinrank.e2e-cleared-achievements")) {
+        localStorage.removeItem("spinrank.seen-achievements");
+        sessionStorage.setItem("spinrank.e2e-cleared-achievements", "1");
+      }
     });
     await persistAppSession(page, sessionUser);
     await page.goto("/", { waitUntil: "networkidle" });
@@ -100,5 +103,12 @@ test.describe("achievements", () => {
       "true",
     );
     await expect(page.getByTestId("achievements-avatar-badge")).toBeHidden();
+
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByTestId("leaderboard-list")).toBeVisible();
+    await expect(page.getByTestId("achievements-avatar-badge")).toBeHidden();
+    await page.locator(".auth-avatar-button").click();
+    await expect(page.locator(".profile-achievements__summary")).toBeVisible();
+    await expect(page.locator(".achievement-chip-list")).toBeHidden();
   });
 });

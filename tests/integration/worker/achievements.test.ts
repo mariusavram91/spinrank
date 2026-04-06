@@ -3,10 +3,81 @@ import { handleCreateSeason } from "../../../worker/src/actions/createSeason";
 import { handleCreateTournament } from "../../../worker/src/actions/createTournament";
 import { handleDeactivateMatch } from "../../../worker/src/actions/deactivateMatch";
 import { handleGetDashboard } from "../../../worker/src/actions/getDashboard";
+import { getAchievementOverview, processPendingAchievementJobs } from "../../../worker/src/services/achievements";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 import type { UserRow } from "../../../worker/src/types";
 
 describe("worker integration: achievements", () => {
+  it("keeps achievement overview reads side-effect free for time-based milestones", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Zara" });
+
+      await context.env.DB.prepare(
+        `
+          UPDATE users
+          SET created_at = '2025-01-01T00:00:00.000Z'
+          WHERE id = ?1
+        `,
+      )
+        .bind("user_a")
+        .run();
+
+      const beforeReadRows = await context.env.DB.prepare(
+        `
+          SELECT achievement_key
+          FROM user_achievements
+          WHERE user_id = ?1
+            AND achievement_key IN ('days_30', 'days_180', 'days_365')
+          ORDER BY achievement_key ASC
+        `,
+      )
+        .bind("user_a")
+        .all<{ achievement_key: string }>();
+
+      expect(beforeReadRows.results).toEqual([]);
+
+      const overview = await getAchievementOverview(context.env, "user_a");
+      expect(overview.totalAvailable).toBe(36);
+      expect(overview.items.filter((item) => item.key.startsWith("days_"))).toEqual([
+        expect.objectContaining({
+          key: "days_30",
+          unlockedAt: "2025-01-31T00:00:00.000Z",
+          progressValue: 30,
+          progressTarget: 30,
+        }),
+        expect.objectContaining({
+          key: "days_180",
+          unlockedAt: "2025-06-30T00:00:00.000Z",
+          progressValue: 180,
+          progressTarget: 180,
+        }),
+        expect.objectContaining({
+          key: "days_365",
+          unlockedAt: "2026-01-01T00:00:00.000Z",
+          progressValue: 365,
+          progressTarget: 365,
+        }),
+      ]);
+
+      const afterReadRows = await context.env.DB.prepare(
+        `
+          SELECT achievement_key
+          FROM user_achievements
+          WHERE user_id = ?1
+            AND achievement_key IN ('days_30', 'days_180', 'days_365')
+          ORDER BY achievement_key ASC
+        `,
+      )
+        .bind("user_a")
+        .all<{ achievement_key: string }>();
+
+      expect(afterReadRows.results).toEqual([]);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it("includes unlocked achievements in the dashboard and keeps them after deleting a match", async () => {
     const context = await createWorkerTestContext();
     try {
@@ -84,6 +155,7 @@ describe("worker integration: achievements", () => {
         userA,
         context.env,
       );
+      await processPendingAchievementJobs(context.env, 10);
 
       const refreshedUserA = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<UserRow>();
       if (!refreshedUserA || !matchResponse.data?.match.id) {

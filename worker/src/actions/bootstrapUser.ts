@@ -1,7 +1,7 @@
 import { signSessionToken, sha256Hex, verifyGoogleIdToken } from "../auth";
 import { isoNow, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { evaluateAchievementsForTrigger } from "../services/achievements";
+import { enqueueAchievementTrigger } from "../services/achievements";
 import type { ApiRequest, BootstrapUserPayload, Env, UserRow } from "../types";
 
 export async function handleBootstrapUser(
@@ -63,11 +63,11 @@ export async function handleBootstrapUser(
       return errorResponse(request.requestId, "INTERNAL_ERROR", "User upsert failed.");
     }
 
-    await evaluateAchievementsForTrigger(env, {
+    await enqueueAchievementTrigger(env, {
       type: "bootstrap",
       userId: user.id,
       nowIso,
-    });
+    }, nowIso);
 
     const session = await signSessionToken(user.id, env);
     return successResponse(request.requestId, {

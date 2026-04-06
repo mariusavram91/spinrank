@@ -109,4 +109,79 @@ describe("worker integration: getDashboard", () => {
       await context.cleanup();
     }
   });
+
+  it("respects mine filtering and match limits while keeping achievement data available", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+      await seedUser(context.env, { id: "user_c", displayName: "Cara" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      const bob = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_b").first<any>();
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_dashboard_mine_match_a",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 6 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_dashboard_mine_match_b",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_b"],
+            teamBPlayerIds: ["user_c"],
+            score: [{ teamA: 11, teamB: 8 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T11:00:00.000Z",
+          },
+        },
+        bob,
+        context.env,
+      );
+
+      const refreshedAlice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      const response = await handleGetDashboard(
+        {
+          action: "getDashboard",
+          requestId: "req_dashboard_mine_only",
+          payload: { matchesLimit: 1, matchesFilter: "mine" },
+        },
+        refreshedAlice,
+        context.env,
+      );
+
+      expect(response.ok).toBe(true);
+      expect(response.data?.matches).toHaveLength(1);
+      expect(response.data?.matches[0]).toMatchObject({
+        winnerTeam: "A",
+      });
+      expect([response.data?.matches[0].teamAPlayerIds, response.data?.matches[0].teamBPlayerIds].flat()).toContain("user_a");
+      expect(response.data?.achievements.items).toHaveLength(36);
+      expect(response.data?.userProgress).toMatchObject({
+        wins: 1,
+        losses: 0,
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

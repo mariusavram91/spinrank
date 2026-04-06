@@ -3,6 +3,7 @@ import { isoNow } from "./db";
 import { cors, errorResponse, json } from "./responses";
 import { parseApiRequest, routeApiRequest } from "./router";
 import { resolveWorkerRuntime } from "./runtime";
+import { processPendingAchievementJobs } from "./services/achievements";
 import { handleTestBootstrapRequest, isTestBootstrapRequest } from "./testAuth";
 import type { Env } from "./types";
 
@@ -35,7 +36,7 @@ const enforceRateLimit = (key: string, env: Env): number | null => {
 };
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const requestOrigin = request.headers.get("origin");
 
     if (isTestBootstrapRequest(request)) {
@@ -124,6 +125,12 @@ export default {
         );
       }
       const response = await routeApiRequest(apiRequest, env);
+      if (
+        response.ok &&
+        ["bootstrapUser", "createMatch", "createSeason", "createTournament"].includes(apiRequest.action)
+      ) {
+        ctx?.waitUntil(processPendingAchievementJobs(env));
+      }
       return json(env, response, response.ok ? 200 : 400, requestOrigin);
     } catch (error) {
       return json(

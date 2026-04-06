@@ -1,6 +1,6 @@
 import { dateOnly, isoNow, parseJsonArray, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { evaluateAchievementsForTrigger } from "../services/achievements";
+import { createEnqueueAchievementTriggerStatement } from "../services/achievements";
 import { applyBracketResult, getBracketRounds, isTournamentBracketCompleted, saveTournamentBracket } from "../services/brackets";
 import { computeEloDeltaForTeams, createBlankRatingState, recomputeAllRankings } from "../services/elo";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
@@ -297,6 +297,29 @@ export async function handleCreateMatch(
           VALUES (?1, 'createMatch', ?2, ?3, ?4, ?5)
         `,
       ).bind(randomId("audit", env.runtime), sessionUser.id, matchId, JSON.stringify(payload), nowIso),
+      createEnqueueAchievementTriggerStatement(
+        env,
+        {
+          type: "match_created",
+          userIds: allPlayerIds,
+          actorUserId: sessionUser.id,
+          matchId,
+          nowIso,
+          matchType,
+          seasonId,
+          tournamentId,
+        },
+        nowIso,
+      ),
+      createEnqueueAchievementTriggerStatement(
+        env,
+        {
+          type: "rankings_recomputed",
+          userIds: allPlayerIds,
+          nowIso,
+        },
+        nowIso,
+      ),
     ]);
 
     if (tournamentId && payload.tournamentBracketMatchId) {
@@ -320,18 +343,6 @@ export async function handleCreateMatch(
     }
 
     await recomputeAllRankings(env);
-    await evaluateAchievementsForTrigger(env, {
-      type: "match_created",
-      userIds: allPlayerIds,
-      actorUserId: sessionUser.id,
-      matchId,
-      nowIso,
-    });
-    await evaluateAchievementsForTrigger(env, {
-      type: "rankings_recomputed",
-      userIds: allPlayerIds,
-      nowIso,
-    });
 
     return successResponse(request.requestId, {
       match: {

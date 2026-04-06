@@ -17,6 +17,10 @@ interface D1Database {
   batch(statements: readonly D1PreparedStatement[]): Promise<D1Result<unknown>[]>;
 }
 
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+}
+
 interface CacheStorage {
   default: Cache;
 }
