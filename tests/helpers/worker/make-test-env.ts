@@ -11,6 +11,7 @@ export interface TestWorkerEnv {
   APP_ORIGIN: string;
   APP_ENV?: string;
   TEST_AUTH_SECRET?: string;
+  DISABLE_RATE_LIMIT?: string;
   runtime: TestWorkerRuntime;
 }
 
@@ -63,5 +64,6 @@ export const makeTestEnv = (overrides: Partial<TestWorkerEnv> = {}): TestWorkerE
   APP_ORIGIN: overrides.APP_ORIGIN ?? "http://localhost:5173",
   APP_ENV: overrides.APP_ENV ?? "test",
   TEST_AUTH_SECRET: overrides.TEST_AUTH_SECRET ?? "test-auth-secret",
+  DISABLE_RATE_LIMIT: overrides.DISABLE_RATE_LIMIT,
   runtime: overrides.runtime ?? createFixedRuntime(),
 });

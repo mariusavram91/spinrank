@@ -55,6 +55,7 @@ services:
       APP_ORIGIN: http://frontend-e2e:4173
       APP_SESSION_SECRET: ${APP_SESSION_SECRET:-test-session-secret}
       TEST_AUTH_SECRET: ${TEST_AUTH_SECRET:-test-auth-secret}
+      DISABLE_RATE_LIMIT: "1"
       WORKER_HOST: 0.0.0.0
       WORKER_PORT: 8787
       WRANGLER_PERSIST_PATH: /app/.wrangler/state/e2e
@@ -82,6 +83,7 @@ services:
       APP_ORIGIN: http://frontend-e2e:4173
       APP_SESSION_SECRET: ${APP_SESSION_SECRET:-test-session-secret}
       TEST_AUTH_SECRET: ${TEST_AUTH_SECRET:-test-auth-secret}
+      DISABLE_RATE_LIMIT: "1"
       WRANGLER_PERSIST_PATH: /app/.wrangler/state/e2e
     networks:
       - e2e

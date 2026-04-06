@@ -124,6 +124,7 @@ export const createSeasonActions = (args: {
         : "";
       args.dashboardState.screen = "dashboard";
       args.resetSeasonForm();
+      args.syncAuthState();
       await args.loadDashboard();
     } catch (error) {
       args.dashboardState.seasonFormError = error instanceof Error ? error.message : "Could not delete season.";

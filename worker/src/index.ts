@@ -18,6 +18,9 @@ const getClientAddress = (request: Request): string =>
   "unknown";
 
 const enforceRateLimit = (key: string, env: Env): number | null => {
+  if (env.DISABLE_RATE_LIMIT === "1") {
+    return null;
+  }
   const now = resolveWorkerRuntime(env.runtime).now();
   const bucket = rateLimitBuckets.get(key);
   if (!bucket || now >= bucket.resetAt) {

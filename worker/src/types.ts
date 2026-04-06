@@ -70,6 +70,7 @@ export interface Env {
   APP_ORIGIN: string;
   APP_ENV?: string;
   TEST_AUTH_SECRET?: string;
+  DISABLE_RATE_LIMIT?: string;
   runtime?: Partial<WorkerRuntimeDeps>;
 }
 
