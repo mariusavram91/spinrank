@@ -553,7 +553,7 @@ export async function getAchievementOverview(env: Env, userId: string): Promise<
   const items = rows.results.map((row) =>
     mapAchievementRow({
       ...row,
-      icon: iconByKey.get(row.key) ?? "spark",
+      icon: iconByKey.get(row.key) ?? "user_plus",
     }),
   );
   const unlocked = items.filter((item) => item.unlockedAt);
