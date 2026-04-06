@@ -257,9 +257,29 @@ export async function rebuildTournamentBracket(env: Env, tournamentId: string): 
     return;
   }
 
+  const activeMatchRows = await env.DB.prepare(
+    `
+      SELECT id
+      FROM matches
+      WHERE tournament_id = ?1
+        AND status = 'active'
+    `,
+  )
+    .bind(tournamentId)
+    .all<{ id: string }>();
+  const activeMatchIds = new Set(activeMatchRows.results.map((row) => row.id));
+
   const replayable: TournamentBracketMatch[] = rounds.flatMap((round) =>
     round.matches
-      .filter((match) => match.createdMatchId || match.winnerPlayerId)
+      .filter((match) => {
+        if (!match.winnerPlayerId) {
+          return false;
+        }
+        if (!match.createdMatchId) {
+          return true;
+        }
+        return activeMatchIds.has(match.createdMatchId);
+      })
       .map((match) => ({ ...match })),
   );
 

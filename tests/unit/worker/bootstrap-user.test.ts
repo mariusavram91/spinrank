@@ -98,6 +98,40 @@ describe("worker bootstrapUser action", () => {
     }
   });
 
+  it("rejects requests when the verified token omits a nonce", async () => {
+    const context = await createWorkerTestContext();
+    vi.mocked(authModule.verifyGoogleIdToken).mockResolvedValue({
+      payload: {
+        sub: "google-user-1",
+        email: "alice@example.com",
+        name: "Alice",
+        picture: "https://example.com/alice.png",
+      },
+    } as never);
+    vi.mocked(authModule.sha256Hex).mockResolvedValue("hashed_nonce");
+
+    try {
+      const response = await handleBootstrapUser(
+        {
+          action: "bootstrapUser",
+          requestId: "req_nonce_missing",
+          payload: {
+            provider: "google",
+            idToken: "token",
+            nonce: "nonce_1",
+          },
+        },
+        context.env,
+      );
+
+      expect(response.ok).toBe(false);
+      expect(response.error?.code).toBe("UNAUTHORIZED");
+      expect(response.error?.message).toContain("nonce mismatch");
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it("upserts the google user and returns a signed app session", async () => {
     const context = await createWorkerTestContext({
       runtime: createFixedRuntime("2026-04-05T12:00:00.000Z", ["uuid_1", "uuid_2"]),

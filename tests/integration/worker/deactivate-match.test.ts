@@ -1,6 +1,7 @@
 import type { UserRow } from "../../../worker/src/types";
 import { handleCreateMatch } from "../../../worker/src/actions/createMatch";
 import { handleCreateSeason } from "../../../worker/src/actions/createSeason";
+import { handleCreateTournament } from "../../../worker/src/actions/createTournament";
 import { handleDeactivateMatch } from "../../../worker/src/actions/deactivateMatch";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 
@@ -129,6 +130,242 @@ describe("worker integration: deactivateMatch", () => {
           target_id: matchId,
         },
       ]);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("rejects missing ids, non-owners, and already deleted matches", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<UserRow>();
+      const bob = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_b").first<UserRow>();
+      if (!owner || !bob) {
+        throw new Error("Users not seeded");
+      }
+
+      const missingId = await handleDeactivateMatch(
+        {
+          action: "deactivateMatch",
+          requestId: "req_missing_match_id",
+          payload: { id: "" },
+        },
+        owner,
+        context.env,
+      );
+      expect(missingId.ok).toBe(false);
+      expect(missingId.error?.code).toBe("VALIDATION_ERROR");
+
+      const matchResponse = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_match_forbidden",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 8 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T12:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const forbidden = await handleDeactivateMatch(
+        {
+          action: "deactivateMatch",
+          requestId: "req_deactivate_match_forbidden",
+          payload: { id: matchResponse.data!.match.id },
+        },
+        bob,
+        context.env,
+      );
+      expect(forbidden.ok).toBe(false);
+      expect(forbidden.error?.code).toBe("FORBIDDEN");
+
+      const firstDelete = await handleDeactivateMatch(
+        {
+          action: "deactivateMatch",
+          requestId: "req_deactivate_match_first",
+          payload: { id: matchResponse.data!.match.id },
+        },
+        owner,
+        context.env,
+      );
+      expect(firstDelete.ok).toBe(true);
+
+      const secondDelete = await handleDeactivateMatch(
+        {
+          action: "deactivateMatch",
+          requestId: "req_deactivate_match_second",
+          payload: { id: matchResponse.data!.match.id },
+        },
+        owner,
+        context.env,
+      );
+      expect(secondDelete.ok).toBe(false);
+      expect(secondDelete.error?.code).toBe("NOT_FOUND");
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("rebuilds tournament brackets after a tournament match is deleted", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+      await seedUser(context.env, { id: "user_c", displayName: "Cara" });
+      await seedUser(context.env, { id: "user_d", displayName: "Dina" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<UserRow>();
+      const userC = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_c").first<UserRow>();
+      if (!owner || !userC) {
+        throw new Error("Users not seeded");
+      }
+
+      const tournamentResponse = await handleCreateTournament(
+        {
+          action: "createTournament",
+          requestId: "req_deactivate_tournament_setup",
+          payload: {
+            name: "Deletion Cup",
+            participantIds: ["user_a", "user_b", "user_c", "user_d"],
+            rounds: [
+              {
+                title: "Semifinals",
+                matches: [
+                  {
+                    id: "semi_1",
+                    leftPlayerId: "user_a",
+                    rightPlayerId: "user_b",
+                    createdMatchId: null,
+                    winnerPlayerId: null,
+                    locked: false,
+                    isFinal: false,
+                  },
+                  {
+                    id: "semi_2",
+                    leftPlayerId: "user_c",
+                    rightPlayerId: "user_d",
+                    createdMatchId: null,
+                    winnerPlayerId: null,
+                    locked: false,
+                    isFinal: false,
+                  },
+                ],
+              },
+              {
+                title: "Final",
+                matches: [
+                  {
+                    id: "final_1",
+                    leftPlayerId: null,
+                    rightPlayerId: null,
+                    createdMatchId: null,
+                    winnerPlayerId: null,
+                    locked: false,
+                    isFinal: true,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const tournamentId = tournamentResponse.data!.tournament.id;
+      const firstSemi = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_deactivate_tournament_match_1",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+            tournamentId,
+            tournamentBracketMatchId: "semi_1",
+          },
+        },
+        owner,
+        context.env,
+      );
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_deactivate_tournament_match_2",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_c"],
+            teamBPlayerIds: ["user_d"],
+            score: [{ teamA: 11, teamB: 9 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T11:00:00.000Z",
+            tournamentId,
+            tournamentBracketMatchId: "semi_2",
+          },
+        },
+        userC,
+        context.env,
+      );
+
+      const deleteResponse = await handleDeactivateMatch(
+        {
+          action: "deactivateMatch",
+          requestId: "req_deactivate_tournament_match",
+          payload: { id: firstSemi.data!.match.id, reason: "bad score" },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(deleteResponse.ok).toBe(true);
+
+      const bracketRows = await context.env.DB.prepare(
+        `
+          SELECT id, left_player_id, right_player_id, created_match_id, winner_player_id, locked
+          FROM tournament_bracket_matches
+          WHERE tournament_id = ?1
+          ORDER BY round_index ASC, match_index ASC
+        `,
+      )
+        .bind(tournamentId)
+        .all<{
+          id: string;
+          left_player_id: string | null;
+          right_player_id: string | null;
+          created_match_id: string | null;
+          winner_player_id: string | null;
+          locked: number;
+        }>();
+
+      expect(bracketRows.results[0]).toMatchObject({
+        id: "semi_1",
+        created_match_id: null,
+        winner_player_id: null,
+        locked: 0,
+      });
+      expect(bracketRows.results[2]).toMatchObject({
+        id: "final_1",
+        left_player_id: "user_a",
+        right_player_id: "user_c",
+      });
     } finally {
       await context.cleanup();
     }

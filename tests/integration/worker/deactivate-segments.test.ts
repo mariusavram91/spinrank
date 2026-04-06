@@ -357,4 +357,163 @@ describe("worker integration: deactivate segments", () => {
       await context.cleanup();
     }
   });
+
+  it("rejects missing ids, non-owners, and already deleted tournaments", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+      const friend = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_friend").first<UserRow>();
+      if (!owner || !friend) {
+        throw new Error("Users not seeded");
+      }
+
+      const missingId = await handleDeactivateTournament(
+        {
+          action: "deactivateTournament",
+          requestId: "req_missing_tournament_id",
+          payload: { id: "" },
+        },
+        owner,
+        context.env,
+      );
+      expect(missingId.ok).toBe(false);
+      expect(missingId.error?.code).toBe("VALIDATION_ERROR");
+
+      const tournamentResponse = await handleCreateTournament(
+        {
+          action: "createTournament",
+          requestId: "req_delete_branch_tournament",
+          payload: {
+            name: "Branch Cup",
+            participantIds: ["user_owner", "user_friend"],
+            rounds: bracketRounds,
+            seasonId: null,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const forbidden = await handleDeactivateTournament(
+        {
+          action: "deactivateTournament",
+          requestId: "req_forbidden_tournament_delete",
+          payload: { id: tournamentResponse.data!.tournament.id },
+        },
+        friend,
+        context.env,
+      );
+      expect(forbidden.ok).toBe(false);
+      expect(forbidden.error?.code).toBe("FORBIDDEN");
+
+      const firstDelete = await handleDeactivateTournament(
+        {
+          action: "deactivateTournament",
+          requestId: "req_first_tournament_delete",
+          payload: { id: tournamentResponse.data!.tournament.id },
+        },
+        owner,
+        context.env,
+      );
+      expect(firstDelete.ok).toBe(true);
+
+      const secondDelete = await handleDeactivateTournament(
+        {
+          action: "deactivateTournament",
+          requestId: "req_second_tournament_delete",
+          payload: { id: tournamentResponse.data!.tournament.id },
+        },
+        owner,
+        context.env,
+      );
+      expect(secondDelete.ok).toBe(false);
+      expect(secondDelete.error?.code).toBe("NOT_FOUND");
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("rejects missing ids, non-owners, and already deleted seasons", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+      const friend = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_friend").first<UserRow>();
+      if (!owner || !friend) {
+        throw new Error("Users not seeded");
+      }
+
+      const missingId = await handleDeactivateSeason(
+        {
+          action: "deactivateSeason",
+          requestId: "req_missing_season_id",
+          payload: { id: "" },
+        },
+        owner,
+        context.env,
+      );
+      expect(missingId.ok).toBe(false);
+      expect(missingId.error?.code).toBe("VALIDATION_ERROR");
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_delete_branch_season",
+          payload: {
+            name: "Branch Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_friend"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const forbidden = await handleDeactivateSeason(
+        {
+          action: "deactivateSeason",
+          requestId: "req_forbidden_season_delete",
+          payload: { id: seasonResponse.data!.season.id },
+        },
+        friend,
+        context.env,
+      );
+      expect(forbidden.ok).toBe(false);
+      expect(forbidden.error?.code).toBe("FORBIDDEN");
+
+      const firstDelete = await handleDeactivateSeason(
+        {
+          action: "deactivateSeason",
+          requestId: "req_first_season_delete",
+          payload: { id: seasonResponse.data!.season.id },
+        },
+        owner,
+        context.env,
+      );
+      expect(firstDelete.ok).toBe(true);
+
+      const secondDelete = await handleDeactivateSeason(
+        {
+          action: "deactivateSeason",
+          requestId: "req_second_season_delete",
+          payload: { id: seasonResponse.data!.season.id },
+        },
+        owner,
+        context.env,
+      );
+      expect(secondDelete.ok).toBe(false);
+      expect(secondDelete.error?.code).toBe("NOT_FOUND");
+    } finally {
+      await context.cleanup();
+    }
+  });
 });
