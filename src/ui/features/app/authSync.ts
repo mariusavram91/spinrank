@@ -5,7 +5,9 @@ type AuthSyncArgs = {
   getViewState: () => ViewState;
   isAuthedState: (state: ViewState) => state is Extract<ViewState, { status: "authenticated" }>;
   dashboardState: DashboardState;
+  authAvatarButton: HTMLButtonElement;
   authAvatar: HTMLImageElement;
+  authAvatarBadge: HTMLElement;
   authMenu: HTMLElement;
   createMenu: HTMLElement;
   authActions: HTMLElement;
@@ -70,8 +72,13 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
       args.createMenu.hidden = !createMenuOpen;
       args.authMenuButton.setAttribute("aria-expanded", authMenuOpen ? "true" : "false");
       args.createMenuButton.setAttribute("aria-expanded", createMenuOpen ? "true" : "false");
+      args.authAvatarBadge.hidden = !args.dashboardState.hasNewAchievements;
+      args.authAvatarButton.setAttribute(
+        "aria-label",
+        args.dashboardState.hasNewAchievements ? "Open profile, new achievements available" : "Open profile",
+      );
 
-      args.authActions.replaceChildren(args.authAvatar, args.authMenuButton, args.authMenu);
+      args.authActions.replaceChildren(args.authAvatarButton, args.authMenuButton, args.authMenu);
       args.providerStack.replaceChildren(args.languageSwitch, args.authActions);
 
       if (args.createMenuButton.parentElement !== args.container) {

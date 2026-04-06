@@ -124,6 +124,22 @@ describe("participant editors", () => {
     expect(harness.args.syncDashboardState).toHaveBeenCalled();
   });
 
+  it("keeps the current user in tournament participants and prevents removing them", async () => {
+    const harness = createHarness();
+    harness.args.tournamentPlannerState.participantIds = ["user_b"];
+
+    harness.editors.renderTournamentPlanner();
+    await flush();
+
+    expect(harness.args.tournamentPlannerState.participantIds).toEqual(["user_a", "user_b"]);
+
+    const currentUserChip = harness.args.participantList.querySelector(
+      "[data-participant-id='user_a'] [data-testid='participant-remove-button']",
+    ) as HTMLButtonElement | null;
+
+    expect(currentUserChip?.disabled).toBe(true);
+  });
+
   it("renders tournament bracket actions and routes create-match clicks into the composer prefill", async () => {
     const harness = createHarness();
 

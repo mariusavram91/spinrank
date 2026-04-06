@@ -14,6 +14,8 @@ type TranslationFn = (key: TextKey) => string;
 export const createDashboardActions = (args: {
   dashboardState: DashboardState;
   runAuthedAction: RunAuthedAction;
+  hasUnreadAchievements: (data: GetDashboardData["achievements"] | null) => boolean;
+  syncAuthState: () => void;
   syncDashboardState: () => void;
   setGlobalLoading: (active: boolean, label?: string) => void;
   markLeaderboardDirty: () => void;
@@ -133,6 +135,8 @@ export const createDashboardActions = (args: {
       args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       args.dashboardState.userProgress = data.userProgress;
+      args.dashboardState.achievements = data.achievements;
+      args.dashboardState.hasNewAchievements = args.hasUnreadAchievements(data.achievements);
       args.dashboardState.matches = data.matches;
       args.dashboardState.matchesCursor = data.nextCursor;
       args.dashboardState.matchBracketContextByMatchId = data.matchBracketContextByMatchId;
@@ -154,6 +158,7 @@ export const createDashboardActions = (args: {
     } finally {
       args.dashboardState.loading = false;
       args.setGlobalLoading(false);
+      args.syncAuthState();
       args.syncDashboardState();
     }
   };

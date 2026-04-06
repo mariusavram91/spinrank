@@ -82,6 +82,16 @@ export const createAppDom = (args: {
   const authActions = document.createElement("div");
   authActions.className = "auth-actions";
 
+  const authAvatarButton = document.createElement("button");
+  authAvatarButton.type = "button";
+  authAvatarButton.className = "auth-avatar-button";
+  authAvatarButton.setAttribute("aria-label", "Open profile");
+
+  const authAvatarBadge = document.createElement("span");
+  authAvatarBadge.className = "auth-avatar-badge";
+  authAvatarBadge.hidden = true;
+  authAvatarBadge.dataset.testid = "achievements-avatar-badge";
+
   const authMenu = document.createElement("div");
   authMenu.className = "auth-menu";
 
@@ -91,9 +101,8 @@ export const createAppDom = (args: {
   const authAvatar = document.createElement("img");
   authAvatar.className = "auth-avatar";
   authAvatar.alt = "Signed-in user avatar";
-  authAvatar.tabIndex = 0;
-  authAvatar.setAttribute("role", "button");
-  authAvatar.setAttribute("aria-label", "Open profile");
+  authAvatar.setAttribute("aria-hidden", "true");
+  authAvatarButton.append(authAvatar, authAvatarBadge);
 
   const authMenuButton = document.createElement("button");
   authMenuButton.type = "button";
@@ -191,7 +200,17 @@ export const createAppDom = (args: {
   bindLocalizedText(profileLoadMoreButton, "loadMore");
   profileMatchesSection.append(profileMatchesTitle, profileMatchesList);
 
+  const profileAchievementsSection = document.createElement("section");
+  profileAchievementsSection.className = "profile-section";
+  const profileAchievementsTitle = document.createElement("h4");
+  profileAchievementsTitle.className = "card-title profile-section__title";
+  bindLocalizedText(profileAchievementsTitle, "achievementsTitle");
+  const profileAchievementsList = document.createElement("div");
+  profileAchievementsList.className = "achievement-chip-list achievement-chip-list--profile";
+  profileAchievementsSection.append(profileAchievementsTitle, profileAchievementsList);
+
   profileBody.append(
+    profileAchievementsSection,
     profileSeasonsSection,
     profileTournamentsSection,
     profileMatchesSection,
@@ -670,7 +689,9 @@ export const createAppDom = (args: {
     authActions,
     authMenu,
     createMenu,
+    authAvatarButton,
     authAvatar,
+    authAvatarBadge,
     authMenuButton,
     createMenuButton,
     dashboard,
@@ -681,6 +702,7 @@ export const createAppDom = (args: {
     profilePanel,
     closeProfileButton,
     profileStatus,
+    profileAchievementsList,
     profileSeasonsList,
     profileTournamentsList,
     profileMatchesList,

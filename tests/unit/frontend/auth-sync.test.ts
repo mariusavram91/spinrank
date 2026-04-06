@@ -17,7 +17,9 @@ const authState: ViewState = {
 };
 
 const createElements = () => ({
+  authAvatarButton: document.createElement("button"),
   authAvatar: document.createElement("img"),
+  authAvatarBadge: document.createElement("span"),
   authMenu: document.createElement("div"),
   createMenu: document.createElement("div"),
   authActions: document.createElement("div"),
@@ -64,7 +66,7 @@ describe("auth sync", () => {
   it("renders the authenticated app chrome and selected screen", async () => {
     const { createAuthSync, setAvatarImage } = await importAuthSync();
     const elements = createElements();
-    const dashboardState = { screen: "profile" } as DashboardState;
+    const dashboardState = { screen: "profile", hasNewAchievements: true } as DashboardState;
 
     const sync = createAuthSync({
       getViewState: () => authState,
@@ -91,6 +93,8 @@ describe("auth sync", () => {
       "/assets/logo.png",
       "Signed-in user avatar",
     );
+    expect(elements.authAvatarBadge.hidden).toBe(false);
+    expect(elements.authAvatarButton.getAttribute("aria-label")).toContain("new achievements");
     expect(elements.authMenu.hidden).toBe(false);
     expect(elements.createMenu.hidden).toBe(true);
     expect(elements.authMenuButton.getAttribute("aria-expanded")).toBe("true");
@@ -121,7 +125,7 @@ describe("auth sync", () => {
       isAuthedState: (
         state: ViewState,
       ): state is Extract<ViewState, { status: "authenticated" }> => state.status === "authenticated",
-      dashboardState: { screen: "faq" } as DashboardState,
+      dashboardState: { screen: "faq", hasNewAchievements: false } as DashboardState,
       ...elements,
       assetsBaseUrl: "/",
       isScoreCardVisible: () => false,

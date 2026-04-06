@@ -1,4 +1,5 @@
 import type {
+  AchievementSummaryItem,
   LeaderboardEntry,
   MatchBracketContext,
   MatchRecord,
@@ -16,6 +17,51 @@ const createEmptyState = (message: string): HTMLParagraphElement => {
   empty.className = "empty-state";
   empty.textContent = message;
   return empty;
+};
+
+const ACHIEVEMENT_ICONS: Record<AchievementSummaryItem["icon"], string> = {
+  spark: "✦",
+  paddle: "◐",
+  trophy: "▲",
+  steps: "◫",
+  crown: "✹",
+  bolt: "⚡",
+  flame: "✷",
+  podium: "▣",
+  medal: "⬢",
+  calendar: "◩",
+  bracket: "⟐",
+};
+
+const buildAchievementChip = (
+  item: AchievementSummaryItem,
+  t: TranslationFn,
+  locked = false,
+): HTMLElement => {
+  const chip = document.createElement("article");
+  chip.className = `achievement-chip achievement-chip--${item.tier}${locked ? " achievement-chip--locked" : ""}`;
+
+  const icon = document.createElement("span");
+  icon.className = "achievement-chip__icon";
+  icon.textContent = ACHIEVEMENT_ICONS[item.icon];
+  icon.setAttribute("aria-hidden", "true");
+
+  const content = document.createElement("div");
+  content.className = "achievement-chip__content";
+
+  const title = document.createElement("p");
+  title.className = "achievement-chip__title";
+  title.textContent = t(item.titleKey as TextKey);
+
+  const meta = document.createElement("p");
+  meta.className = "achievement-chip__meta";
+  meta.textContent = locked && item.progressTarget
+    ? `${item.progressValue}/${item.progressTarget}`
+    : `${item.points} pts`;
+
+  content.append(title, meta);
+  chip.append(icon, content);
+  return chip;
 };
 
 const getPodiumMedal = (rank: number | null | undefined): string | null => {
@@ -211,6 +257,7 @@ const buildSegmentCard = (args: {
 
 export const renderProfileScreen = (args: {
   dashboardState: DashboardState;
+  achievementsList: HTMLElement;
   currentUserId: string;
   seasonsList: HTMLElement;
   tournamentsList: HTMLElement;
@@ -234,6 +281,16 @@ export const renderProfileScreen = (args: {
 }): void => {
   args.status.textContent = args.dashboardState.profileLoading ? args.t("loadingOverlay") : "";
   args.status.hidden = !args.dashboardState.profileLoading;
+
+  const featuredAchievements = args.dashboardState.achievements?.featured ?? [];
+  const nextAchievement = args.dashboardState.achievements?.nextUp;
+  const achievementNodes = [
+    ...featuredAchievements.map((item) => buildAchievementChip(item, args.t)),
+    ...(nextAchievement ? [buildAchievementChip(nextAchievement, args.t, true)] : []),
+  ];
+  args.achievementsList.replaceChildren(
+    ...(achievementNodes.length > 0 ? achievementNodes : [createEmptyState(args.t("achievementsEmpty"))]),
+  );
 
   const seasons = args.dashboardState.seasons
     .filter((season) => season.status !== "deleted" && season.participantIds.includes(args.currentUserId))

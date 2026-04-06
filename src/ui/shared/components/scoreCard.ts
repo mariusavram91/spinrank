@@ -658,6 +658,13 @@ export const buildScoreCard = (args: {
       const shouldShow = !isOpen;
       playerPicker.classList.toggle("score-card__player-picker--visible", shouldShow);
       pickerToggle.setAttribute("aria-expanded", String(shouldShow));
+      if (shouldShow) {
+        const focusTarget = controls.primary.input;
+        requestAnimationFrame(() => {
+          focusTarget.focus();
+          focusTarget.select();
+        });
+      }
     });
       playerPicker.append(selectContainer);
     playerPickers.push(playerPicker);

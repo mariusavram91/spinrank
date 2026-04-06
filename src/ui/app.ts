@@ -77,6 +77,7 @@ import type {
   TournamentPlannerState,
   ViewState,
 } from "./shared/types/app";
+import { hasUnreadAchievements, markAchievementsAsSeen } from "./shared/utils/achievements";
 import { setAvatarImage } from "./shared/utils/avatar";
 import { formatCount, formatDate, formatDateTime, getTodayDateValue, toLocalDateTimeValue } from "./shared/utils/format";
 import { createAppAuthRuntime } from "./features/app/authRuntime";
@@ -122,7 +123,9 @@ export const buildApp = (): HTMLElement => {
     authActions,
     authMenu,
     createMenu,
+    authAvatarButton,
     authAvatar,
+    authAvatarBadge,
     authMenuButton,
     createMenuButton,
     dashboard,
@@ -132,6 +135,7 @@ export const buildApp = (): HTMLElement => {
     profileScreen,
     closeProfileButton,
     profileStatus,
+    profileAchievementsList,
     profileSeasonsList,
     profileTournamentsList,
     profileMatchesList,
@@ -803,7 +807,9 @@ export const buildApp = (): HTMLElement => {
     getViewState: () => state.current,
     isAuthedState,
     dashboardState,
+    authAvatarButton,
     authAvatar,
+    authAvatarBadge,
     authMenu,
     createMenu,
     authActions,
@@ -1025,6 +1031,7 @@ export const buildApp = (): HTMLElement => {
       const currentUserId = getCurrentUserId(state.current);
       renderProfileScreen({
         dashboardState,
+        achievementsList: profileAchievementsList,
         currentUserId,
         seasonsList: profileSeasonsList,
         tournamentsList: profileTournamentsList,
@@ -1178,6 +1185,8 @@ export const buildApp = (): HTMLElement => {
   } = createDashboardActions({
     dashboardState,
     runAuthedAction,
+    hasUnreadAchievements,
+    syncAuthState,
     syncDashboardState,
     setGlobalLoading,
     markLeaderboardDirty,
@@ -1433,6 +1442,8 @@ export const buildApp = (): HTMLElement => {
       return;
     }
 
+    markAchievementsAsSeen(dashboardState.achievements);
+    dashboardState.hasNewAchievements = false;
     dashboardState.screen = "profile";
     dashboardState.profileLoading = true;
     syncAuthState();
@@ -1509,7 +1520,7 @@ export const buildApp = (): HTMLElement => {
     faqMenuButton,
     footerFaqButton,
     footerPrivacyButton,
-    authAvatar,
+    authAvatarButton,
     authMenuButton,
     createMenuButton,
     refreshButton,

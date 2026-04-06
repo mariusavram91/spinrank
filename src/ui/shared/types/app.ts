@@ -1,4 +1,5 @@
 import type {
+  AchievementOverview,
   AppSession,
   GetTournamentBracketData,
   GetUserProgressData,
@@ -44,6 +45,8 @@ export interface DashboardState {
   leaderboardStats: SegmentLeaderboardStats | null;
   tournamentBracket: TournamentBracketRound[];
   userProgress: GetUserProgressData | null;
+  achievements: AchievementOverview | null;
+  hasNewAchievements: boolean;
   segmentMode: SegmentMode;
   selectedSeasonId: string;
   selectedTournamentId: string;

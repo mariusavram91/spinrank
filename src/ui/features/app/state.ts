@@ -23,6 +23,8 @@ export const createDashboardState = (): DashboardState => ({
   leaderboardStats: null,
   tournamentBracket: [],
   userProgress: null,
+  achievements: null,
+  hasNewAchievements: false,
   segmentMode: "global",
   selectedSeasonId: "",
   selectedTournamentId: "",

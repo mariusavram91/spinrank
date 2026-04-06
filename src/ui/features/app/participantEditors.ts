@@ -388,6 +388,7 @@ export const createParticipantEditors = (args: {
   const renderTournamentPlanner = (): void => {
     syncKnownParticipants();
     args.participantSearchInput.value = args.tournamentPlannerState.participantQuery;
+    const sessionUserId = args.getSessionUserId();
 
     const seasonId = args.tournamentSeasonSelect.value;
     const seasonParticipantIds = seasonId
@@ -403,6 +404,9 @@ export const createParticipantEditors = (args: {
         seasonParticipantIds.has(participantId),
       );
     }
+    if (sessionUserId && !args.tournamentPlannerState.participantIds.includes(sessionUserId)) {
+      args.tournamentPlannerState.participantIds = [sessionUserId, ...args.tournamentPlannerState.participantIds];
+    }
 
     args.participantSearchInput.disabled = tournamentLocked;
 
@@ -410,8 +414,8 @@ export const createParticipantEditors = (args: {
       args.participantList.replaceChildren(renderEmptyState(args.t("participantSelectedEmpty")));
     } else {
       const chips = args.tournamentPlannerState.participantIds.map((participantId) =>
-        buildSelectedParticipantChip(participantId, tournamentLocked, () => {
-          if (tournamentLocked) {
+        buildSelectedParticipantChip(participantId, tournamentLocked || participantId === sessionUserId, () => {
+          if (tournamentLocked || participantId === sessionUserId) {
             return;
           }
           args.tournamentPlannerState.participantIds = args.tournamentPlannerState.participantIds.filter(

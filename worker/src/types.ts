@@ -209,6 +209,39 @@ export interface GetUserProgressData {
   points: UserProgressPoint[];
 }
 
+export interface AchievementSummaryItem {
+  key: string;
+  category: "onboarding" | "activity" | "performance" | "community";
+  tier: "bronze" | "silver" | "gold" | "platinum";
+  icon:
+    | "spark"
+    | "paddle"
+    | "trophy"
+    | "steps"
+    | "crown"
+    | "bolt"
+    | "flame"
+    | "podium"
+    | "medal"
+    | "calendar"
+    | "bracket";
+  unlockedAt: string | null;
+  progressValue: number;
+  progressTarget: number | null;
+  titleKey: string;
+  descriptionKey: string;
+  points: number;
+}
+
+export interface AchievementOverview {
+  totalUnlocked: number;
+  totalAvailable: number;
+  score: number;
+  recentUnlocks: AchievementSummaryItem[];
+  featured: AchievementSummaryItem[];
+  nextUp: AchievementSummaryItem | null;
+}
+
 export interface MatchBracketContext {
   roundTitle: string;
   isFinal: boolean;
@@ -404,6 +437,7 @@ export interface GetDashboardData {
   leaderboard: LeaderboardEntry[];
   leaderboardUpdatedAt: string;
   userProgress: GetUserProgressData;
+  achievements: AchievementOverview;
   matches: MatchRecord[];
   nextCursor: string | null;
   matchBracketContextByMatchId: Record<string, MatchBracketContext>;

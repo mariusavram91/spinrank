@@ -7,7 +7,7 @@ export const bindTopLevelUiHandlers = (args: {
   faqMenuButton: HTMLButtonElement;
   footerFaqButton: HTMLButtonElement;
   footerPrivacyButton: HTMLButtonElement;
-  authAvatar: HTMLImageElement;
+  authAvatarButton: HTMLButtonElement;
   authMenuButton: HTMLButtonElement;
   createMenuButton: HTMLButtonElement;
   refreshButton: HTMLButtonElement;
@@ -52,13 +52,7 @@ export const bindTopLevelUiHandlers = (args: {
   args.faqMenuButton.addEventListener("click", args.onOpenFaq);
   args.footerFaqButton.addEventListener("click", args.onOpenFaq);
   args.footerPrivacyButton.addEventListener("click", args.onOpenPrivacy);
-  args.authAvatar.addEventListener("click", args.onOpenProfile);
-  args.authAvatar.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      args.onOpenProfile();
-    }
-  });
+  args.authAvatarButton.addEventListener("click", args.onOpenProfile);
   args.authMenuButton.addEventListener("click", args.onToggleAuthMenu);
   args.createMenuButton.addEventListener("click", args.onToggleCreateMenu);
   document.addEventListener("click", args.onDocumentClick);
