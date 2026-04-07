@@ -139,6 +139,10 @@ describe("app helpers", () => {
       renderMatchContextTournament: "Tournament",
       renderMatchContextSeason: "Season",
       renderMatchContextOpenPlay: "Open Play",
+      leaderboardPlacementFinal: "Final",
+      leaderboardPlacementSemifinals: "Semifinals",
+      leaderboardPlacementQuarterfinals: "Quarterfinals",
+      leaderboardPlacementRoundOf: "Round of {count}",
     } as const;
 
     const context = renderMatchContext(
@@ -174,6 +178,10 @@ describe("app helpers", () => {
       renderMatchContextTournament: "Tournament",
       renderMatchContextSeason: "Season",
       renderMatchContextOpenPlay: "Open Play",
+      leaderboardPlacementFinal: "Final",
+      leaderboardPlacementSemifinals: "Semifinals",
+      leaderboardPlacementQuarterfinals: "Quarterfinals",
+      leaderboardPlacementRoundOf: "Round of {count}",
     } as const;
 
     const context = renderMatchContext(
@@ -208,6 +216,10 @@ describe("app helpers", () => {
       renderMatchContextTournament: "Tournament",
       renderMatchContextSeason: "Season",
       renderMatchContextOpenPlay: "Open Play",
+      leaderboardPlacementFinal: "Final",
+      leaderboardPlacementSemifinals: "Semifinals",
+      leaderboardPlacementQuarterfinals: "Quarterfinals",
+      leaderboardPlacementRoundOf: "Round of {count}",
     } as const;
 
     expect(

@@ -28,6 +28,7 @@ import type {
   CreateTournamentPayload,
   DeactivateEntityPayload,
   GetMatchesPayload,
+  GetLeaderboardPayload,
   SearchParticipantsPayload,
   GetSegmentLeaderboardPayload,
   GetTournamentBracketPayload,
@@ -92,7 +93,11 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
         env,
       );
     case "getLeaderboard":
-      return handleGetLeaderboard(apiRequest as ApiRequest<"getLeaderboard">, sessionUser, env);
+      return handleGetLeaderboard(
+        apiRequest as ApiRequest<"getLeaderboard", GetLeaderboardPayload>,
+        sessionUser,
+        env,
+      );
     case "searchParticipants":
       return handleSearchParticipants(
         apiRequest as ApiRequest<"searchParticipants", SearchParticipantsPayload>,

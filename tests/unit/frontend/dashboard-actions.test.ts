@@ -8,6 +8,7 @@ import type {
   TournamentRecord,
 } from "../../../src/api/contract";
 import type { DashboardState, SharePanelElements } from "../../../src/ui/shared/types/app";
+import { createAchievementOverview } from "./test-helpers";
 
 const leaderboardEntry = (overrides: Partial<LeaderboardEntry> = {}): LeaderboardEntry => ({
   userId: "user_1",
@@ -200,6 +201,7 @@ describe("dashboard actions", () => {
         losses: 1,
         points: [],
       },
+      achievements: createAchievementOverview(),
       matches: [
         matchRecord({
           id: "match_ctx",
@@ -269,12 +271,13 @@ describe("dashboard actions", () => {
           currentStreak: 2,
           bestStreak: 2,
           wins: 3,
-          losses: 1,
-          points: [],
-        },
-      matches: [],
-      nextCursor: null,
-      matchBracketContextByMatchId: {},
+        losses: 1,
+        points: [],
+      },
+        achievements: createAchievementOverview(),
+        matches: [],
+        nextCursor: null,
+        matchBracketContextByMatchId: {},
       } satisfies GetDashboardData)
       .mockResolvedValueOnce({
         leaderboard: [leaderboardEntry({ userId: "user_2", displayName: "Season Ada", rank: 3 })],

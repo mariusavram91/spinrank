@@ -55,7 +55,10 @@ const env = {
   runtime: {
     nowIso: () => "2026-04-06T12:00:00.000Z",
   },
-} as Env;
+  GOOGLE_CLIENT_ID: "test-google-client-id",
+  APP_SESSION_SECRET: "test-session-secret",
+  APP_ORIGIN: "http://localhost:5173",
+} as unknown as Env;
 
 describe("worker getDashboard action", () => {
   beforeEach(() => {

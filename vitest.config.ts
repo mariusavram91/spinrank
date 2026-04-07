@@ -16,7 +16,7 @@ export default defineConfig({
         lines: 40,
       },
     },
-    include: ["tests/unit/**", "tests/integration/**"],
+    include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     exclude: ["tests/e2e/**", "node_modules/**", "worker/node_modules/**"],
     environment: "node",
     environmentMatchGlobs: [["tests/unit/frontend/**", "jsdom"]],

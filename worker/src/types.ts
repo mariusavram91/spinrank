@@ -165,6 +165,10 @@ export interface SegmentLeaderboardStats {
   tournamentWinnerPlayer: SegmentTournamentWinner | null;
 }
 
+export interface GetLeaderboardPayload {
+  mode?: "default" | "dashboard_preview";
+}
+
 export interface GetLeaderboardData {
   leaderboard: LeaderboardEntry[];
   updatedAt: string;
