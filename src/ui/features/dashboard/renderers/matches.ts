@@ -5,6 +5,7 @@ import type {
 } from "../../../../api/contract";
 import type { DashboardState } from "../../../shared/types/app";
 import type { TextKey } from "../../../shared/i18n/translations";
+import { translateBracketRoundTitle } from "../../app/helpers";
 
 type TranslationFn = (key: TextKey) => string;
 
@@ -129,7 +130,7 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
       if (bracketContext?.roundTitle) {
         const roundTag = document.createElement("span");
         roundTag.className = "match-round";
-        roundTag.textContent = `${bracketContext.isFinal ? "🏆 " : ""}${bracketContext.roundTitle}`;
+        roundTag.textContent = `${bracketContext.isFinal ? "🏆 " : ""}${translateBracketRoundTitle(bracketContext.roundTitle, args.t)}`;
         detailLine.append(roundTag);
       }
 

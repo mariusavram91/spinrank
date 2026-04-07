@@ -168,7 +168,7 @@ export const createFormOrchestration = (args: {
     const options = args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => {
       const option = document.createElement("option");
       option.value = season.id;
-      option.textContent = `${season.name} (${args.formatDate(season.startDate)})${isCompletedSeason(season) ? " • Completed" : ""}`;
+      option.textContent = `${season.name} (${args.formatDate(season.startDate)})${isCompletedSeason(season) ? ` • ${args.t("completedLabel")}` : ""}`;
       option.selected = season.id === args.dashboardState.selectedSeasonId;
       return option;
     });
@@ -232,7 +232,7 @@ export const createFormOrchestration = (args: {
         { value: "", label: args.t("savedSeasons") },
         ...args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => ({
           value: season.id,
-          label: `${season.name}${isCompletedSeason(season) ? " • Completed" : ""}`,
+          label: `${season.name}${isCompletedSeason(season) ? ` • ${args.t("completedLabel")}` : ""}`,
         })),
       ],
       args.dashboardState.editingSeasonId,
@@ -294,31 +294,31 @@ export const createFormOrchestration = (args: {
     replaceOptions(
       args.matchTypeSelect,
       [
-        { value: "singles", label: "Singles" },
-        { value: "doubles", label: "Doubles" },
+        { value: "singles", label: args.t("matchTypeSingles") },
+        { value: "doubles", label: args.t("matchTypeDoubles") },
       ],
       args.matchTypeSelect.value || "singles",
-      "No match type",
+      "",
     );
 
     replaceOptions(
       args.formatTypeSelect,
       [
-        { value: "single_game", label: "Single game" },
-        { value: "best_of_3", label: "Best of 3" },
+        { value: "single_game", label: args.t("formatSingleGame") },
+        { value: "best_of_3", label: args.t("formatBestOf3") },
       ],
       args.formatTypeSelect.value || "single_game",
-      "No format",
+      "",
     );
 
     replaceOptions(
       args.pointsToWinSelect,
       [
-        { value: "11", label: "11 points" },
-        { value: "21", label: "21 points" },
+        { value: "11", label: args.t("points11") },
+        { value: "21", label: args.t("points21") },
       ],
       args.pointsToWinSelect.value || "11",
-      "No points",
+      "",
     );
 
     const visibleSeasons = args.dashboardState.seasons.filter((season) =>
@@ -433,7 +433,7 @@ export const createFormOrchestration = (args: {
           : [{ value: "", label: "No season" }]),
         ...visibleSeasons.map((season) => ({
           value: season.id,
-          label: `${season.name}${isCompletedSeason(season) ? " • Completed" : ""}`,
+          label: `${season.name}${isCompletedSeason(season) ? ` • ${args.t("completedLabel")}` : ""}`,
         })),
       ],
       selectedSeasonValue,
@@ -444,7 +444,7 @@ export const createFormOrchestration = (args: {
     if (seasonInfoValue) {
       const linkedSeason = args.dashboardState.seasons.find((season) => season.id === lockedSeasonId);
       seasonInfoValue.textContent = linkedSeason
-        ? `${linkedSeason.name}${isCompletedSeason(linkedSeason) ? " • Completed" : ""}`
+        ? `${linkedSeason.name}${isCompletedSeason(linkedSeason) ? ` • ${args.t("completedLabel")}` : ""}`
         : "";
     }
 
@@ -469,7 +469,7 @@ export const createFormOrchestration = (args: {
           : [{ value: "", label: "No tournament" }]),
         ...filteredTournaments.map((tournament) => ({
           value: tournament.id,
-          label: `${tournament.name}${isCompletedTournament(tournament) ? " • Completed" : ""}`,
+          label: `${tournament.name}${isCompletedTournament(tournament) ? ` • ${args.t("completedLabel")}` : ""}`,
         })),
       ],
       nextTournamentValue,

@@ -221,14 +221,14 @@ export const createDashboardSync = (args: {
       args.dom.seasonStatus.hidden = !hasSeasonStatus;
       args.dom.seasonStatus.classList.toggle("share-alert--visible", hasSeasonStatus);
       args.dom.submitSeasonButton.textContent = args.dashboardState.seasonSubmitting
-        ? "Saving season..."
+        ? `${args.t("saveButtonLabel")}...`
         : isSeasonEditingDraft
           ? args.t("saveButtonLabel")
           : args.t("createSeason");
       args.dom.submitMatchButton.textContent =
-        args.dashboardState.matchSubmitting ? "Saving match..." : "Create match";
+        args.dashboardState.matchSubmitting ? `${args.t("saveButtonLabel")}...` : args.t("createMatch");
       args.dom.saveTournamentButton.textContent = args.dashboardState.tournamentSubmitting
-        ? "Saving tournament..."
+        ? `${args.t("saveButtonLabel")}...`
         : args.tournamentPlannerState.tournamentId
           ? args.t("saveButtonLabel")
           : args.t("saveTournament");

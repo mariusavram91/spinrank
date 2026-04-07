@@ -1,4 +1,4 @@
-import { bindLocalizedText } from "../../shared/i18n/runtime";
+import { bindLocalizedText, registerTranslation, t } from "../../shared/i18n/runtime";
 import { buildField, createPanelSection } from "../../shared/components/formLayout";
 import type { TextKey } from "../../shared/i18n/translations";
 
@@ -220,7 +220,9 @@ export const buildMatchScreen = (args: {
 
     const gameLabel = document.createElement("span");
     gameLabel.className = "score-game-heading";
-    gameLabel.textContent = `Game ${index + 1}`;
+    registerTranslation(() => {
+      gameLabel.textContent = t("gameLabel").replace("{count}", String(index + 1));
+    });
 
     const row = document.createElement("div");
     row.className = "score-row";

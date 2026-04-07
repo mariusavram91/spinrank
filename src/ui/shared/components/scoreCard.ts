@@ -686,7 +686,7 @@ export const buildScoreCard = (args: {
         ...seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => ({
           value: season.id,
           label: isCompletedSeason(season)
-            ? `${season.name} • Completed`
+            ? `${season.name} • ${t("completedLabel")}`
             : season.name,
         })),
       ],
@@ -779,7 +779,7 @@ export const buildScoreCard = (args: {
   };
 
   const getPlayerOptionLabel = (player: LeaderboardEntry, currentUserId: string): string =>
-    `${player.displayName} (${player.elo})${player.userId === currentUserId ? " (You)" : ""}`;
+    `${player.displayName} (${player.elo})${player.userId === currentUserId ? ` (${t("youLabel")})` : ""}`;
 
   const getPlayerSearchControl = (team: ScoreKey, slot: 1 | 2): PlayerSearchControl =>
     team === "teamA"

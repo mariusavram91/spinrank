@@ -236,7 +236,7 @@ describe("dashboard actions", () => {
     expect(harness.args.renderSeasonEditor).toHaveBeenCalled();
     expect(harness.args.renderTournamentPlanner).toHaveBeenCalled();
     expect(harness.markLeaderboardDirty).toHaveBeenCalledTimes(1);
-    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(1, true, "Loading dashboard...");
+    expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(1, true, "loadingDashboard");
     expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(2, false);
   });
 

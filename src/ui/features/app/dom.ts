@@ -586,8 +586,10 @@ export const createAppDom = (args: {
 
   const deleteSeasonButton = document.createElement("button");
   deleteSeasonButton.type = "button";
-  deleteSeasonButton.className = "secondary-button destructive-button";
-  bindLocalizedText(deleteSeasonButton, "deleteSeason");
+  deleteSeasonButton.className = "icon-button section-delete-button";
+  deleteSeasonButton.textContent = "🗑";
+  bindLocalizedAttribute(deleteSeasonButton, "aria-label", "deleteSeason");
+  bindLocalizedAttribute(deleteSeasonButton, "title", "deleteSeason");
   deleteSeasonButton.hidden = true;
 
   const tournamentNameInput = document.createElement("input");
@@ -671,8 +673,10 @@ export const createAppDom = (args: {
 
   const deleteTournamentButton = document.createElement("button");
   deleteTournamentButton.type = "button";
-  deleteTournamentButton.className = "secondary-button destructive-button";
-  bindLocalizedText(deleteTournamentButton, "deleteTournament");
+  deleteTournamentButton.className = "icon-button section-delete-button";
+  deleteTournamentButton.textContent = "🗑";
+  bindLocalizedAttribute(deleteTournamentButton, "aria-label", "deleteTournament");
+  bindLocalizedAttribute(deleteTournamentButton, "title", "deleteTournament");
   deleteTournamentButton.hidden = true;
 
   const bracketBoard = document.createElement("div");

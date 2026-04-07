@@ -1,16 +1,28 @@
+import { getCurrentLanguage } from "../i18n/runtime";
+
+const getIntlLocale = (): string => {
+  switch (getCurrentLanguage()) {
+    case "de":
+      return "de-DE";
+    case "en":
+    default:
+      return "en-US";
+  }
+};
+
 export const formatDateTime = (value: string): string =>
-  new Intl.DateTimeFormat(undefined, {
+  new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 
 export const formatDate = (value: string): string =>
-  new Intl.DateTimeFormat(undefined, {
+  new Intl.DateTimeFormat(getIntlLocale(), {
     dateStyle: "medium",
   }).format(new Date(value));
 
 export const formatCount = (value: number): string =>
-  new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Math.max(0, value));
+  new Intl.NumberFormat(getIntlLocale(), { maximumFractionDigits: 0 }).format(Math.max(0, value));
 
 export const getTodayDateValue = (): string => {
   const date = new Date();

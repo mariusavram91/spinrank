@@ -115,7 +115,14 @@ export const renderMatchContext = (
   tournaments: TournamentRecord[],
   bracketContext: { roundTitle: string; isFinal: boolean } | null,
   t: (
-    key: "renderMatchContextTournament" | "renderMatchContextSeason" | "renderMatchContextOpenPlay",
+    key:
+      | "renderMatchContextTournament"
+      | "renderMatchContextSeason"
+      | "renderMatchContextOpenPlay"
+      | "leaderboardPlacementFinal"
+      | "leaderboardPlacementSemifinals"
+      | "leaderboardPlacementQuarterfinals"
+      | "leaderboardPlacementRoundOf",
   ) => string,
   options?: { includeRound?: boolean; includeTournamentTrophy?: boolean },
 ): string => {
@@ -124,7 +131,7 @@ export const renderMatchContext = (
     const roundLabel =
       options?.includeRound ?? true
         ? bracketContext?.roundTitle
-          ? ` • ${bracketContext.roundTitle}`
+          ? ` • ${translateBracketRoundTitle(bracketContext.roundTitle, t)}`
           : ""
         : "";
     const trophyLabel =
@@ -139,6 +146,32 @@ export const renderMatchContext = (
   }
 
   return t("renderMatchContextOpenPlay");
+};
+
+export const translateBracketRoundTitle = (
+  roundTitle: string,
+  t: (
+    key:
+      | "leaderboardPlacementFinal"
+      | "leaderboardPlacementSemifinals"
+      | "leaderboardPlacementQuarterfinals"
+      | "leaderboardPlacementRoundOf",
+  ) => string,
+): string => {
+  if (roundTitle === "Final") {
+    return t("leaderboardPlacementFinal") || roundTitle;
+  }
+  if (roundTitle === "Semifinals") {
+    return t("leaderboardPlacementSemifinals") || roundTitle;
+  }
+  if (roundTitle === "Quarterfinals") {
+    return t("leaderboardPlacementQuarterfinals") || roundTitle;
+  }
+  const roundOfMatch = /^Round of (\d+)$/.exec(roundTitle);
+  if (roundOfMatch) {
+    return (t("leaderboardPlacementRoundOf") || roundTitle).replace("{count}", roundOfMatch[1] ?? "");
+  }
+  return roundTitle;
 };
 
 export const matchFilterLabels: Record<MatchFeedFilter, TextKey> = {

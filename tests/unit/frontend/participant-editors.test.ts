@@ -156,7 +156,7 @@ describe("participant editors", () => {
     await flush();
 
     const createMatchButton = [...harness.bracketBoard.querySelectorAll("button")].find(
-      (button) => button.textContent === "Create match",
+      (button) => button.textContent === harness.args.t("createMatch"),
     ) as HTMLButtonElement | undefined;
 
     expect(createMatchButton).toBeDefined();

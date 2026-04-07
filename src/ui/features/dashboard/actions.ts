@@ -140,7 +140,7 @@ export const createDashboardActions = (args: {
   const loadDashboard = async (): Promise<void> => {
     args.dashboardState.loading = true;
     args.dashboardState.error = "";
-    args.setGlobalLoading(true, "Loading dashboard...");
+    args.setGlobalLoading(true, args.t("loadingDashboard"));
     args.syncDashboardState();
 
     try {

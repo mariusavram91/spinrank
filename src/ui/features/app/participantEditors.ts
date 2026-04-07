@@ -2,6 +2,7 @@ import type { ParticipantSearchEntry } from "../../../api/contract";
 import type { DashboardState, TournamentPlannerMatch, TournamentPlannerState } from "../../shared/types/app";
 import type { RunAuthedAction } from "../../shared/types/actions";
 import type { TextKey } from "../../shared/i18n/translations";
+import { translateBracketRoundTitle } from "./helpers";
 
 export const createParticipantEditors = (args: {
   dashboardState: DashboardState;
@@ -69,6 +70,28 @@ export const createParticipantEditors = (args: {
     return knownParticipants.get(userId) ?? null;
   };
 
+  const getParticipantOption = (
+    userId: string,
+  ): Pick<ParticipantSearchEntry, "userId" | "displayName" | "elo"> => {
+    const participant = getKnownParticipant(userId);
+    if (participant) {
+      return participant;
+    }
+    const fallback = args.findPlayer(userId, args.dashboardState.players);
+    if (fallback) {
+      return {
+        userId: fallback.userId,
+        displayName: fallback.displayName,
+        elo: fallback.elo,
+      };
+    }
+    return {
+      userId,
+      displayName: userId,
+      elo: 0,
+    };
+  };
+
   const getParticipantLabel = (userId: string | null | undefined): string => {
     if (!userId) {
       return "";
@@ -78,7 +101,7 @@ export const createParticipantEditors = (args: {
       return `${participant.displayName} (${participant.elo})`;
     }
     const fallback = args.findPlayer(userId, args.dashboardState.players);
-    return fallback ? `${fallback.displayName} (${fallback.elo})` : "Unknown player";
+    return fallback ? `${fallback.displayName} (${fallback.elo})` : args.t("bracketPlayerUnknown");
   };
 
   const isTournamentParticipantEditingLocked = (): boolean => {
@@ -109,7 +132,7 @@ export const createParticipantEditors = (args: {
 
     const name = document.createElement("strong");
     name.className = "participant-chip__name";
-    name.textContent = participant?.displayName || "Unknown player";
+    name.textContent = participant?.displayName || args.t("bracketPlayerUnknown");
 
     const meta = document.createElement("span");
     meta.className = "participant-chip__meta";
@@ -465,8 +488,7 @@ export const createParticipantEditors = (args: {
 
     const selectedParticipants = new Set(args.tournamentPlannerState.participantIds);
     const playerOptions = args.tournamentPlannerState.participantIds
-      .map((participantId) => getKnownParticipant(participantId))
-      .filter((participant): participant is ParticipantSearchEntry => Boolean(participant));
+      .map((participantId) => getParticipantOption(participantId));
 
     const roundColumns = args.tournamentPlannerState.rounds.map((round, roundIndex) => {
       const column = document.createElement("section");
@@ -474,7 +496,7 @@ export const createParticipantEditors = (args: {
 
       const title = document.createElement("h4");
       title.className = "card-title";
-      title.textContent = round.title;
+      title.textContent = translateBracketRoundTitle(round.title, args.t);
 
       const matchNodes = round.matches.map((match, matchIndex) => {
         const cardNode = document.createElement("article");
@@ -523,7 +545,7 @@ export const createParticipantEditors = (args: {
               Boolean(match.createdMatchId) ||
               Boolean(match.locked) ||
               Boolean(match.winnerPlayerId);
-            select.title = select.disabled ? "Locked after bracket advancement" : "";
+            select.title = select.disabled ? args.t("bracketLockedAfterAdvance") : "";
 
             select.addEventListener("change", () => {
               onChange(select.value || null);
@@ -556,17 +578,17 @@ export const createParticipantEditors = (args: {
           left.className = "match-subline";
           const leftText = visibleLeftPlayerId
             ? getParticipantLabel(visibleLeftPlayerId)
-            : `Winner ${args.tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 1}`;
+            : `${args.t("leaderboardWinner")} ${translateBracketRoundTitle(args.tournamentPlannerState.rounds[roundIndex - 1].title, args.t)} ${matchIndex * 2 + 1}`;
           const leftPlayer = getKnownParticipant(visibleLeftPlayerId || "");
           const leftAvatar = document.createElement("img");
           leftAvatar.className = "player-avatar player-avatar-small";
           setParticipantAvatarImage(leftAvatar, leftPlayer);
           const leftLabel = document.createElement("span");
           leftLabel.textContent =
-            round.title === "Final" && visibleLeftPlayerId && match.winnerPlayerId === visibleLeftPlayerId
+            match.isFinal && visibleLeftPlayerId && match.winnerPlayerId === visibleLeftPlayerId
               ? `🏆 ${leftText}`
               : leftText;
-          if (round.title === "Final" && visibleLeftPlayerId && match.winnerPlayerId === visibleLeftPlayerId) {
+          if (match.isFinal && visibleLeftPlayerId && match.winnerPlayerId === visibleLeftPlayerId) {
             left.classList.add("tournament-winner");
           }
           left.append(leftAvatar, leftLabel);
@@ -575,17 +597,17 @@ export const createParticipantEditors = (args: {
           right.className = "match-subline";
           const rightText = visibleRightPlayerId
             ? getParticipantLabel(visibleRightPlayerId)
-            : `Winner ${args.tournamentPlannerState.rounds[roundIndex - 1].title} ${matchIndex * 2 + 2}`;
+            : `${args.t("leaderboardWinner")} ${translateBracketRoundTitle(args.tournamentPlannerState.rounds[roundIndex - 1].title, args.t)} ${matchIndex * 2 + 2}`;
           const rightPlayer = getKnownParticipant(visibleRightPlayerId || "");
           const rightAvatar = document.createElement("img");
           rightAvatar.className = "player-avatar player-avatar-small";
           setParticipantAvatarImage(rightAvatar, rightPlayer);
           const rightLabel = document.createElement("span");
           rightLabel.textContent =
-            round.title === "Final" && visibleRightPlayerId && match.winnerPlayerId === visibleRightPlayerId
+            match.isFinal && visibleRightPlayerId && match.winnerPlayerId === visibleRightPlayerId
               ? `🏆 ${rightText}`
               : rightText;
-          if (round.title === "Final" && visibleRightPlayerId && match.winnerPlayerId === visibleRightPlayerId) {
+          if (match.isFinal && visibleRightPlayerId && match.winnerPlayerId === visibleRightPlayerId) {
             right.classList.add("tournament-winner");
           }
           right.append(rightAvatar, rightLabel);
@@ -598,7 +620,7 @@ export const createParticipantEditors = (args: {
           const advanceButton = document.createElement("button");
           advanceButton.type = "button";
           advanceButton.className = "secondary-button bracket-action";
-          advanceButton.textContent = match.winnerPlayerId ? "Advanced" : "Advance";
+          advanceButton.textContent = match.winnerPlayerId ? args.t("bracketAdvanced") : args.t("bracketAdvance");
           advanceButton.disabled = !!match.winnerPlayerId || tournamentLocked;
           advanceButton.addEventListener("click", () => {
             void args.advanceTournamentBye(roundIndex, matchIndex);
@@ -614,7 +636,7 @@ export const createParticipantEditors = (args: {
           const createMatchButton = document.createElement("button");
           createMatchButton.type = "button";
           createMatchButton.className = "secondary-button bracket-action";
-          createMatchButton.textContent = match.createdMatchId ? "Match created" : "Create match";
+          createMatchButton.textContent = match.createdMatchId ? args.t("bracketMatchCreated") : args.t("createMatch");
           createMatchButton.disabled =
             !!match.createdMatchId || !args.tournamentPlannerState.tournamentId || tournamentLocked;
           createMatchButton.addEventListener("click", () => {

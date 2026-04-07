@@ -1780,6 +1780,7 @@ export const buildApp = (): HTMLElement => {
   seasonVisibilityToggle = nextSeasonVisibilityToggle;
   syncMatchPlayerSearchInputs = createMatchPlayerSearchInputs({
     dashboardState,
+    t: (key) => t(key),
     getCurrentUserId: () => getCurrentUserId(state.current),
     getAllowedMatchPlayerIds,
     getMatchPlayerEntries,

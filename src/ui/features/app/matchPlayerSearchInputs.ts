@@ -1,4 +1,5 @@
 import type { DashboardState } from "../../shared/types/app";
+import type { TextKey } from "../../shared/i18n/translations";
 
 type MatchPlayerEntry = {
   userId: string;
@@ -29,6 +30,7 @@ type PickerControl = {
 
 export const createMatchPlayerSearchInputs = (args: {
   dashboardState: DashboardState;
+  t?: (key: TextKey) => string;
   getCurrentUserId: () => string;
   getAllowedMatchPlayerIds: () => string[] | null;
   getMatchPlayerEntries: () => MatchPlayerEntry[];
@@ -58,7 +60,7 @@ export const createMatchPlayerSearchInputs = (args: {
   };
 
   const getPlayerOptionLabel = (player: MatchPlayerEntry, currentUserId: string): string =>
-    `${player.displayName} (${player.elo})${player.userId === currentUserId ? " (You)" : ""}`;
+    `${player.displayName} (${player.elo})${player.userId === currentUserId ? ` (${args.t ? args.t("youLabel") : "You"})` : ""}`;
 
   const getPlayerLabel = (playerId: string): string => {
     const currentUserId = args.getCurrentUserId();

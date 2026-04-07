@@ -7,6 +7,7 @@ import {
   isPastDateValue,
   toLocalDateTimeValue,
 } from "../../../src/ui/shared/utils/format";
+import { getCurrentLanguage, setLanguage } from "../../../src/ui/shared/i18n/runtime";
 
 describe("format helpers", () => {
   const nowIso = "2026-04-05T00:00:00.000Z";
@@ -17,12 +18,29 @@ describe("format helpers", () => {
   });
 
   afterAll(() => {
+    setLanguage("en");
     vi.useRealTimers();
   });
 
   it("includes the year in formatted date strings", () => {
     expect(formatDate("2026-01-02T00:00:00Z")).toContain("2026");
     expect(formatDateTime("2026-01-02T12:34:56Z")).toContain("2026");
+  });
+
+  it("formats dates using the active app language", () => {
+    setLanguage("de");
+    expect(getCurrentLanguage()).toBe("de");
+    expect(formatDate("2026-01-02T00:00:00Z")).toBe(new Intl.DateTimeFormat("de-DE", {
+      dateStyle: "medium",
+    }).format(new Date("2026-01-02T00:00:00Z")));
+    expect(formatCount(1234)).toContain(".");
+
+    setLanguage("en");
+    expect(getCurrentLanguage()).toBe("en");
+    expect(formatDate("2026-01-02T00:00:00Z")).toBe(new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+    }).format(new Date("2026-01-02T00:00:00Z")));
+    expect(formatCount(1234)).toContain(",");
   });
 
   it("reports the current date value", () => {

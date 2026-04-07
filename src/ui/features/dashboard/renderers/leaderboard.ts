@@ -1,5 +1,6 @@
 import type { DashboardState, SegmentMode } from "../../../shared/types/app";
 import type { TextKey } from "../../../shared/i18n/translations";
+import { translateBracketRoundTitle } from "../../app/helpers";
 import { setAvatarImage } from "../../../shared/utils/avatar";
 
 type TranslationFn = (key: TextKey) => string;
@@ -86,16 +87,17 @@ const getBracketPlaceholder = (
   roundIndex: number,
   matchIndex: number,
   side: "left" | "right",
+  t: TranslationFn,
 ): string => {
   if (roundIndex === 0) {
-    return "Waiting for player";
+    return t("bracketPlayerWaiting");
   }
 
   const previousRound = rounds[roundIndex - 1];
-  const sourceMatchIndex = matchIndex * 2 + (side === "left" ? 0 : 1);
-  const sourceTitle = previousRound?.title || `Round ${roundIndex}`;
+  const sourceMatchIndex = matchIndex * 2 + (side === "left" ? 0 : 1) + 1;
+  const sourceTitle = previousRound ? translateBracketRoundTitle(previousRound.title, t) : "";
 
-  return `Winner of ${sourceTitle} ${sourceMatchIndex + 1}`;
+  return `${t("leaderboardWinner")} ${sourceTitle} ${sourceMatchIndex}`.trim();
 };
 
 const createBracketPlayerNode = (args: {
@@ -105,6 +107,7 @@ const createBracketPlayerNode = (args: {
   currentUserId: string;
   avatarBaseUrl: string;
   state: "winner" | "loser" | "neutral";
+  t: TranslationFn;
   showTrophy?: boolean;
 }): HTMLElement => {
   const player = args.playerId ? args.players.find((entry) => entry.userId === args.playerId) : undefined;
@@ -146,15 +149,15 @@ const createBracketPlayerNode = (args: {
     const trophy = document.createElement("span");
     trophy.className = "leaderboard-bracket__trophy";
     trophy.textContent = "🏆";
-    trophy.title = "Tournament winner";
-    trophy.setAttribute("aria-label", "Tournament winner");
+    trophy.title = args.t("bracketWinner");
+    trophy.setAttribute("aria-label", args.t("bracketWinner"));
     nameBlock.append(trophy);
   }
 
   if (args.playerId === args.currentUserId) {
     const youChip = document.createElement("span");
     youChip.className = "leaderboard-you-chip leaderboard-bracket__you";
-    youChip.textContent = "You";
+    youChip.textContent = args.t("youLabel");
     nameBlock.append(youChip);
   }
 
@@ -203,7 +206,7 @@ export const createLeaderboardRenderer = (args: {
 
         const title = document.createElement("h4");
         title.className = "leaderboard-bracket__round-title card-title";
-        title.textContent = round.title;
+        title.textContent = translateBracketRoundTitle(round.title, args.t);
         roundNode.append(title);
 
         const matches = document.createElement("div");
@@ -230,12 +233,12 @@ export const createLeaderboardRenderer = (args: {
             `leaderboard-bracket__status-chip--${hasAutoAdvance ? "bye" : state}`,
           ].join(" ");
           statusChip.textContent = hasAutoAdvance
-            ? "Auto advance"
+            ? args.t("bracketStatusAutoAdvance")
             : state === "completed"
-              ? "Completed"
+              ? args.t("bracketStatusCompleted")
               : state === "played"
-                ? "Played"
-                : "Pending";
+                ? args.t("bracketStatusPlayed")
+                : args.t("bracketStatusPending");
 
           const statusRow = document.createElement("div");
           statusRow.className = "leaderboard-bracket__match-status-row";
@@ -251,22 +254,19 @@ export const createLeaderboardRenderer = (args: {
           const canRevealLeft = roundIndex === 0 || Boolean(previousLeftMatch?.winnerPlayerId);
           const canRevealRight = roundIndex === 0 || Boolean(previousRightMatch?.winnerPlayerId);
 
-          const leftPlaceholder = getBracketPlaceholder(rounds, roundIndex, matchIndex, "left");
-          const rightPlaceholder = getBracketPlaceholder(rounds, roundIndex, matchIndex, "right");
+          const leftPlaceholder = getBracketPlaceholder(rounds, roundIndex, matchIndex, "left", args.t);
+          const rightPlaceholder = getBracketPlaceholder(rounds, roundIndex, matchIndex, "right", args.t);
 
           const leftPlayerName = canRevealLeft
             ? match.leftPlayerId
-              ? getBracketPlayerName(match.leftPlayerId, args.dashboardState.players) || "Unknown player"
-              : "Waiting for player"
+              ? getBracketPlayerName(match.leftPlayerId, args.dashboardState.players) || args.t("bracketPlayerUnknown")
+              : args.t("bracketPlayerWaiting")
             : leftPlaceholder;
           const rightPlayerName = canRevealRight
             ? match.rightPlayerId
-              ? getBracketPlayerName(match.rightPlayerId, args.dashboardState.players) || "Unknown player"
-              : "Waiting for player"
+              ? getBracketPlayerName(match.rightPlayerId, args.dashboardState.players) || args.t("bracketPlayerUnknown")
+              : args.t("bracketPlayerWaiting")
             : rightPlaceholder;
-
-          const leftSlotLabel = canRevealLeft ? (match.leftPlayerId ? "Player 1" : "Slot 1") : round.title || "Next match";
-          const rightSlotLabel = canRevealRight ? (match.rightPlayerId ? "Player 2" : "Slot 2") : round.title || "Next match";
 
           const leftWin = Boolean(match.winnerPlayerId && match.leftPlayerId === match.winnerPlayerId);
           const rightWin = Boolean(match.winnerPlayerId && match.rightPlayerId === match.winnerPlayerId);
@@ -292,8 +292,8 @@ export const createLeaderboardRenderer = (args: {
           if (hasAutoAdvance) {
             const playerId = match.leftPlayerId || match.rightPlayerId;
             const label = playerId
-              ? getBracketPlayerName(playerId, args.dashboardState.players) || "Unknown player"
-              : "Waiting for player";
+              ? getBracketPlayerName(playerId, args.dashboardState.players) || args.t("bracketPlayerUnknown")
+              : args.t("bracketPlayerWaiting");
             body.append(
               createBracketPlayerNode({
                 playerId,
@@ -302,6 +302,7 @@ export const createLeaderboardRenderer = (args: {
                 currentUserId,
                 avatarBaseUrl: args.avatarBaseUrl,
                 state: match.winnerPlayerId ? "winner" : "neutral",
+                t: args.t,
                 showTrophy: Boolean(match.isFinal && match.winnerPlayerId),
               }),
             );
@@ -314,6 +315,7 @@ export const createLeaderboardRenderer = (args: {
                 currentUserId,
                 avatarBaseUrl: args.avatarBaseUrl,
                 state: leftState,
+                t: args.t,
                 showTrophy: Boolean(match.isFinal && leftWin),
               }),
               createBracketPlayerNode({
@@ -323,6 +325,7 @@ export const createLeaderboardRenderer = (args: {
                 currentUserId,
                 avatarBaseUrl: args.avatarBaseUrl,
                 state: rightState,
+                t: args.t,
                 showTrophy: Boolean(match.isFinal && rightWin),
               }),
             );
@@ -390,7 +393,7 @@ export const createLeaderboardRenderer = (args: {
       if (entry.userId === currentUserId) {
         const youChip = document.createElement("span");
         youChip.className = "leaderboard-you-chip";
-        youChip.textContent = "You";
+        youChip.textContent = args.t("youLabel");
         identityMain.append(youChip);
       }
 
