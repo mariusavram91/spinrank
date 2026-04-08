@@ -36,6 +36,14 @@ export const faqEntries: FaqEntry[] = [
         en: "If a ranked match is deleted later, it stops counting. Global ranking is not limited to one season or one tournament.",
         de: "Wenn ein geranktes Match später gelöscht wird, zählt es nicht mehr. Die globale Rangliste ist nicht auf eine Saison oder ein Turnier begrenzt.",
       },
+      {
+        en: "To be fully qualified in the global ranking, you need at least 5 matches. If you have fewer than 5, you still appear in the table, but below all qualified players.",
+        de: "Um in der globalen Rangliste voll qualifiziert zu sein, brauchst du mindestens 5 Matches. Mit weniger als 5 Matches erscheinst du trotzdem in der Tabelle, aber unter allen qualifizierten Spielern.",
+      },
+      {
+        en: "Players with 0 matches are shown as inactive. They still appear in the list, but they have not started building a global ranking yet.",
+        de: "Spieler mit 0 Matches werden als inaktiv angezeigt. Sie erscheinen weiterhin in der Liste, haben aber noch keine globale Rangliste aufgebaut.",
+      },
     ],
   },
   {
