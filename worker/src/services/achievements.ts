@@ -2,6 +2,7 @@ import { isoNow } from "../db";
 import type { AchievementOverview, AchievementSummaryItem, Env } from "../types";
 import { ACHIEVEMENTS, type AchievementDefinition } from "./achievementCatalog";
 import { buildAchievementState } from "./achievementRebuildShared.js";
+import { calculateSeasonScore, MINIMUM_MATCHES_TO_QUALIFY } from "./elo";
 
 export type AchievementTrigger =
   | { type: "bootstrap"; userId: string; nowIso: string }
@@ -85,7 +86,7 @@ function mapAchievementRow(row: AchievementRow): AchievementSummaryItem {
   };
 }
 
-async function ensureAchievementCatalog(env: Env): Promise<void> {
+export async function ensureAchievementCatalog(env: Env): Promise<void> {
   if (achievementCatalogReadyByDatabase.has(env.DB as object)) {
     return;
   }
@@ -336,6 +337,242 @@ async function loadMatchTypeCounts(
     .all<{ user_id: string; singles_count: number; doubles_count: number }>();
 
   return rows.results;
+}
+
+async function loadWinnerScorelineCounts(
+  env: Env,
+  userIds: string[],
+  args: { pointsToWin: 11 | 21; loserScoreCap: number },
+): Promise<Array<{ user_id: string; count: number }>> {
+  if (userIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = userIds.map((_, index) => `?${index + 3}`).join(",");
+  const rows = await env.DB.prepare(
+    `
+      SELECT mp.user_id, COUNT(DISTINCT m.id) AS count
+      FROM matches m
+      JOIN match_players mp
+        ON mp.match_id = m.id
+       AND mp.team = m.winner_team
+      WHERE m.status = 'active'
+        AND m.points_to_win = ?1
+        AND mp.user_id IN (${placeholders})
+        AND EXISTS (
+          SELECT 1
+          FROM json_each(m.score_json) game
+          WHERE (
+            m.winner_team = 'A'
+            AND json_extract(game.value, '$.teamA') = ?1
+            AND json_extract(game.value, '$.teamB') <= ?2
+          ) OR (
+            m.winner_team = 'B'
+            AND json_extract(game.value, '$.teamB') = ?1
+            AND json_extract(game.value, '$.teamA') <= ?2
+          )
+        )
+      GROUP BY mp.user_id
+    `,
+  )
+    .bind(args.pointsToWin, args.loserScoreCap, ...userIds)
+    .all<{ user_id: string; count: number }>();
+
+  return rows.results;
+}
+
+async function loadCompletedSeasonOutcomeCounts(
+  env: Env,
+  userIds: string[],
+  nowIso: string,
+): Promise<{
+  seasonWinnerCount: Map<string, number>;
+  seasonPodiumCount: Map<string, number>;
+}> {
+  if (userIds.length === 0) {
+    return {
+      seasonWinnerCount: new Map(),
+      seasonPodiumCount: new Map(),
+    };
+  }
+
+  const rows = await env.DB.prepare(
+    `
+      SELECT
+        es.segment_id AS season_id,
+        es.user_id,
+        es.elo,
+        es.matches_played,
+        es.matches_played_equivalent,
+        es.wins,
+        es.losses,
+        es.season_glicko_rating,
+        es.season_glicko_rd,
+        es.season_conservative_rating,
+        es.season_attended_weeks,
+        es.season_total_weeks,
+        es.season_attendance_penalty,
+        u.display_name
+      FROM elo_segments es
+      JOIN seasons s
+        ON s.id = es.segment_id
+      JOIN users u
+        ON u.id = es.user_id
+      WHERE es.segment_type = 'season'
+        AND s.status != 'deleted'
+        AND (
+          s.status = 'completed'
+          OR s.completed_at IS NOT NULL
+          OR (s.end_date != '' AND s.end_date < ?1)
+        )
+    `,
+  )
+    .bind(nowIso.slice(0, 10))
+    .all<{
+      season_id: string;
+      user_id: string;
+      elo: number;
+      matches_played: number;
+      matches_played_equivalent: number;
+      wins: number;
+      losses: number;
+      season_glicko_rating: number | null;
+      season_glicko_rd: number | null;
+      season_conservative_rating: number | null;
+      season_attended_weeks: number;
+      season_total_weeks: number;
+      season_attendance_penalty: number;
+      display_name: string;
+    }>();
+
+  const targetUserIds = new Set(userIds);
+  const winnerCount = new Map<string, number>();
+  const podiumCount = new Map<string, number>();
+  const rowsBySeasonId = new Map<string, typeof rows.results>();
+
+  for (const row of rows.results) {
+    const seasonRows = rowsBySeasonId.get(row.season_id) ?? [];
+    seasonRows.push(row);
+    rowsBySeasonId.set(row.season_id, seasonRows);
+  }
+
+  for (const seasonRows of rowsBySeasonId.values()) {
+    const qualified = seasonRows
+      .filter((row) => Number(row.matches_played_equivalent ?? row.matches_played ?? 0) >= MINIMUM_MATCHES_TO_QUALIFY)
+      .map((row) => ({
+        userId: row.user_id,
+        displayName: row.display_name,
+        elo: Number(row.elo),
+        wins: Number(row.wins),
+        losses: Number(row.losses),
+        seasonConservativeRating:
+          row.season_conservative_rating === null ? 0 : Number(row.season_conservative_rating),
+        seasonGlickoRating: row.season_glicko_rating === null ? 0 : Number(row.season_glicko_rating),
+        seasonGlickoRd: row.season_glicko_rd === null ? 0 : Number(row.season_glicko_rd),
+        seasonAttendedWeeks: Number(row.season_attended_weeks ?? 0),
+        seasonTotalWeeks: Number(row.season_total_weeks ?? 0),
+      }))
+      .sort((left, right) => {
+        const leftSeasonScore = calculateSeasonScore({
+          rating: left.seasonGlickoRating || left.elo,
+          rd: left.seasonGlickoRd,
+          attendedWeeks: left.seasonAttendedWeeks,
+          totalWeeks: left.seasonTotalWeeks,
+        });
+        const rightSeasonScore = calculateSeasonScore({
+          rating: right.seasonGlickoRating || right.elo,
+          rd: right.seasonGlickoRd,
+          attendedWeeks: right.seasonAttendedWeeks,
+          totalWeeks: right.seasonTotalWeeks,
+        });
+        if (rightSeasonScore !== leftSeasonScore) {
+          return rightSeasonScore - leftSeasonScore;
+        }
+        if (right.seasonConservativeRating !== left.seasonConservativeRating) {
+          return right.seasonConservativeRating - left.seasonConservativeRating;
+        }
+        if (right.seasonGlickoRating !== left.seasonGlickoRating) {
+          return right.seasonGlickoRating - left.seasonGlickoRating;
+        }
+        if (right.elo !== left.elo) {
+          return right.elo - left.elo;
+        }
+        if (right.wins !== left.wins) {
+          return right.wins - left.wins;
+        }
+        if (left.losses !== right.losses) {
+          return left.losses - right.losses;
+        }
+        return left.displayName.localeCompare(right.displayName);
+      });
+
+    if (qualified.length === 0) {
+      continue;
+    }
+
+    const winner = qualified[0];
+    if (winner && targetUserIds.has(winner.userId)) {
+      winnerCount.set(winner.userId, (winnerCount.get(winner.userId) ?? 0) + 1);
+    }
+    qualified.slice(0, 3).forEach((row) => {
+      if (targetUserIds.has(row.userId)) {
+        podiumCount.set(row.userId, (podiumCount.get(row.userId) ?? 0) + 1);
+      }
+    });
+  }
+
+  return {
+    seasonWinnerCount: winnerCount,
+    seasonPodiumCount: podiumCount,
+  };
+}
+
+async function loadCompletedTournamentOutcomeCounts(
+  env: Env,
+  userIds: string[],
+): Promise<{
+  tournamentWinnerCount: Map<string, number>;
+  tournamentFinalCount: Map<string, number>;
+}> {
+  if (userIds.length === 0) {
+    return {
+      tournamentWinnerCount: new Map(),
+      tournamentFinalCount: new Map(),
+    };
+  }
+
+  const finalRows = await env.DB.prepare(
+    `
+      SELECT tbm.left_player_id, tbm.right_player_id, tbm.winner_player_id
+      FROM tournament_bracket_matches tbm
+      JOIN tournaments t
+        ON t.id = tbm.tournament_id
+      WHERE tbm.is_final = 1
+        AND tbm.winner_player_id IS NOT NULL
+        AND t.status != 'deleted'
+    `,
+  ).all<{ left_player_id: string | null; right_player_id: string | null; winner_player_id: string }>();
+
+  const targetUserIds = new Set(userIds);
+  const winnerCount = new Map<string, number>();
+  const finalCount = new Map<string, number>();
+
+  for (const row of finalRows.results) {
+    if (targetUserIds.has(row.winner_player_id)) {
+      winnerCount.set(row.winner_player_id, (winnerCount.get(row.winner_player_id) ?? 0) + 1);
+    }
+    const finalistId = [row.left_player_id, row.right_player_id].find(
+      (playerId) => playerId && playerId !== row.winner_player_id,
+    );
+    if (finalistId && targetUserIds.has(finalistId)) {
+      finalCount.set(finalistId, (finalCount.get(finalistId) ?? 0) + 1);
+    }
+  }
+
+  return {
+    tournamentWinnerCount: winnerCount,
+    tournamentFinalCount: finalCount,
+  };
 }
 
 async function loadAchievementProgressRows(
@@ -724,6 +961,72 @@ async function evaluateTimeMilestones(env: Env, userId: string, nowIso: string):
   await flushAchievementProgressMutations(env, mutations, nowIso);
 }
 
+async function evaluateScorelineMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
+  const uniqueUserIds = [...new Set(userIds)];
+  const [perfect11Rows, perfect21Rows, blowout11Rows, blowout21Rows] = await Promise.all([
+    loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 11, loserScoreCap: 0 }),
+    loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 21, loserScoreCap: 0 }),
+    loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 11, loserScoreCap: 4 }),
+    loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 21, loserScoreCap: 9 }),
+  ]);
+  const perfect11ByUserId = new Map(perfect11Rows.map((row) => [row.user_id, Number(row.count)]));
+  const perfect21ByUserId = new Map(perfect21Rows.map((row) => [row.user_id, Number(row.count)]));
+  const blowout11ByUserId = new Map(blowout11Rows.map((row) => [row.user_id, Number(row.count)]));
+  const blowout21ByUserId = new Map(blowout21Rows.map((row) => [row.user_id, Number(row.count)]));
+  const mutations: AchievementProgressMutation[] = [];
+
+  for (const userId of uniqueUserIds) {
+    for (const [achievementKey, target, value] of [
+      ["perfect_11_0", 1, perfect11ByUserId.get(userId) ?? 0],
+      ["perfect_21_0", 1, perfect21ByUserId.get(userId) ?? 0],
+      ["blowout_11_4", 1, blowout11ByUserId.get(userId) ?? 0],
+      ["blowout_21_9", 1, blowout21ByUserId.get(userId) ?? 0],
+    ] as const) {
+      mutations.push({
+        userId,
+        achievementKey,
+        progressValue: Math.min(value, target),
+        progressTarget: target,
+        unlock: value >= target,
+      });
+    }
+  }
+
+  await flushAchievementProgressMutations(env, mutations, nowIso);
+}
+
+async function evaluateCompetitiveFinishMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
+  const uniqueUserIds = [...new Set(userIds)];
+  const [seasonCounts, tournamentCounts] = await Promise.all([
+    loadCompletedSeasonOutcomeCounts(env, uniqueUserIds, nowIso),
+    loadCompletedTournamentOutcomeCounts(env, uniqueUserIds),
+  ]);
+  const mutations: AchievementProgressMutation[] = [];
+
+  for (const userId of uniqueUserIds) {
+    for (const [achievementKey, target, value] of [
+      ["season_podium", 1, seasonCounts.seasonPodiumCount.get(userId) ?? 0],
+      ["season_winner", 1, seasonCounts.seasonWinnerCount.get(userId) ?? 0],
+      ["season_podiums_3", 3, seasonCounts.seasonPodiumCount.get(userId) ?? 0],
+      ["season_wins_3", 3, seasonCounts.seasonWinnerCount.get(userId) ?? 0],
+      ["tournament_finalist", 1, tournamentCounts.tournamentFinalCount.get(userId) ?? 0],
+      ["tournament_winner", 1, tournamentCounts.tournamentWinnerCount.get(userId) ?? 0],
+      ["tournament_finals_3", 3, tournamentCounts.tournamentFinalCount.get(userId) ?? 0],
+      ["tournament_wins_3", 3, tournamentCounts.tournamentWinnerCount.get(userId) ?? 0],
+    ] as const) {
+      mutations.push({
+        userId,
+        achievementKey,
+        progressValue: Math.min(value, target),
+        progressTarget: target,
+        unlock: value >= target,
+      });
+    }
+  }
+
+  await flushAchievementProgressMutations(env, mutations, nowIso);
+}
+
 function buildTimeMilestoneOverlay(
   rows: AchievementRow[],
   args: { createdAt: string | null; nowIso: string },
@@ -807,28 +1110,47 @@ async function evaluateCreationMilestones(
 
 async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
   const uniqueUserIds = [...new Set(userIds)];
-  const rankRows = await loadUserRankSnapshots(env, uniqueUserIds);
+  const [rankRows, statRows] = await Promise.all([
+    loadUserRankSnapshots(env, uniqueUserIds),
+    loadUserMatchStats(env, uniqueUserIds),
+  ]);
+  const matchesPlayedByUserId = new Map(statRows.map((row) => [row.id, Number(row.matches_played ?? 0)]));
   const mutations: AchievementProgressMutation[] = [];
 
   for (const row of rankRows) {
     const rank = Number(row.rank);
     const elo = Number(row.global_elo ?? 1200);
-    mutations.push({
-      userId: row.id,
-      achievementKey: "rank_top_3",
-      progressValue: rank <= 3 ? 3 : 0,
-      progressTarget: 3,
-      unlock: rank <= 3,
-      context: rank <= 3 ? { rank } : undefined,
-    });
-    mutations.push({
-      userId: row.id,
-      achievementKey: "rank_1",
-      progressValue: rank === 1 ? 1 : 0,
-      progressTarget: 1,
-      unlock: rank === 1,
-      context: rank === 1 ? { rank } : undefined,
-    });
+    const matchesPlayed = matchesPlayedByUserId.get(row.id) ?? 0;
+    if (matchesPlayed >= 10 && rank <= 10) {
+      mutations.push({
+        userId: row.id,
+        achievementKey: "rank_top_10",
+        progressValue: 10,
+        progressTarget: 10,
+        unlock: true,
+        context: { rank },
+      });
+    }
+    if (matchesPlayed >= 15 && rank <= 3) {
+      mutations.push({
+        userId: row.id,
+        achievementKey: "rank_top_3",
+        progressValue: 3,
+        progressTarget: 3,
+        unlock: true,
+        context: { rank },
+      });
+    }
+    if (matchesPlayed >= 30 && rank === 1) {
+      mutations.push({
+        userId: row.id,
+        achievementKey: "rank_1",
+        progressValue: 1,
+        progressTarget: 1,
+        unlock: true,
+        context: { rank },
+      });
+    }
     for (const [achievementKey, target] of [
       ["elo_1250", 1250],
       ["elo_1350", 1350],
@@ -852,6 +1174,7 @@ async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: strin
 async function loadAchievementRebuildData(
   env: Env,
   userIds: string[],
+  nowIso = isoNow(env.runtime),
 ): Promise<{
   users: Array<{
     id: string;
@@ -869,9 +1192,30 @@ async function loadAchievementRebuildData(
   tournamentsPlayed: Map<string, number>;
   singlesCount: Map<string, number>;
   doublesCount: Map<string, number>;
+  perfect11Count: Map<string, number>;
+  perfect21Count: Map<string, number>;
+  blowout11Count: Map<string, number>;
+  blowout21Count: Map<string, number>;
+  seasonWinnerCount: Map<string, number>;
+  seasonPodiumCount: Map<string, number>;
+  tournamentWinnerCount: Map<string, number>;
+  tournamentFinalCount: Map<string, number>;
 }> {
   const uniqueUserIds = [...new Set(userIds)];
-  const [users, seasonsCreatedRows, tournamentsCreatedRows, seasonsPlayedRows, tournamentsPlayedRows, matchTypeRows] =
+  const [
+    users,
+    seasonsCreatedRows,
+    tournamentsCreatedRows,
+    seasonsPlayedRows,
+    tournamentsPlayedRows,
+    matchTypeRows,
+    perfect11Rows,
+    perfect21Rows,
+    blowout11Rows,
+    blowout21Rows,
+    seasonOutcomeCounts,
+    tournamentOutcomeCounts,
+  ] =
     await Promise.all([
       loadUserRankSnapshots(env, uniqueUserIds).then(async (rankRows) => {
         const stats = await loadUserMatchStats(env, uniqueUserIds);
@@ -907,6 +1251,12 @@ async function loadAchievementRebuildData(
       loadSegmentPlayedCounts(env, "season", uniqueUserIds),
       loadSegmentPlayedCounts(env, "tournament", uniqueUserIds),
       loadMatchTypeCounts(env, uniqueUserIds),
+      loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 11, loserScoreCap: 0 }),
+      loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 21, loserScoreCap: 0 }),
+      loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 11, loserScoreCap: 4 }),
+      loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 21, loserScoreCap: 9 }),
+      loadCompletedSeasonOutcomeCounts(env, uniqueUserIds, nowIso),
+      loadCompletedTournamentOutcomeCounts(env, uniqueUserIds),
     ]);
 
   return {
@@ -917,6 +1267,14 @@ async function loadAchievementRebuildData(
     tournamentsPlayed: new Map(tournamentsPlayedRows.map((row) => [row.user_id, Number(row.played_count)])),
     singlesCount: new Map(matchTypeRows.map((row) => [row.user_id, Number(row.singles_count)])),
     doublesCount: new Map(matchTypeRows.map((row) => [row.user_id, Number(row.doubles_count)])),
+    perfect11Count: new Map(perfect11Rows.map((row) => [row.user_id, Number(row.count)])),
+    perfect21Count: new Map(perfect21Rows.map((row) => [row.user_id, Number(row.count)])),
+    blowout11Count: new Map(blowout11Rows.map((row) => [row.user_id, Number(row.count)])),
+    blowout21Count: new Map(blowout21Rows.map((row) => [row.user_id, Number(row.count)])),
+    seasonWinnerCount: seasonOutcomeCounts.seasonWinnerCount,
+    seasonPodiumCount: seasonOutcomeCounts.seasonPodiumCount,
+    tournamentWinnerCount: tournamentOutcomeCounts.tournamentWinnerCount,
+    tournamentFinalCount: tournamentOutcomeCounts.tournamentFinalCount,
   };
 }
 
@@ -932,7 +1290,7 @@ export async function rebuildAchievementsForUsers(
     return;
   }
 
-  const data = await loadAchievementRebuildData(env, uniqueUserIds);
+  const data = await loadAchievementRebuildData(env, uniqueUserIds, nowIso);
   const mutations: AchievementProgressMutation[] = data.users.flatMap((user) =>
     buildAchievementState(user, nowIso, data).map((achievement) => ({
       userId: user.id,
@@ -964,12 +1322,15 @@ export async function evaluateAchievementsForTrigger(env: Env, trigger: Achievem
     case "match_created":
       if (trigger.matchType) {
         await evaluateIncrementalMatchMilestones(env, trigger);
-        break;
+      } else {
+        await evaluateLegacyMatchMilestones(env, trigger.userIds, trigger.nowIso);
       }
-      await evaluateLegacyMatchMilestones(env, trigger.userIds, trigger.nowIso);
+      await evaluateScorelineMilestones(env, trigger.userIds, trigger.nowIso);
+      await evaluateCompetitiveFinishMilestones(env, trigger.userIds, trigger.nowIso);
       break;
     case "rankings_recomputed":
       await evaluateRankMilestones(env, trigger.userIds, trigger.nowIso);
+      await evaluateCompetitiveFinishMilestones(env, trigger.userIds, trigger.nowIso);
       break;
   }
 }

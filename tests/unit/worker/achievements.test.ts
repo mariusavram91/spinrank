@@ -1,4 +1,5 @@
 import { evaluateAchievementsForTrigger, getAchievementOverview, rebuildAchievementsForUsers } from "../../../worker/src/services/achievements";
+import { buildAchievementState } from "../../../worker/src/services/achievementRebuildShared.js";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 import type { Env } from "../../../worker/src/types";
 
@@ -22,9 +23,9 @@ describe("worker unit: achievements", () => {
       const overview = await getAchievementOverview(context.env, "user_a");
 
       expect(overview.totalUnlocked).toBe(1);
-      expect(overview.totalAvailable).toBe(36);
+      expect(overview.totalAvailable).toBe(49);
       expect(overview.score).toBe(10);
-      expect(overview.items).toHaveLength(36);
+      expect(overview.items).toHaveLength(49);
       expect(overview.items[0]).toMatchObject({
         key: "account_created",
         unlockedAt: "2026-04-04T12:00:00.000Z",
@@ -90,6 +91,159 @@ describe("worker unit: achievements", () => {
     } finally {
       await context.cleanup();
     }
+  });
+
+  it("does not grant rank achievements to users with no matches played", () => {
+    const items = buildAchievementState(
+      {
+        id: "user_a",
+        matches_played: 0,
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        rank: 1,
+        global_elo: 1200,
+        created_at: "2026-01-01T00:00:00.000Z",
+      },
+      "2026-04-07T12:00:00.000Z",
+      {
+        seasonsCreated: new Map(),
+        tournamentsCreated: new Map(),
+        seasonsPlayed: new Map(),
+        tournamentsPlayed: new Map(),
+        singlesCount: new Map(),
+        doublesCount: new Map(),
+        perfect11Count: new Map(),
+        perfect21Count: new Map(),
+        blowout11Count: new Map(),
+        blowout21Count: new Map(),
+        seasonWinnerCount: new Map(),
+        seasonPodiumCount: new Map(),
+        tournamentWinnerCount: new Map(),
+        tournamentFinalCount: new Map(),
+      },
+    );
+
+    expect(items.find((item) => item.key === "rank_top_10")).toMatchObject({
+      unlock: false,
+      progressValue: 0,
+    });
+    expect(items.find((item) => item.key === "rank_top_3")).toMatchObject({
+      unlock: false,
+      progressValue: 0,
+    });
+    expect(items.find((item) => item.key === "rank_1")).toMatchObject({
+      unlock: false,
+      progressValue: 0,
+    });
+  });
+
+  it("grants rank achievements only after the configured match thresholds", () => {
+    const items = buildAchievementState(
+      {
+        id: "user_a",
+        matches_played: 30,
+        wins: 20,
+        losses: 10,
+        streak: 4,
+        rank: 1,
+        global_elo: 1280,
+        created_at: "2026-01-01T00:00:00.000Z",
+      },
+      "2026-04-07T12:00:00.000Z",
+      {
+        seasonsCreated: new Map(),
+        tournamentsCreated: new Map(),
+        seasonsPlayed: new Map(),
+        tournamentsPlayed: new Map(),
+        singlesCount: new Map(),
+        doublesCount: new Map(),
+        perfect11Count: new Map(),
+        perfect21Count: new Map(),
+        blowout11Count: new Map(),
+        blowout21Count: new Map(),
+        seasonWinnerCount: new Map(),
+        seasonPodiumCount: new Map(),
+        tournamentWinnerCount: new Map(),
+        tournamentFinalCount: new Map(),
+      },
+    );
+
+    expect(items.find((item) => item.key === "rank_top_10")).toMatchObject({
+      unlock: true,
+      progressValue: 10,
+      context: { rank: 1 },
+    });
+    expect(items.find((item) => item.key === "rank_top_3")).toMatchObject({
+      unlock: true,
+      progressValue: 3,
+      context: { rank: 1 },
+    });
+    expect(items.find((item) => item.key === "rank_1")).toMatchObject({
+      unlock: true,
+      progressValue: 1,
+      context: { rank: 1 },
+    });
+  });
+
+  it("does not persist rank milestones for users who have not played matches", async () => {
+    const batchCalls: string[][] = [];
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) => ({
+          bind: (..._args: unknown[]) => ({
+            first: async <T>() => null as T,
+            all: async <T>() => {
+              if (sql.includes("SELECT\n        u.id,")) {
+                return {
+                  results: [{ id: "user_a", rank: 1, global_elo: 1200 }],
+                } as T;
+              }
+              if (sql.includes("SELECT id, wins, losses, streak")) {
+                return {
+                  results: [{ id: "user_a", wins: 0, losses: 0, streak: 0, matches_played: 0 }],
+                } as T;
+              }
+              return { results: [] } as T;
+            },
+            run: async () => ({ results: [], success: true, meta: {} }),
+            toSql: () => sql,
+          }),
+          first: async <T>() => null as T,
+          all: async <T>() => {
+            if (sql.includes("SELECT\n        u.id,")) {
+              return {
+                results: [{ id: "user_a", rank: 1, global_elo: 1200 }],
+              } as T;
+            }
+            if (sql.includes("SELECT id, wins, losses, streak")) {
+              return {
+                results: [{ id: "user_a", wins: 0, losses: 0, streak: 0, matches_played: 0 }],
+              } as T;
+            }
+            return { results: [] } as T;
+          },
+          run: async () => ({ results: [], success: true, meta: {} }),
+          toSql: () => sql,
+        })),
+        batch: vi.fn(async (statements: readonly D1PreparedStatement[]) => {
+          batchCalls.push(statements.map((statement) => statement.toSql()));
+          return statements.map(() => ({ results: [], success: true, meta: {} }));
+        }),
+      },
+    } as unknown as Env;
+
+    await evaluateAchievementsForTrigger(env, {
+      type: "rankings_recomputed",
+      userIds: ["user_a"],
+      nowIso: "2026-04-07T12:00:00.000Z",
+    });
+
+    const rankStatements = batchCalls
+      .flat()
+      .filter((sql) => sql.includes("rank_top_10") || sql.includes("rank_top_3") || sql.includes("rank_1"));
+    expect(rankStatements).toEqual([]);
   });
 
   it("tracks denser early match milestones and creator progress for seasons and tournaments", async () => {
@@ -437,10 +591,12 @@ describe("worker unit: achievements", () => {
       nowIso: "2026-04-20T12:00:00.000Z",
     });
 
-    expect(batchCalls).toHaveLength(2);
-    expect(batchCalls[0]).toHaveLength(36);
+    expect(batchCalls).toHaveLength(4);
+    expect(batchCalls[0]).toHaveLength(49);
     expect(batchCalls[1]).toHaveLength(20);
     expect(batchCalls[1].every((sql) => sql.includes("INSERT INTO user_achievements"))).toBe(true);
+    expect(batchCalls[2]).toHaveLength(4);
+    expect(batchCalls[3]).toHaveLength(8);
     expect(runCalls.filter((sql) => sql.includes("INSERT INTO user_achievements"))).toEqual([]);
     expect(batchCalls[1].some((sql) => sql.includes("ROW_NUMBER() OVER"))).toBe(false);
   });
@@ -476,6 +632,15 @@ describe("worker unit: achievements", () => {
                 if (sql.includes("COUNT(DISTINCT m.tournament_id)")) {
                   return { results: [] } as T;
                 }
+                if (sql.includes("SELECT mp.user_id, COUNT(DISTINCT m.id) AS count")) {
+                  return { results: [] } as T;
+                }
+                if (sql.includes("FROM elo_segments es") && sql.includes("JOIN seasons s")) {
+                  return { results: [] } as T;
+                }
+                if (sql.includes("FROM tournament_bracket_matches tbm")) {
+                  return { results: [] } as T;
+                }
                 if (sql.includes("FROM user_achievements")) {
                   return { results: [] } as T;
                 }
@@ -506,6 +671,15 @@ describe("worker unit: achievements", () => {
                 return { results: [] } as T;
               }
               if (sql.includes("COUNT(DISTINCT m.tournament_id)")) {
+                return { results: [] } as T;
+              }
+              if (sql.includes("SELECT mp.user_id, COUNT(DISTINCT m.id) AS count")) {
+                return { results: [] } as T;
+              }
+              if (sql.includes("FROM elo_segments es") && sql.includes("JOIN seasons s")) {
+                return { results: [] } as T;
+              }
+              if (sql.includes("FROM tournament_bracket_matches tbm")) {
                 return { results: [] } as T;
               }
               if (sql.includes("FROM user_achievements")) {
@@ -541,8 +715,10 @@ describe("worker unit: achievements", () => {
       tournamentId: "tournament_1",
     });
 
-    expect(batchCalls).toHaveLength(2);
+    expect(batchCalls).toHaveLength(4);
     expect(batchCalls[1]).toHaveLength(18);
+    expect(batchCalls[2]).toHaveLength(4);
+    expect(batchCalls[3]).toHaveLength(8);
     expect(
       prepareSql.some(
         (sql) => sql.includes("COUNT(DISTINCT m.season_id)") || sql.includes("COUNT(DISTINCT m.tournament_id)"),
@@ -617,9 +793,13 @@ describe("worker unit: achievements", () => {
         unlockedAt: "2026-04-20T12:03:00.000Z",
         progressValue: 1,
       });
-      expect(itemsByKey.get("rank_top_3")).toMatchObject({
+      expect(itemsByKey.get("rank_top_10")).toMatchObject({
         unlockedAt: "2026-04-20T12:03:00.000Z",
-        progressValue: 3,
+        progressValue: 10,
+      });
+      expect(itemsByKey.get("rank_top_3")).toMatchObject({
+        unlockedAt: null,
+        progressValue: 0,
       });
       expect(itemsByKey.get("elo_1350")).toMatchObject({
         unlockedAt: "2026-04-20T12:03:00.000Z",
