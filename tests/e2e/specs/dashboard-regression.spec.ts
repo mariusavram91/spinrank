@@ -69,15 +69,19 @@ test.describe("dashboard regression flow", () => {
     await expect(page.getByTestId("participant-search-result")).toBeVisible();
     await page.getByTestId("participant-add-button").first().click();
     await page.getByTestId("season-submit").click();
-    await expect(page.getByTestId("season-status")).toContainText("Season created", { timeout: 30000 });
+    await expect(page.getByTestId("season-status")).toContainText("Season created and added to the dashboard.", {
+      timeout: 30000,
+    });
+    await expect(page.getByTestId("close-create-season-button")).toBeEnabled();
     await page.getByTestId("close-create-season-button").click();
 
     await page.getByTestId("create-menu-toggle").click();
     await page.getByTestId("open-match-button").click();
     await page.getByTestId("match-context-season").click();
     await expect(page.getByTestId("match-season-select")).not.toHaveValue("");
-    await page.getByTestId("match-player-search-team-b-1").fill(`${rivalDisplayName} (1200)`);
-    await page.getByTestId("match-player-search-option").filter({ hasText: rivalDisplayName }).first().click();
+    const rivalPicker = page.getByTestId("match-player-search-team-b-1").locator("..");
+    await rivalPicker.getByTestId("match-player-search-team-b-1").fill(`${rivalDisplayName} (1200)`);
+    await rivalPicker.getByTestId("match-player-search-option").filter({ hasText: rivalDisplayName }).click();
     await page.getByTestId("match-score-0-team-a").fill("11");
     await page.getByTestId("match-score-0-team-b").fill("5");
     await page.getByTestId("match-submit").click();

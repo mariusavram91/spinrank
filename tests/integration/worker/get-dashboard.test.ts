@@ -3,9 +3,15 @@ import { handleCreateSeason } from "../../../worker/src/actions/createSeason";
 import { handleGetDashboard } from "../../../worker/src/actions/getDashboard";
 import { computeEloDeltaForTeams, recomputeAllRankings } from "../../../worker/src/services/elo";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
+import type { TestWorkerEnv } from "../../helpers/worker/make-test-env";
 
-const getUserById = async (env: { DB: { prepare: (sql: string) => { bind: (...args: unknown[]) => { first: <T>() => Promise<T> } } } }, id: string) =>
-  env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind(id).first<any>();
+const getUserById = async (env: TestWorkerEnv, id: string) => {
+  const user = await env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind(id).first<any>();
+  if (!user) {
+    throw new Error(`Expected user ${id} to exist`);
+  }
+  return user;
+};
 
 const runBatches = async (env: Parameters<typeof seedUser>[0], statements: D1PreparedStatement[], chunkSize = 200) => {
   for (let index = 0; index < statements.length; index += chunkSize) {

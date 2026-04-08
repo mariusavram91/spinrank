@@ -79,8 +79,9 @@ test.describe("achievements", () => {
     await page.getByTestId("open-match-button").click();
     await page.getByTestId("match-context-season").click();
     await expect(page.getByTestId("match-season-select")).not.toHaveValue("");
-    await page.getByTestId("match-player-search-team-b-1").fill(`${rival.user.displayName} (1200)`);
-    await page.getByTestId("match-player-search-option").filter({ hasText: rival.user.displayName }).first().click();
+    const rivalPicker = page.getByTestId("match-player-search-team-b-1").locator("..");
+    await rivalPicker.getByTestId("match-player-search-team-b-1").fill(`${rival.user.displayName} (1200)`);
+    await rivalPicker.getByTestId("match-player-search-option").filter({ hasText: rival.user.displayName }).click();
     await page.getByTestId("match-score-0-team-a").fill("11");
     await page.getByTestId("match-score-0-team-b").fill("4");
     await page.getByTestId("match-submit").click();

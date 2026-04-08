@@ -91,7 +91,7 @@ test.describe("season lifecycle", () => {
 
     await page.getByTestId("create-menu-toggle").click();
     await page.getByTestId("open-match-button").click();
-    await page.getByTestId("match-context-season").click();
+    await expect(page.getByTestId("match-context-season")).toBeDisabled();
     await expect(page.locator("[data-testid='match-season-select'] option").filter({ hasText: seasonName })).toHaveCount(0);
   });
 });
