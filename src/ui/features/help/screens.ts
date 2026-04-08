@@ -62,12 +62,18 @@ export const buildHelpScreens = (): HelpScreenElements => {
     return { card, label, value, detail };
   };
 
-  const seasonScoreCard = createSummaryCard();
-  const eloCard = createSummaryCard();
-  const doublesCard = createSummaryCard();
-  const paceCard = createSummaryCard();
+  const summaryCards = [
+    createSummaryCard(),
+    createSummaryCard(),
+    createSummaryCard(),
+    createSummaryCard(),
+    createSummaryCard(),
+    createSummaryCard(),
+    createSummaryCard(),
+    createSummaryCard(),
+  ];
 
-  faqSummaryGrid.append(seasonScoreCard.card, eloCard.card, doublesCard.card, paceCard.card);
+  faqSummaryGrid.append(...summaryCards.map((entry) => entry.card));
   faqSummary.append(faqSummaryHeading, faqSummaryIntro, faqSummaryGrid);
 
   const faqGrid = document.createElement("div");
@@ -107,21 +113,23 @@ export const buildHelpScreens = (): HelpScreenElements => {
   };
 
   const renderFaqSummary = (): void => {
-    seasonScoreCard.label.textContent = t("faqSummarySeasonLabel");
-    seasonScoreCard.value.textContent = t("faqSummarySeasonValue");
-    seasonScoreCard.detail.textContent = t("faqSummarySeasonDetail");
+    const summaryKeys = [
+      ["faqSummaryEloLabel", "faqSummaryEloValue", "faqSummaryEloDetail"],
+      ["faqSummarySinglesLabel", "faqSummarySinglesValue", "faqSummarySinglesDetail"],
+      ["faqSummaryPaceLabel", "faqSummaryPaceValue", "faqSummaryPaceDetail"],
+      ["faqSummarySeasonLabel", "faqSummarySeasonValue", "faqSummarySeasonDetail"],
+      ["faqSummarySeasonOnlyLabel", "faqSummarySeasonOnlyValue", "faqSummarySeasonOnlyDetail"],
+      ["faqSummaryCarryLabel", "faqSummaryCarryValue", "faqSummaryCarryDetail"],
+      ["faqSummaryAttendanceLabel", "faqSummaryAttendanceValue", "faqSummaryAttendanceDetail"],
+      ["faqSummaryTournamentLabel", "faqSummaryTournamentValue", "faqSummaryTournamentDetail"],
+    ] as const;
 
-    eloCard.label.textContent = t("faqSummaryEloLabel");
-    eloCard.value.textContent = t("faqSummaryEloValue");
-    eloCard.detail.textContent = t("faqSummaryEloDetail");
-
-    doublesCard.label.textContent = t("faqSummarySinglesLabel");
-    doublesCard.value.textContent = t("faqSummarySinglesValue");
-    doublesCard.detail.textContent = t("faqSummarySinglesDetail");
-
-    paceCard.label.textContent = t("faqSummaryPaceLabel");
-    paceCard.value.textContent = t("faqSummaryPaceValue");
-    paceCard.detail.textContent = t("faqSummaryPaceDetail");
+    summaryCards.forEach((card, index) => {
+      const [labelKey, valueKey, detailKey] = summaryKeys[index];
+      card.label.textContent = t(labelKey);
+      card.value.textContent = t(valueKey);
+      card.detail.textContent = t(detailKey);
+    });
   };
 
   onLanguageChange(renderFaqCards);
