@@ -1,4 +1,4 @@
-import { isoNow } from "../db";
+import { isoNow, parseJsonArray, parseJsonObject } from "../db";
 import type { AchievementOverview, AchievementSummaryItem, Env } from "../types";
 import { ACHIEVEMENTS, type AchievementDefinition } from "./achievementCatalog";
 import { buildAchievementState } from "./achievementRebuildShared.js";
@@ -15,6 +15,7 @@ export type AchievementTrigger =
       matchType?: "singles" | "doubles";
       seasonId?: string | null;
       tournamentId?: string | null;
+      preMatchGlobalEloByUserId?: Record<string, number>;
     }
   | { type: "season_created"; actorUserId: string; seasonId: string; nowIso: string }
   | { type: "tournament_created"; actorUserId: string; tournamentId: string; nowIso: string }
@@ -40,7 +41,44 @@ type AchievementProgressMutation = {
   progressTarget?: number | null;
   unlock?: boolean;
   context?: Record<string, unknown>;
+  replaceProgress?: boolean;
 };
+
+type MatchHistoryRow = {
+  user_id: string;
+  player_team: "A" | "B";
+  id: string;
+  match_type: "singles" | "doubles";
+  format_type: "single_game" | "best_of_3";
+  points_to_win: 11 | 21;
+  team_a_player_ids_json: string;
+  team_b_player_ids_json: string;
+  score_json: string;
+  winner_team: "A" | "B";
+  global_elo_delta_json: string;
+  played_at: string;
+  created_at: string;
+};
+
+type MatchHistoryStats = {
+  marathonMatchCount: Map<string, number>;
+  luckyNumbersCount: Map<string, number>;
+  mirrorMatchCount: Map<string, number>;
+  stylePointsCount: Map<string, number>;
+  squadPartnerCount: Map<string, number>;
+  rivalMatchesMax: Map<string, number>;
+  unbeatenRunMax: Map<string, number>;
+  weeklyMatchStreak: Map<string, number>;
+  comebackWinsCount: Map<string, number>;
+  deuceWinsCount: Map<string, number>;
+  decidingSetWinsCount: Map<string, number>;
+  clutchComebackCount: Map<string, number>;
+  upsetVictoryCount: Map<string, number>;
+};
+
+const RANK_ONE_MIN_MATCHES = 60;
+const DEFENDER_RANK_THRESHOLD = 5;
+const UNSTOPPABLE_STREAK_TARGET = 7;
 
 const TIME_MILESTONES: ReadonlyArray<readonly [TimeMilestoneKey, number]> = [
   ["days_30", 30],
@@ -66,6 +104,17 @@ const achievementProgressUpsertSql = `
       ELSE user_achievements.context_json
     END
 `;
+const achievementProgressReplaceSql = `
+  INSERT INTO user_achievements (
+    user_id, achievement_key, unlocked_at, progress_value, progress_target, last_evaluated_at, context_json
+  ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+  ON CONFLICT(user_id, achievement_key) DO UPDATE SET
+    progress_value = excluded.progress_value,
+    progress_target = COALESCE(excluded.progress_target, user_achievements.progress_target),
+    unlocked_at = COALESCE(user_achievements.unlocked_at, excluded.unlocked_at),
+    last_evaluated_at = excluded.last_evaluated_at,
+    context_json = excluded.context_json
+`;
 const achievementJobInsertSql = `
   INSERT INTO achievement_jobs (id, payload_json, created_at, attempts, last_attempted_at, last_error)
   VALUES (?1, ?2, ?3, 0, NULL, NULL)
@@ -88,19 +137,6 @@ function mapAchievementRow(row: AchievementRow): AchievementSummaryItem {
 
 export async function ensureAchievementCatalog(env: Env): Promise<void> {
   if (achievementCatalogReadyByDatabase.has(env.DB as object)) {
-    return;
-  }
-
-  const existingCount = await env.DB.prepare(
-    `
-      SELECT COUNT(*) AS count
-      FROM achievement_definitions
-      WHERE active = 1
-    `,
-  ).first<{ count: number }>();
-
-  if (Number(existingCount?.count ?? 0) >= ACHIEVEMENTS.length) {
-    achievementCatalogReadyByDatabase.add(env.DB as object);
     return;
   }
 
@@ -159,7 +195,7 @@ function createAchievementProgressStatement(
   mutation: AchievementProgressMutation,
   nowIso: string,
 ): D1PreparedStatement {
-  return env.DB.prepare(achievementProgressUpsertSql).bind(
+  return env.DB.prepare(mutation.replaceProgress ? achievementProgressReplaceSql : achievementProgressUpsertSql).bind(
     mutation.userId,
     mutation.achievementKey,
     mutation.unlock ? nowIso : null,
@@ -180,6 +216,223 @@ async function flushAchievementProgressMutations(
   }
 
   await env.DB.batch(mutations.map((mutation) => createAchievementProgressStatement(env, mutation, nowIso)));
+}
+
+async function loadUserMatchHistory(env: Env, userIds: string[]): Promise<MatchHistoryRow[]> {
+  if (userIds.length === 0) {
+    return [];
+  }
+  const placeholders = userIds.map((_, index) => `?${index + 1}`).join(",");
+  const rows = await env.DB.prepare(
+    `
+      SELECT
+        mp.user_id,
+        mp.team AS player_team,
+        m.id,
+        m.match_type,
+        m.format_type,
+        m.points_to_win,
+        m.team_a_player_ids_json,
+        m.team_b_player_ids_json,
+        m.score_json,
+        m.winner_team,
+        m.global_elo_delta_json,
+        m.played_at,
+        m.created_at
+      FROM match_players mp
+      JOIN matches m
+        ON m.id = mp.match_id
+      WHERE mp.user_id IN (${placeholders})
+        AND m.status = 'active'
+      ORDER BY m.played_at ASC, m.created_at ASC, m.id ASC
+    `,
+  )
+    .bind(...userIds)
+    .all<MatchHistoryRow>();
+
+  return rows.results;
+}
+
+function toWeekStart(date: Date): string {
+  const normalized = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = normalized.getUTCDay() || 7;
+  normalized.setUTCDate(normalized.getUTCDate() - day + 1);
+  return normalized.toISOString().slice(0, 10);
+}
+
+function countConsecutiveWeeks(weekStarts: Set<string>): number {
+  const sorted = [...weekStarts].sort();
+  let best = 0;
+  let current = 0;
+  let previousMs: number | null = null;
+
+  for (const weekStart of sorted) {
+    const currentMs = Date.parse(`${weekStart}T00:00:00.000Z`);
+    if (previousMs !== null && currentMs - previousMs === 7 * 24 * 60 * 60 * 1000) {
+      current += 1;
+    } else {
+      current = 1;
+    }
+    best = Math.max(best, current);
+    previousMs = currentMs;
+  }
+
+  return best;
+}
+
+function computeMatchHistoryStats(
+  rows: MatchHistoryRow[],
+  upsetContextByMatchId: Map<string, Record<string, number>> = new Map(),
+): MatchHistoryStats {
+  const marathonMatchCount = new Map<string, number>();
+  const luckyNumbersCount = new Map<string, number>();
+  const mirrorMatchCount = new Map<string, number>();
+  const stylePointsCount = new Map<string, number>();
+  const squadPartnerCount = new Map<string, number>();
+  const rivalMatchesMax = new Map<string, number>();
+  const unbeatenRunMax = new Map<string, number>();
+  const weeklyMatchStreak = new Map<string, number>();
+  const comebackWinsCount = new Map<string, number>();
+  const deuceWinsCount = new Map<string, number>();
+  const decidingSetWinsCount = new Map<string, number>();
+  const clutchComebackCount = new Map<string, number>();
+  const upsetVictoryCount = new Map<string, number>();
+
+  const partnersByUserId = new Map<string, Set<string>>();
+  const rivalCountsByUserId = new Map<string, Map<string, number>>();
+  const weekStartsByUserId = new Map<string, Set<string>>();
+  const mirrorByUserId = new Map<string, Map<string, { win: boolean; loss: boolean }>>();
+  const styleRunByUserId = new Map<string, number>();
+  const unbeatenRunByUserId = new Map<string, number>();
+
+  for (const row of rows) {
+    const score = parseJsonObject<Array<{ teamA: number; teamB: number }>>(row.score_json, []);
+    const teamAPlayerIds = parseJsonArray<string>(row.team_a_player_ids_json);
+    const teamBPlayerIds = parseJsonArray<string>(row.team_b_player_ids_json);
+    const ownTeamIds = row.player_team === "A" ? teamAPlayerIds : teamBPlayerIds;
+    const opponentIds = row.player_team === "A" ? teamBPlayerIds : teamAPlayerIds;
+    const didWin = row.player_team === row.winner_team;
+    const userId = row.user_id;
+
+    if (row.format_type === "best_of_3" && score.length === 3) {
+      marathonMatchCount.set(userId, (marathonMatchCount.get(userId) ?? 0) + 1);
+    }
+
+    const weekStarts = weekStartsByUserId.get(userId) ?? new Set<string>();
+    weekStarts.add(toWeekStart(new Date(row.played_at)));
+    weekStartsByUserId.set(userId, weekStarts);
+
+    const partners = partnersByUserId.get(userId) ?? new Set<string>();
+    ownTeamIds.filter((playerId) => playerId !== userId).forEach((partnerId) => partners.add(partnerId));
+    partnersByUserId.set(userId, partners);
+
+    if (row.match_type === "singles") {
+      const rivalCounts = rivalCountsByUserId.get(userId) ?? new Map<string, number>();
+      opponentIds.forEach((opponentId) => {
+        rivalCounts.set(opponentId, (rivalCounts.get(opponentId) ?? 0) + 1);
+      });
+      rivalCountsByUserId.set(userId, rivalCounts);
+
+      const matchDate = row.played_at.slice(0, 10);
+      const mirrorKeyBase = mirrorByUserId.get(userId) ?? new Map<string, { win: boolean; loss: boolean }>();
+      opponentIds.forEach((opponentId) => {
+        const mirrorKey = `${matchDate}:${opponentId}`;
+        const outcome = mirrorKeyBase.get(mirrorKey) ?? { win: false, loss: false };
+        if (didWin) {
+          outcome.win = true;
+        } else {
+          outcome.loss = true;
+        }
+        mirrorKeyBase.set(mirrorKey, outcome);
+      });
+      mirrorByUserId.set(userId, mirrorKeyBase);
+    }
+
+    let exactStyleRun = styleRunByUserId.get(userId) ?? 0;
+    score.forEach((game, gameIndex) => {
+      const ownScore = row.player_team === "A" ? Number(game.teamA) : Number(game.teamB);
+      const opponentScore = row.player_team === "A" ? Number(game.teamB) : Number(game.teamA);
+      const wonGame = ownScore > opponentScore;
+
+      if (wonGame && ownScore === 11 && opponentScore === 7) {
+        luckyNumbersCount.set(userId, (luckyNumbersCount.get(userId) ?? 0) + 1);
+      }
+      if (wonGame && ownScore >= row.points_to_win && opponentScore >= row.points_to_win - 1) {
+        deuceWinsCount.set(userId, (deuceWinsCount.get(userId) ?? 0) + 1);
+      }
+
+      if (wonGame && ownScore === 11 && opponentScore === 9) {
+        exactStyleRun += 1;
+        stylePointsCount.set(userId, Math.max(stylePointsCount.get(userId) ?? 0, exactStyleRun));
+      } else {
+        exactStyleRun = 0;
+      }
+
+      if (
+        didWin &&
+        row.format_type === "best_of_3" &&
+        score.length === 3 &&
+        gameIndex === score.length - 1 &&
+        wonGame
+      ) {
+        decidingSetWinsCount.set(userId, (decidingSetWinsCount.get(userId) ?? 0) + 1);
+      }
+    });
+    styleRunByUserId.set(userId, exactStyleRun);
+
+    if (didWin && score.length > 0) {
+      const firstGame = score[0];
+      const firstOwnScore = row.player_team === "A" ? Number(firstGame.teamA) : Number(firstGame.teamB);
+      const firstOpponentScore = row.player_team === "A" ? Number(firstGame.teamB) : Number(firstGame.teamA);
+      if (firstOwnScore < firstOpponentScore) {
+        comebackWinsCount.set(userId, (comebackWinsCount.get(userId) ?? 0) + 1);
+        clutchComebackCount.set(userId, (clutchComebackCount.get(userId) ?? 0) + 1);
+      }
+    }
+
+    const unbeatenRun = didWin ? (unbeatenRunByUserId.get(userId) ?? 0) + 1 : 0;
+    unbeatenRunByUserId.set(userId, unbeatenRun);
+    unbeatenRunMax.set(userId, Math.max(unbeatenRunMax.get(userId) ?? 0, unbeatenRun));
+
+    const upsetContext = upsetContextByMatchId.get(row.id);
+    if (didWin && upsetContext?.[userId] !== undefined) {
+      const ownPreMatchElo = Number(upsetContext[userId]);
+      const opponentOverThreshold = opponentIds.some((opponentId) => Number(upsetContext[opponentId] ?? ownPreMatchElo) - ownPreMatchElo >= 100);
+      if (opponentOverThreshold) {
+        upsetVictoryCount.set(userId, (upsetVictoryCount.get(userId) ?? 0) + 1);
+      }
+    }
+  }
+
+  for (const [userId, partners] of partnersByUserId) {
+    squadPartnerCount.set(userId, partners.size);
+  }
+  for (const [userId, counts] of rivalCountsByUserId) {
+    rivalMatchesMax.set(userId, Math.max(0, ...counts.values()));
+  }
+  for (const [userId, weekStarts] of weekStartsByUserId) {
+    weeklyMatchStreak.set(userId, countConsecutiveWeeks(weekStarts));
+  }
+  for (const [userId, states] of mirrorByUserId) {
+    const mirroredCount = [...states.values()].filter((state) => state.win && state.loss).length;
+    mirrorMatchCount.set(userId, mirroredCount);
+  }
+
+  return {
+    marathonMatchCount,
+    luckyNumbersCount,
+    mirrorMatchCount,
+    stylePointsCount,
+    squadPartnerCount,
+    rivalMatchesMax,
+    unbeatenRunMax,
+    weeklyMatchStreak,
+    comebackWinsCount,
+    deuceWinsCount,
+    decidingSetWinsCount,
+    clutchComebackCount,
+    upsetVictoryCount,
+  };
 }
 
 async function loadUserMatchStats(
@@ -388,11 +641,15 @@ async function loadCompletedSeasonOutcomeCounts(
 ): Promise<{
   seasonWinnerCount: Map<string, number>;
   seasonPodiumCount: Map<string, number>;
+  spring2026ChampionCount: Map<string, number>;
+  spring2026Top3Count: Map<string, number>;
 }> {
   if (userIds.length === 0) {
     return {
       seasonWinnerCount: new Map(),
       seasonPodiumCount: new Map(),
+      spring2026ChampionCount: new Map(),
+      spring2026Top3Count: new Map(),
     };
   }
 
@@ -448,6 +705,8 @@ async function loadCompletedSeasonOutcomeCounts(
   const targetUserIds = new Set(userIds);
   const winnerCount = new Map<string, number>();
   const podiumCount = new Map<string, number>();
+  const spring2026ChampionCount = new Map<string, number>();
+  const spring2026Top3Count = new Map<string, number>();
   const rowsBySeasonId = new Map<string, typeof rows.results>();
 
   for (const row of rows.results) {
@@ -513,10 +772,12 @@ async function loadCompletedSeasonOutcomeCounts(
     const winner = qualified[0];
     if (winner && targetUserIds.has(winner.userId)) {
       winnerCount.set(winner.userId, (winnerCount.get(winner.userId) ?? 0) + 1);
+      spring2026ChampionCount.set(winner.userId, winnerCount.get(winner.userId) ?? 0);
     }
     qualified.slice(0, 3).forEach((row) => {
       if (targetUserIds.has(row.userId)) {
         podiumCount.set(row.userId, (podiumCount.get(row.userId) ?? 0) + 1);
+        spring2026Top3Count.set(row.userId, podiumCount.get(row.userId) ?? 0);
       }
     });
   }
@@ -524,6 +785,8 @@ async function loadCompletedSeasonOutcomeCounts(
   return {
     seasonWinnerCount: winnerCount,
     seasonPodiumCount: podiumCount,
+    spring2026ChampionCount,
+    spring2026Top3Count,
   };
 }
 
@@ -685,6 +948,9 @@ async function evaluateLegacyMatchMilestones(env: Env, userIds: string[], nowIso
       ["matches_25", 25],
       ["matches_50", 50],
       ["matches_100", 100],
+      ["matches_250", 250],
+      ["matches_500", 500],
+      ["matches_1000", 1000],
     ] as const) {
       mutations.push({
         userId: row.id,
@@ -751,11 +1017,25 @@ async function evaluateLegacyMatchMilestones(env: Env, userIds: string[], nowIso
     });
     mutations.push({
       userId: row.id,
-      achievementKey: "win_streak_5",
-      progressValue: Math.min(Math.max(streak, 0), 5),
-      progressTarget: 5,
-      unlock: streak >= 5,
-      context: streak >= 5 ? { streak } : undefined,
+      achievementKey: "win_streak_7",
+      progressValue: Math.min(Math.max(streak, 0), UNSTOPPABLE_STREAK_TARGET),
+      progressTarget: UNSTOPPABLE_STREAK_TARGET,
+      unlock: streak >= UNSTOPPABLE_STREAK_TARGET,
+      context: streak >= UNSTOPPABLE_STREAK_TARGET ? { streak } : undefined,
+    });
+    mutations.push({
+      userId: row.id,
+      achievementKey: "positive_record_60",
+      progressValue: matchesPlayed >= 50 ? Math.min(Math.round((wins / Math.max(matchesPlayed, 1)) * 100), 60) : 0,
+      progressTarget: 60,
+      unlock: matchesPlayed >= 50 && wins / Math.max(matchesPlayed, 1) > 0.6,
+    });
+    mutations.push({
+      userId: row.id,
+      achievementKey: "dominant_era_70",
+      progressValue: matchesPlayed >= 30 ? Math.min(Math.round((wins / Math.max(matchesPlayed, 1)) * 100), 70) : 0,
+      progressTarget: 70,
+      unlock: matchesPlayed >= 30 && wins / Math.max(matchesPlayed, 1) > 0.7,
     });
   }
 
@@ -813,6 +1093,9 @@ async function evaluateIncrementalMatchMilestones(
       ["matches_25", 25],
       ["matches_50", 50],
       ["matches_100", 100],
+      ["matches_250", 250],
+      ["matches_500", 500],
+      ["matches_1000", 1000],
     ] as const) {
       mutations.push({
         userId: row.id,
@@ -917,11 +1200,25 @@ async function evaluateIncrementalMatchMilestones(
     });
     mutations.push({
       userId: row.id,
-      achievementKey: "win_streak_5",
-      progressValue: Math.min(Math.max(streak, 0), 5),
-      progressTarget: 5,
-      unlock: streak >= 5,
-      context: streak >= 5 ? { streak } : undefined,
+      achievementKey: "win_streak_7",
+      progressValue: Math.min(Math.max(streak, 0), UNSTOPPABLE_STREAK_TARGET),
+      progressTarget: UNSTOPPABLE_STREAK_TARGET,
+      unlock: streak >= UNSTOPPABLE_STREAK_TARGET,
+      context: streak >= UNSTOPPABLE_STREAK_TARGET ? { streak } : undefined,
+    });
+    mutations.push({
+      userId: row.id,
+      achievementKey: "positive_record_60",
+      progressValue: matchesPlayed >= 50 ? Math.min(Math.round((wins / Math.max(matchesPlayed, 1)) * 100), 60) : 0,
+      progressTarget: 60,
+      unlock: matchesPlayed >= 50 && wins / Math.max(matchesPlayed, 1) > 0.6,
+    });
+    mutations.push({
+      userId: row.id,
+      achievementKey: "dominant_era_70",
+      progressValue: matchesPlayed >= 30 ? Math.min(Math.round((wins / Math.max(matchesPlayed, 1)) * 100), 70) : 0,
+      progressTarget: 70,
+      unlock: matchesPlayed >= 30 && wins / Math.max(matchesPlayed, 1) > 0.7,
     });
   }
 
@@ -1009,6 +1306,8 @@ async function evaluateCompetitiveFinishMilestones(env: Env, userIds: string[], 
       ["season_winner", 1, seasonCounts.seasonWinnerCount.get(userId) ?? 0],
       ["season_podiums_3", 3, seasonCounts.seasonPodiumCount.get(userId) ?? 0],
       ["season_wins_3", 3, seasonCounts.seasonWinnerCount.get(userId) ?? 0],
+      ["season_top3", 1, seasonCounts.seasonPodiumCount.get(userId) ?? 0],
+      ["season_champion", 1, seasonCounts.seasonWinnerCount.get(userId) ?? 0],
       ["tournament_finalist", 1, tournamentCounts.tournamentFinalCount.get(userId) ?? 0],
       ["tournament_winner", 1, tournamentCounts.tournamentWinnerCount.get(userId) ?? 0],
       ["tournament_finals_3", 3, tournamentCounts.tournamentFinalCount.get(userId) ?? 0],
@@ -1022,6 +1321,158 @@ async function evaluateCompetitiveFinishMilestones(env: Env, userIds: string[], 
         unlock: value >= target,
       });
     }
+  }
+
+  await flushAchievementProgressMutations(env, mutations, nowIso);
+}
+
+async function evaluateAdvancedMatchMilestones(
+  env: Env,
+  trigger: Extract<AchievementTrigger, { type: "match_created" }>,
+): Promise<void> {
+  const uniqueUserIds = [...new Set(trigger.userIds)];
+  const historyRows = await loadUserMatchHistory(env, uniqueUserIds);
+  const upsetContextByMatchId =
+    trigger.preMatchGlobalEloByUserId && trigger.matchId
+      ? new Map([[trigger.matchId, trigger.preMatchGlobalEloByUserId]])
+      : new Map<string, Record<string, number>>();
+  const stats = computeMatchHistoryStats(historyRows, upsetContextByMatchId);
+  const mutations: AchievementProgressMutation[] = [];
+
+  for (const userId of uniqueUserIds) {
+    for (const [achievementKey, target, value] of [
+      ["marathon_match", 1, stats.marathonMatchCount.get(userId) ?? 0],
+      ["lucky_numbers", 7, stats.luckyNumbersCount.get(userId) ?? 0],
+      ["mirror_match", 1, stats.mirrorMatchCount.get(userId) ?? 0],
+      ["style_points", 3, stats.stylePointsCount.get(userId) ?? 0],
+      ["squad_goals", 5, stats.squadPartnerCount.get(userId) ?? 0],
+      ["rivalry_begins", 5, stats.rivalMatchesMax.get(userId) ?? 0],
+      ["arch_rival", 15, stats.rivalMatchesMax.get(userId) ?? 0],
+      ["iron_wall_10", 10, stats.unbeatenRunMax.get(userId) ?? 0],
+      ["weekly_warrior_4", 4, stats.weeklyMatchStreak.get(userId) ?? 0],
+      ["clutch_player", 1, stats.clutchComebackCount.get(userId) ?? 0],
+      ["comeback_king", 3, stats.comebackWinsCount.get(userId) ?? 0],
+      ["deuce_master", 5, stats.deuceWinsCount.get(userId) ?? 0],
+      ["ice_cold", 1, stats.decidingSetWinsCount.get(userId) ?? 0],
+      ["upset_victory", 1, stats.upsetVictoryCount.get(userId) ?? 0],
+    ] as const) {
+      mutations.push({
+        userId,
+        achievementKey,
+        progressValue: Math.min(value, target),
+        progressTarget: target,
+        unlock: value >= target,
+      });
+    }
+  }
+
+  await flushAchievementProgressMutations(env, mutations, trigger.nowIso);
+}
+
+async function evaluateCollectionMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) {
+    return;
+  }
+
+  const placeholders = uniqueUserIds.map((_, index) => `?${index + 1}`).join(",");
+  const unlockedRows = await env.DB.prepare(
+    `
+      SELECT user_id, achievement_key
+      FROM user_achievements
+      WHERE user_id IN (${placeholders})
+        AND unlocked_at IS NOT NULL
+    `,
+  )
+    .bind(...uniqueUserIds)
+    .all<{ user_id: string; achievement_key: string }>();
+
+  const unlockedByUserId = new Map<string, Set<string>>();
+  unlockedRows.results.forEach((row) => {
+    const unlocked = unlockedByUserId.get(row.user_id) ?? new Set<string>();
+    unlocked.add(row.achievement_key);
+    unlockedByUserId.set(row.user_id, unlocked);
+  });
+
+  const allRounderKeys = ["first_singles", "first_doubles", "season_played", "tournament_played"];
+  const mutations: AchievementProgressMutation[] = [];
+
+  for (const userId of uniqueUserIds) {
+    const unlocked = unlockedByUserId.get(userId) ?? new Set<string>();
+    const allRounderProgress = allRounderKeys.filter((key) => unlocked.has(key)).length;
+    const unlockedCount = unlocked.size;
+
+    mutations.push({
+      userId,
+      achievementKey: "all_rounder",
+      progressValue: allRounderProgress,
+      progressTarget: 4,
+      unlock: allRounderProgress >= 4,
+    });
+
+    for (const [achievementKey, target] of [
+      ["completionist_25", 25],
+      ["completionist_50", 50],
+      ["completionist_75", 75],
+    ] as const) {
+      mutations.push({
+        userId,
+        achievementKey,
+        progressValue: Math.min(unlockedCount, target),
+        progressTarget: target,
+        unlock: unlockedCount >= target,
+      });
+    }
+  }
+
+  await flushAchievementProgressMutations(env, mutations, nowIso);
+}
+
+async function evaluateRankStreakMilestones(env: Env, userIds: string[], nowIso: string): Promise<void> {
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) {
+    return;
+  }
+
+  const [rankRows, statRows, progressRows] = await Promise.all([
+    loadUserRankSnapshots(env, uniqueUserIds),
+    loadUserMatchStats(env, uniqueUserIds),
+    loadAchievementProgressRows(env, uniqueUserIds, ["rank_dynasty_10", "top_five_defender_5"]),
+  ]);
+  const matchesPlayedByUserId = new Map(statRows.map((row) => [row.id, Number(row.matches_played ?? 0)]));
+  const progressByUserId = buildAchievementProgressIndex(progressRows);
+  const mutations: AchievementProgressMutation[] = [];
+
+  for (const row of rankRows) {
+    const matchesPlayed = matchesPlayedByUserId.get(row.id) ?? 0;
+    const rank = Number(row.rank);
+    const nextDynastyProgress =
+      matchesPlayed >= RANK_ONE_MIN_MATCHES && rank === 1
+        ? (progressByUserId.get(row.id)?.get("rank_dynasty_10") ?? 0) + 1
+        : 0;
+    const nextDefenderProgress =
+      matchesPlayed >= 10 && rank <= DEFENDER_RANK_THRESHOLD
+        ? (progressByUserId.get(row.id)?.get("top_five_defender_5") ?? 0) + 1
+        : 0;
+
+    mutations.push({
+      userId: row.id,
+      achievementKey: "rank_dynasty_10",
+      progressValue: Math.min(nextDynastyProgress, 10),
+      progressTarget: 10,
+      unlock: nextDynastyProgress >= 10,
+      context: { rank, matchesPlayed },
+      replaceProgress: true,
+    });
+    mutations.push({
+      userId: row.id,
+      achievementKey: "top_five_defender_5",
+      progressValue: Math.min(nextDefenderProgress, 5),
+      progressTarget: 5,
+      unlock: nextDefenderProgress >= 5,
+      context: { rank, matchesPlayed },
+      replaceProgress: true,
+    });
   }
 
   await flushAchievementProgressMutations(env, mutations, nowIso);
@@ -1141,7 +1592,7 @@ async function evaluateRankMilestones(env: Env, userIds: string[], nowIso: strin
         context: { rank },
       });
     }
-    if (matchesPlayed >= 30 && rank === 1) {
+    if (matchesPlayed >= RANK_ONE_MIN_MATCHES && rank === 1) {
       mutations.push({
         userId: row.id,
         achievementKey: "rank_1",
@@ -1196,10 +1647,31 @@ async function loadAchievementRebuildData(
   perfect21Count: Map<string, number>;
   blowout11Count: Map<string, number>;
   blowout21Count: Map<string, number>;
+  marathonMatchCount: Map<string, number>;
+  luckyNumbersCount: Map<string, number>;
+  mirrorMatchCount: Map<string, number>;
+  stylePointsCount: Map<string, number>;
+  squadPartnerCount: Map<string, number>;
+  rivalMatchesMax: Map<string, number>;
+  unbeatenRunMax: Map<string, number>;
+  weeklyMatchStreak: Map<string, number>;
+  comebackWinsCount: Map<string, number>;
+  deuceWinsCount: Map<string, number>;
+  decidingSetWinsCount: Map<string, number>;
+  clutchComebackCount: Map<string, number>;
+  upsetVictoryCount: Map<string, number>;
   seasonWinnerCount: Map<string, number>;
   seasonPodiumCount: Map<string, number>;
+  spring2026ChampionCount: Map<string, number>;
+  spring2026Top3Count: Map<string, number>;
   tournamentWinnerCount: Map<string, number>;
   tournamentFinalCount: Map<string, number>;
+  rankDynastyCount: Map<string, number>;
+  topTenDefenderCount: Map<string, number>;
+  completionist25Count: Map<string, number>;
+  completionist50Count: Map<string, number>;
+  completionist75Count: Map<string, number>;
+  allRounderCount: Map<string, number>;
 }> {
   const uniqueUserIds = [...new Set(userIds)];
   const [
@@ -1213,6 +1685,7 @@ async function loadAchievementRebuildData(
     perfect21Rows,
     blowout11Rows,
     blowout21Rows,
+    historyRows,
     seasonOutcomeCounts,
     tournamentOutcomeCounts,
   ] =
@@ -1255,26 +1728,64 @@ async function loadAchievementRebuildData(
       loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 21, loserScoreCap: 0 }),
       loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 11, loserScoreCap: 4 }),
       loadWinnerScorelineCounts(env, uniqueUserIds, { pointsToWin: 21, loserScoreCap: 9 }),
+      loadUserMatchHistory(env, uniqueUserIds),
       loadCompletedSeasonOutcomeCounts(env, uniqueUserIds, nowIso),
       loadCompletedTournamentOutcomeCounts(env, uniqueUserIds),
     ]);
+  const historyStats = computeMatchHistoryStats(historyRows);
+  const singlesCountMap = new Map(matchTypeRows.map((row) => [row.user_id, Number(row.singles_count)]));
+  const doublesCountMap = new Map(matchTypeRows.map((row) => [row.user_id, Number(row.doubles_count)]));
+  const seasonsPlayedMap = new Map(seasonsPlayedRows.map((row) => [row.user_id, Number(row.played_count)]));
+  const tournamentsPlayedMap = new Map(tournamentsPlayedRows.map((row) => [row.user_id, Number(row.played_count)]));
+  const allRounderCount = new Map(
+    uniqueUserIds.map((userId) => [
+      userId,
+      [
+        (singlesCountMap.get(userId) ?? 0) > 0,
+        (doublesCountMap.get(userId) ?? 0) > 0,
+        (seasonsPlayedMap.get(userId) ?? 0) > 0,
+        (tournamentsPlayedMap.get(userId) ?? 0) > 0,
+      ].filter(Boolean).length,
+    ]),
+  );
 
   return {
     users,
     seasonsCreated: new Map(seasonsCreatedRows.map((row) => [row.user_id, Number(row.created_count)])),
     tournamentsCreated: new Map(tournamentsCreatedRows.map((row) => [row.user_id, Number(row.created_count)])),
-    seasonsPlayed: new Map(seasonsPlayedRows.map((row) => [row.user_id, Number(row.played_count)])),
-    tournamentsPlayed: new Map(tournamentsPlayedRows.map((row) => [row.user_id, Number(row.played_count)])),
-    singlesCount: new Map(matchTypeRows.map((row) => [row.user_id, Number(row.singles_count)])),
-    doublesCount: new Map(matchTypeRows.map((row) => [row.user_id, Number(row.doubles_count)])),
+    seasonsPlayed: seasonsPlayedMap,
+    tournamentsPlayed: tournamentsPlayedMap,
+    singlesCount: singlesCountMap,
+    doublesCount: doublesCountMap,
     perfect11Count: new Map(perfect11Rows.map((row) => [row.user_id, Number(row.count)])),
     perfect21Count: new Map(perfect21Rows.map((row) => [row.user_id, Number(row.count)])),
     blowout11Count: new Map(blowout11Rows.map((row) => [row.user_id, Number(row.count)])),
     blowout21Count: new Map(blowout21Rows.map((row) => [row.user_id, Number(row.count)])),
+    marathonMatchCount: historyStats.marathonMatchCount,
+    luckyNumbersCount: historyStats.luckyNumbersCount,
+    mirrorMatchCount: historyStats.mirrorMatchCount,
+    stylePointsCount: historyStats.stylePointsCount,
+    squadPartnerCount: historyStats.squadPartnerCount,
+    rivalMatchesMax: historyStats.rivalMatchesMax,
+    unbeatenRunMax: historyStats.unbeatenRunMax,
+    weeklyMatchStreak: historyStats.weeklyMatchStreak,
+    comebackWinsCount: historyStats.comebackWinsCount,
+    deuceWinsCount: historyStats.deuceWinsCount,
+    decidingSetWinsCount: historyStats.decidingSetWinsCount,
+    clutchComebackCount: historyStats.clutchComebackCount,
+    upsetVictoryCount: new Map(),
     seasonWinnerCount: seasonOutcomeCounts.seasonWinnerCount,
     seasonPodiumCount: seasonOutcomeCounts.seasonPodiumCount,
+    spring2026ChampionCount: seasonOutcomeCounts.spring2026ChampionCount,
+    spring2026Top3Count: seasonOutcomeCounts.spring2026Top3Count,
     tournamentWinnerCount: tournamentOutcomeCounts.tournamentWinnerCount,
     tournamentFinalCount: tournamentOutcomeCounts.tournamentFinalCount,
+    rankDynastyCount: new Map(),
+    topTenDefenderCount: new Map(),
+    completionist25Count: new Map(),
+    completionist50Count: new Map(),
+    completionist75Count: new Map(),
+    allRounderCount,
   };
 }
 
@@ -1303,6 +1814,7 @@ export async function rebuildAchievementsForUsers(
   );
 
   await flushAchievementProgressMutations(env, mutations, nowIso);
+  await evaluateCollectionMilestones(env, uniqueUserIds, nowIso);
 }
 
 export async function evaluateAchievementsForTrigger(env: Env, trigger: AchievementTrigger): Promise<void> {
@@ -1312,12 +1824,15 @@ export async function evaluateAchievementsForTrigger(env: Env, trigger: Achievem
     case "bootstrap":
       await unlockSimpleAchievement(env, trigger.userId, "account_created", trigger.nowIso);
       await evaluateTimeMilestones(env, trigger.userId, trigger.nowIso);
+      await evaluateCollectionMilestones(env, [trigger.userId], trigger.nowIso);
       break;
     case "season_created":
       await evaluateCreationMilestones(env, "seasons", [trigger.actorUserId], trigger.nowIso);
+      await evaluateCollectionMilestones(env, [trigger.actorUserId], trigger.nowIso);
       break;
     case "tournament_created":
       await evaluateCreationMilestones(env, "tournaments", [trigger.actorUserId], trigger.nowIso);
+      await evaluateCollectionMilestones(env, [trigger.actorUserId], trigger.nowIso);
       break;
     case "match_created":
       if (trigger.matchType) {
@@ -1326,11 +1841,15 @@ export async function evaluateAchievementsForTrigger(env: Env, trigger: Achievem
         await evaluateLegacyMatchMilestones(env, trigger.userIds, trigger.nowIso);
       }
       await evaluateScorelineMilestones(env, trigger.userIds, trigger.nowIso);
+      await evaluateAdvancedMatchMilestones(env, trigger);
       await evaluateCompetitiveFinishMilestones(env, trigger.userIds, trigger.nowIso);
+      await evaluateCollectionMilestones(env, trigger.userIds, trigger.nowIso);
       break;
     case "rankings_recomputed":
       await evaluateRankMilestones(env, trigger.userIds, trigger.nowIso);
+      await evaluateRankStreakMilestones(env, trigger.userIds, trigger.nowIso);
       await evaluateCompetitiveFinishMilestones(env, trigger.userIds, trigger.nowIso);
+      await evaluateCollectionMilestones(env, trigger.userIds, trigger.nowIso);
       break;
   }
 }

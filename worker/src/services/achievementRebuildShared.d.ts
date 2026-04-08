@@ -20,10 +20,31 @@ export type AchievementBuildData = {
   perfect21Count: Map<string, number>;
   blowout11Count: Map<string, number>;
   blowout21Count: Map<string, number>;
+  marathonMatchCount?: Map<string, number>;
+  luckyNumbersCount?: Map<string, number>;
+  mirrorMatchCount?: Map<string, number>;
+  stylePointsCount?: Map<string, number>;
+  squadPartnerCount?: Map<string, number>;
+  rivalMatchesMax?: Map<string, number>;
+  unbeatenRunMax?: Map<string, number>;
+  weeklyMatchStreak?: Map<string, number>;
+  comebackWinsCount?: Map<string, number>;
+  deuceWinsCount?: Map<string, number>;
+  decidingSetWinsCount?: Map<string, number>;
+  clutchComebackCount?: Map<string, number>;
+  upsetVictoryCount?: Map<string, number>;
   seasonWinnerCount: Map<string, number>;
   seasonPodiumCount: Map<string, number>;
+  spring2026ChampionCount?: Map<string, number>;
+  spring2026Top3Count?: Map<string, number>;
   tournamentWinnerCount: Map<string, number>;
   tournamentFinalCount: Map<string, number>;
+  rankDynastyCount?: Map<string, number>;
+  topTenDefenderCount?: Map<string, number>;
+  completionist25Count?: Map<string, number>;
+  completionist50Count?: Map<string, number>;
+  completionist75Count?: Map<string, number>;
+  allRounderCount?: Map<string, number>;
 };
 
 export type AchievementBuildResult = {

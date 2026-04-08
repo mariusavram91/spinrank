@@ -342,6 +342,9 @@ export async function handleCreateMatch(
           matchType,
           seasonId,
           tournamentId,
+          preMatchGlobalEloByUserId: Object.fromEntries(
+            allPlayerIds.map((playerId) => [playerId, Number(usersById[playerId]?.global_elo ?? 1200)]),
+          ),
         },
         nowIso,
       ),

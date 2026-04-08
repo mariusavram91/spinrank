@@ -246,7 +246,7 @@ describe("worker integration: getDashboard", () => {
         winnerTeam: "A",
       });
       expect([response.data?.matches[0].teamAPlayerIds, response.data?.matches[0].teamBPlayerIds].flat()).toContain("user_a");
-      expect(response.data?.achievements.items).toHaveLength(49);
+      expect(response.data?.achievements.items).toHaveLength(76);
       expect(response.data?.userProgress).toMatchObject({
         wins: 1,
         losses: 0,
