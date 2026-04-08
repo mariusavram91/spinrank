@@ -6,6 +6,7 @@ const STARTING_ELO = 1200;
 const SINGLES_WEIGHT = 1;
 const DOUBLES_WEIGHT = 0.7;
 export const MINIMUM_MATCHES_TO_QUALIFY = 10;
+export const MINIMUM_LEADERBOARD_MATCHES = 5;
 
 const GLICKO_DEFAULT_RATING = 1200;
 const GLICKO_DEFAULT_RD = 350;
@@ -153,9 +154,34 @@ function getPlayerMatchEquivalentPlayed(state: RatingState | UserRow | undefined
 }
 
 export function compareLeaderboardRows(
-  left: { elo: number; wins: number; losses: number; displayName: string },
-  right: { elo: number; wins: number; losses: number; displayName: string },
+  left: { elo: number; wins: number; losses: number; displayName: string; matchEquivalentPlayed?: number },
+  right: { elo: number; wins: number; losses: number; displayName: string; matchEquivalentPlayed?: number },
 ): number {
+  const leftMatches = Number(left.matchEquivalentPlayed ?? left.wins + left.losses);
+  const rightMatches = Number(right.matchEquivalentPlayed ?? right.wins + right.losses);
+  const leftQualified = leftMatches >= MINIMUM_LEADERBOARD_MATCHES;
+  const rightQualified = rightMatches >= MINIMUM_LEADERBOARD_MATCHES;
+
+  if (leftQualified !== rightQualified) {
+    return Number(rightQualified) - Number(leftQualified);
+  }
+
+  if (!leftQualified) {
+    if (rightMatches !== leftMatches) {
+      return rightMatches - leftMatches;
+    }
+    if (right.elo !== left.elo) {
+      return right.elo - left.elo;
+    }
+    if (right.wins !== left.wins) {
+      return right.wins - left.wins;
+    }
+    if (left.losses !== right.losses) {
+      return left.losses - right.losses;
+    }
+    return left.displayName.localeCompare(right.displayName);
+  }
+
   if (right.elo !== left.elo) {
     return right.elo - left.elo;
   }

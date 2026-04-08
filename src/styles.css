@@ -931,6 +931,23 @@ button:disabled,
   background: rgb(239 246 255 / 0.9);
 }
 
+.leaderboard-row--inactive {
+  background: linear-gradient(135deg, rgba(205, 199, 191, 0.28), rgba(255, 252, 248, 0.96));
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+.leaderboard-row--inactive .leaderboard-row__avatar {
+  filter: grayscale(1);
+  opacity: 0.72;
+}
+
+.leaderboard-row--inactive .leaderboard-identity,
+.leaderboard-row--inactive .leaderboard-row__record,
+.leaderboard-row--inactive .leaderboard-row__streak {
+  color: var(--text-muted);
+}
+
 .leaderboard-summary {
   display: flex;
   flex-direction: column;
@@ -1050,6 +1067,22 @@ button:disabled,
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.leaderboard-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.leaderboard-status-chip--inactive {
+  background: rgba(91, 83, 73, 0.1);
+  color: #6b6258;
 }
 
 .leaderboard-you-chip {

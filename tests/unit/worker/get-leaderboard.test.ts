@@ -97,4 +97,83 @@ describe("worker getLeaderboard action", () => {
       updatedAt: "2026-04-06T12:00:00.000Z",
     });
   });
+
+  it("sorts unqualified players below qualified players in default mode", async () => {
+    const sessionUser = {
+      id: "user_42",
+      provider: "google",
+      provider_user_id: "google:user_42",
+      email: "user_42@example.com",
+      display_name: "Ada",
+      avatar_url: null,
+      global_elo: 1200,
+      wins: 3,
+      losses: 1,
+      streak: 2,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        prepare: vi.fn(() =>
+          createPreparedStatement("", async () => ({
+            results: [
+              {
+                id: "user_high_elo_low_matches",
+                display_name: "High Elo",
+                avatar_url: null,
+                global_elo: 1500,
+                wins: 4,
+                losses: 0,
+                streak: 4,
+                updated_at: "2026-04-06T12:00:00.000Z",
+              },
+              {
+                id: "user_qualified",
+                display_name: "Qualified",
+                avatar_url: null,
+                global_elo: 1300,
+                wins: 5,
+                losses: 0,
+                streak: 1,
+                updated_at: "2026-04-06T12:00:00.000Z",
+              },
+              {
+                id: "user_more_matches",
+                display_name: "More Matches",
+                avatar_url: null,
+                global_elo: 1210,
+                wins: 3,
+                losses: 1,
+                streak: 0,
+                updated_at: "2026-04-06T12:00:00.000Z",
+              },
+            ],
+          })),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetLeaderboard(
+      {
+        action: "getLeaderboard",
+        requestId: "req_get_leaderboard_default",
+        payload: { mode: "default" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.leaderboard.map((entry) => entry.userId)).toEqual([
+      "user_qualified",
+      "user_high_elo_low_matches",
+      "user_more_matches",
+    ]);
+    expect(response.data?.leaderboard.map((entry) => entry.rank)).toEqual([1, 2, 3]);
+  });
 });

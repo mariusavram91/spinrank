@@ -1,5 +1,5 @@
 import { isoNow } from "../db";
-import { compareLeaderboardRows } from "../services/elo";
+import { compareLeaderboardRows, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
 import { successResponse } from "../responses";
 import type { ApiRequest, Env, LeaderboardEntry, UserRow } from "../types";
 
@@ -25,7 +25,18 @@ export async function handleGetLeaderboard(
               losses,
               streak,
               updated_at,
-              ROW_NUMBER() OVER (ORDER BY global_elo DESC, wins DESC, losses ASC, display_name ASC) AS rank
+              ROW_NUMBER() OVER (
+                ORDER BY
+                  CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN 0 ELSE 1 END ASC,
+                  CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN global_elo END DESC,
+                  CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN wins END DESC,
+                  CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN losses END ASC,
+                  CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN wins + losses END DESC,
+                  CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN global_elo END DESC,
+                  CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN wins END DESC,
+                  CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN losses END ASC,
+                  display_name ASC
+              ) AS rank
             FROM users
           )
           SELECT id, display_name, avatar_url, global_elo, wins, losses, streak, updated_at, rank
@@ -36,7 +47,16 @@ export async function handleGetLeaderboard(
       : `
           SELECT id, display_name, avatar_url, global_elo, wins, losses, streak, updated_at
           FROM users
-          ORDER BY global_elo DESC, wins DESC, losses ASC, display_name ASC
+          ORDER BY
+            CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN 0 ELSE 1 END ASC,
+            CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN global_elo END DESC,
+            CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN wins END DESC,
+            CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN losses END ASC,
+            CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN wins + losses END DESC,
+            CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN global_elo END DESC,
+            CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN wins END DESC,
+            CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN losses END ASC,
+            display_name ASC
           LIMIT 100
         `,
   )
@@ -61,6 +81,7 @@ export async function handleGetLeaderboard(
     wins: Number(row.wins),
     losses: Number(row.losses),
     streak: Number(row.streak),
+    matchEquivalentPlayed: Number(row.wins) + Number(row.losses),
     rank: Number(row.rank || index + 1),
   }));
 

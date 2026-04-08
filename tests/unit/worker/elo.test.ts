@@ -36,6 +36,18 @@ describe("elo helpers", () => {
     expect(compareLeaderboardRows(alphabetical, alphabeticalOther)).toBeGreaterThan(0);
   });
 
+  it("demotes players with fewer than five matches below qualified players", () => {
+    const qualified = { elo: 1200, wins: 5, losses: 0, displayName: "Qualified" };
+    const unqualified = { elo: 1500, wins: 4, losses: 0, displayName: "Unqualified" };
+    expect(compareLeaderboardRows(qualified, unqualified)).toBeLessThan(0);
+  });
+
+  it("orders unqualified players by matches played before elo", () => {
+    const moreMatches = { elo: 1210, wins: 3, losses: 1, displayName: "More Matches" };
+    const fewerMatches = { elo: 1300, wins: 2, losses: 0, displayName: "Fewer Matches" };
+    expect(compareLeaderboardRows(moreMatches, fewerMatches)).toBeLessThan(0);
+  });
+
   it("computes elo deltas that balance across players", () => {
     const ratingMap: Record<string, UserRow> = {
       player_a: {

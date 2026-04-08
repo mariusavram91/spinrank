@@ -1,6 +1,6 @@
 import { isoNow } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { calculateSeasonScore, MINIMUM_MATCHES_TO_QUALIFY } from "../services/elo";
+import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
 import { getBracketRounds } from "../services/brackets";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
 import type {
@@ -203,7 +203,7 @@ export async function handleGetSegmentLeaderboard(
                 totalWeeks: seasonTotalWeeks,
               })
             : undefined,
-        isQualified: segmentType === "season" ? matchEquivalentPlayed >= MINIMUM_MATCHES_TO_QUALIFY : undefined,
+        isQualified: segmentType === "season" ? matchEquivalentPlayed >= MINIMUM_LEADERBOARD_MATCHES : undefined,
         ...(segmentType === "tournament" && tournamentPlacementMetrics
           ? (() => {
               const placement = getTournamentPlacementLabel(tournamentRounds, tournamentPlacementMetrics, row.user_id);
@@ -221,6 +221,30 @@ export async function handleGetSegmentLeaderboard(
     })
     .sort((left, right) => {
       if (segmentType === "season") {
+        const leftMatches = Number(left.matchEquivalentPlayed ?? left.wins + left.losses);
+        const rightMatches = Number(right.matchEquivalentPlayed ?? right.wins + right.losses);
+        const leftQualified = leftMatches >= MINIMUM_LEADERBOARD_MATCHES;
+        const rightQualified = rightMatches >= MINIMUM_LEADERBOARD_MATCHES;
+
+        if (leftQualified !== rightQualified) {
+          return Number(rightQualified) - Number(leftQualified);
+        }
+        if (!leftQualified) {
+          if (rightMatches !== leftMatches) {
+            return rightMatches - leftMatches;
+          }
+          if (right.elo !== left.elo) {
+            return right.elo - left.elo;
+          }
+          if (right.wins !== left.wins) {
+            return right.wins - left.wins;
+          }
+          if (left.losses !== right.losses) {
+            return left.losses - right.losses;
+          }
+          return left.displayName.localeCompare(right.displayName);
+        }
+
         const leftSeasonScore = left.seasonScore ?? left.elo;
         const rightSeasonScore = right.seasonScore ?? right.elo;
         if (rightSeasonScore !== leftSeasonScore) {

@@ -18,6 +18,9 @@ const renderStreak = (streak: number, t: TranslationFn): string => {
 const getBestVisibleStreak = (players: DashboardState["leaderboard"]): number =>
   players.reduce((max, player) => Math.max(max, player.streak), 0);
 
+const getLeaderboardMatchesPlayed = (entry: DashboardState["leaderboard"][number]): number =>
+  Number(entry.matchEquivalentPlayed ?? entry.wins + entry.losses);
+
 const getVisibleLeaderboardEntries = (
   leaderboard: DashboardState["leaderboard"],
   segmentMode: SegmentMode,
@@ -352,11 +355,13 @@ export const createLeaderboardRenderer = (args: {
     const visibleEntries = getVisibleLeaderboardEntries(leaderboard, args.dashboardState.segmentMode, currentUserId);
     const bestVisibleStreak = getBestVisibleStreak(visibleEntries);
     const rows = visibleEntries.map((entry) => {
+      const isInactive = getLeaderboardMatchesPlayed(entry) <= 0;
       const row = document.createElement("article");
       row.className = [
         "leaderboard-row",
         entry.streak > 0 && entry.streak === bestVisibleStreak ? "leaderboard-row--hot-streak" : "",
         entry.userId === currentUserId ? "leaderboard-row--self" : "",
+        isInactive ? "leaderboard-row--inactive" : "",
       ]
         .filter(Boolean)
         .join(" ");
@@ -395,6 +400,13 @@ export const createLeaderboardRenderer = (args: {
         youChip.className = "leaderboard-you-chip";
         youChip.textContent = args.t("youLabel");
         identityMain.append(youChip);
+      }
+
+      if (isInactive) {
+        const inactiveChip = document.createElement("span");
+        inactiveChip.className = "leaderboard-status-chip leaderboard-status-chip--inactive";
+        inactiveChip.textContent = args.t("leaderboardInactive");
+        identityLine.append(inactiveChip);
       }
 
       if (args.dashboardState.segmentMode === "season") {
