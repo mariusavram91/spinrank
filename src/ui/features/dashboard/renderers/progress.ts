@@ -169,7 +169,7 @@ export const createProgressRenderer = (args: {
     const donutRadius = 36;
     const donutCircumference = 2 * Math.PI * donutRadius;
     const winsRatio = totalMatches === 0 ? 0 : progress.wins / totalMatches;
-    const successColor = winsRatio < 0.45 ? "#d63c2c" : "var(--brand-rank)";
+    const successColor = winsRatio < 0.45 ? "#8fdc5b" : "var(--brand-rank)";
 
     const donutSvg = document.createElementNS(svgNamespace, "svg");
     donutSvg.setAttribute("viewBox", `0 0 ${donutSize} ${donutSize}`);
