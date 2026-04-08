@@ -196,9 +196,9 @@ export const createAppDom = (args: {
   profileMatchesList.className = "profile-match-list";
   const profileLoadMoreButton = document.createElement("button");
   profileLoadMoreButton.type = "button";
-  profileLoadMoreButton.className = "secondary-button";
+  profileLoadMoreButton.className = "secondary-button matches-load-more-button";
   bindLocalizedText(profileLoadMoreButton, "loadMore");
-  profileMatchesSection.append(profileMatchesTitle, profileMatchesList);
+  profileMatchesSection.append(profileMatchesTitle, profileMatchesList, profileLoadMoreButton);
 
   const profileAchievementsSection = document.createElement("section");
   profileAchievementsSection.className = "profile-section";

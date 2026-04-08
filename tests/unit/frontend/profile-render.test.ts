@@ -1,5 +1,5 @@
 import { renderProfileScreen } from "../../../src/ui/features/profile/render";
-import type { AchievementSummaryItem } from "../../../src/api/contract";
+import type { AchievementSummaryItem, MatchRecord } from "../../../src/api/contract";
 import type { DashboardState } from "../../../src/ui/shared/types/app";
 
 const createAchievement = (overrides: Partial<AchievementSummaryItem> & { key: string }): AchievementSummaryItem => ({
@@ -13,6 +13,24 @@ const createAchievement = (overrides: Partial<AchievementSummaryItem> & { key: s
   descriptionKey: `${overrides.key}_desc`,
   points: 1,
   ...overrides,
+});
+
+const createMatch = (id: string): MatchRecord => ({
+  id,
+  matchType: "singles",
+  formatType: "best_of_3",
+  seasonId: null,
+  tournamentId: null,
+  teamAPlayerIds: ["user_1"],
+  teamBPlayerIds: ["user_2"],
+  winnerTeam: "A",
+  score: [],
+  pointsToWin: 11,
+  playedAt: "2026-04-01T00:00:00.000Z",
+  status: "active",
+  createdAt: "2026-04-01T00:00:00.000Z",
+  createdByUserId: "user_1",
+  bracketContext: null,
 });
 
 describe("profile render", () => {
@@ -230,5 +248,122 @@ describe("profile render", () => {
     ).toBe("true");
     expect(achievementsPreview.parentElement).toBe(achievementsSummary);
     expect(achievementsList.hidden).toBe(true);
+  });
+
+  it("shows the latest 8 profile matches and toggles load more from the cursor", () => {
+    const achievementsSummary = document.createElement("div");
+    const achievementsPreview = document.createElement("div");
+    const achievementsUnread = document.createElement("div");
+    const achievementsToggle = document.createElement("button");
+    const achievementsList = document.createElement("div");
+    const seasonsList = document.createElement("div");
+    const tournamentsList = document.createElement("div");
+    const matchesList = document.createElement("div");
+    const status = document.createElement("p");
+    const loadMoreButton = document.createElement("button");
+
+    const dashboardState = {
+      achievements: null,
+      profileAchievementsExpanded: false,
+      profileSelectedAchievementKey: "",
+      profileRecentlySeenAchievementKeys: [],
+      seasons: [],
+      tournaments: [],
+      profileMatches: Array.from({ length: 8 }, (_, index) => createMatch(`match_${index + 1}`)),
+      profileMatchesCursor: "next-page",
+      profileMatchesLoading: false,
+      profileLoading: false,
+      profileSegmentSummaries: {},
+      profileSegmentSummaryLoadingKeys: [],
+      players: [],
+      matchBracketContextByMatchId: {},
+    } as unknown as DashboardState;
+
+    renderProfileScreen({
+      dashboardState,
+      achievementsSummary,
+      achievementsPreview,
+      achievementsUnread,
+      achievementsToggle,
+      achievementsList,
+      currentUserId: "user_1",
+      seasonsList,
+      tournamentsList,
+      matchesList,
+      status,
+      loadMoreButton,
+      t: (key) => key,
+      renderMatchScore: (match) => match.id,
+      renderPlayerNames: (playerIds) => playerIds.join(", "),
+      renderMatchContext: () => "context",
+      formatDateTime: (value) => value,
+      onOpenSeason: () => undefined,
+      onOpenTournament: () => undefined,
+      onLoadMoreMatches: () => undefined,
+    });
+
+    expect(matchesList.querySelectorAll(".profile-match-card")).toHaveLength(8);
+    expect(matchesList.textContent).toContain("match_1");
+    expect(matchesList.textContent).toContain("match_8");
+    expect(matchesList.textContent).not.toContain("match_9");
+    expect(loadMoreButton.hidden).toBe(false);
+    expect(loadMoreButton.disabled).toBe(false);
+  });
+
+  it("shows appended profile matches after loading more", () => {
+    const achievementsSummary = document.createElement("div");
+    const achievementsPreview = document.createElement("div");
+    const achievementsUnread = document.createElement("div");
+    const achievementsToggle = document.createElement("button");
+    const achievementsList = document.createElement("div");
+    const seasonsList = document.createElement("div");
+    const tournamentsList = document.createElement("div");
+    const matchesList = document.createElement("div");
+    const status = document.createElement("p");
+    const loadMoreButton = document.createElement("button");
+
+    const dashboardState = {
+      achievements: null,
+      profileAchievementsExpanded: false,
+      profileSelectedAchievementKey: "",
+      profileRecentlySeenAchievementKeys: [],
+      seasons: [],
+      tournaments: [],
+      profileMatches: Array.from({ length: 14 }, (_, index) => createMatch(`match_${index + 1}`)),
+      profileMatchesCursor: "next-page",
+      profileMatchesLoading: false,
+      profileLoading: false,
+      profileSegmentSummaries: {},
+      profileSegmentSummaryLoadingKeys: [],
+      players: [],
+      matchBracketContextByMatchId: {},
+    } as unknown as DashboardState;
+
+    renderProfileScreen({
+      dashboardState,
+      achievementsSummary,
+      achievementsPreview,
+      achievementsUnread,
+      achievementsToggle,
+      achievementsList,
+      currentUserId: "user_1",
+      seasonsList,
+      tournamentsList,
+      matchesList,
+      status,
+      loadMoreButton,
+      t: (key) => key,
+      renderMatchScore: (match) => match.id,
+      renderPlayerNames: (playerIds) => playerIds.join(", "),
+      renderMatchContext: () => "context",
+      formatDateTime: (value) => value,
+      onOpenSeason: () => undefined,
+      onOpenTournament: () => undefined,
+      onLoadMoreMatches: () => undefined,
+    });
+
+    expect(matchesList.querySelectorAll(".profile-match-card")).toHaveLength(14);
+    expect(matchesList.textContent).toContain("match_14");
+    expect(loadMoreButton.hidden).toBe(false);
   });
 });

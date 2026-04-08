@@ -1418,7 +1418,7 @@ export const buildApp = (): HTMLElement => {
     try {
       const data = await runAuthedAction("getMatches", {
         filter: "mine",
-        limit: 15,
+        limit: 8,
         cursor: reset ? undefined : dashboardState.profileMatchesCursor ?? undefined,
       });
       const bracketContext = Object.fromEntries(
@@ -1513,6 +1513,13 @@ export const buildApp = (): HTMLElement => {
   profileAchievementsToggle.addEventListener("click", () => {
     dashboardState.profileAchievementsExpanded = !dashboardState.profileAchievementsExpanded;
     syncDashboardState();
+  });
+
+  profileLoadMoreButton.addEventListener("click", () => {
+    if (dashboardState.profileMatchesLoading || !dashboardState.profileMatchesCursor) {
+      return;
+    }
+    void loadProfileMatches(false);
   });
 
   profileAchievementsSummary.addEventListener("click", (event) => {

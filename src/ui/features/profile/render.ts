@@ -499,15 +499,14 @@ export const renderProfileScreen = (args: {
     onOpen: args.onOpenTournament,
   });
 
-  args.loadMoreButton.hidden = true;
-
   if (args.dashboardState.profileMatches.length === 0) {
+    args.loadMoreButton.hidden = true;
     const emptyMessage = args.t("matchFilterEmptyMine");
     args.matchesList.replaceChildren(createEmptyState(emptyMessage));
     return;
   }
 
-  const matchNodes = args.dashboardState.profileMatches.slice(0, 15).map((match) => {
+  const matchNodes = args.dashboardState.profileMatches.map((match) => {
     const card = document.createElement("article");
     const userWon =
       (match.winnerTeam === "A" && match.teamAPlayerIds.includes(args.currentUserId)) ||
@@ -549,4 +548,6 @@ export const renderProfileScreen = (args: {
   });
 
   args.matchesList.replaceChildren(...matchNodes);
+  args.loadMoreButton.hidden = !args.dashboardState.profileMatchesCursor;
+  args.loadMoreButton.disabled = args.dashboardState.profileMatchesLoading;
 };
