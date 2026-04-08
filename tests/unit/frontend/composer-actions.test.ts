@@ -130,6 +130,8 @@ describe("composer actions", () => {
     await actions.applyFairMatchSuggestion();
     expect(args.teamA1Select.value).toBe("user_a");
     expect(args.teamB1Select.value).toBe("user_b");
+    expect(args.teamA1Select.dataset.pendingValue).toBe("user_a");
+    expect(args.teamB1Select.dataset.pendingValue).toBe("user_b");
     expect(args.dashboardState.matchFormError).toBe("");
     expect(args.dashboardState.matchFormMessage).toBe("Suggested matchup ready.");
     expect(args.populateMatchFormOptions).toHaveBeenCalled();

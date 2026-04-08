@@ -314,6 +314,12 @@ export const buildApp = (): HTMLElement => {
 
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
   const matchParticipantCache = new Map<string, ParticipantSearchEntry[]>();
+  const rememberedMatchParticipants = new Map<string, ParticipantSearchEntry>();
+  const rememberMatchParticipants = (participants: ParticipantSearchEntry[]): void => {
+    participants.forEach((participant) => {
+      rememberedMatchParticipants.set(participant.userId, participant);
+    });
+  };
 
   let activeTournamentBracketMatchId: string | null = null;
   const getMatchPlayerEntries = (): Array<{
@@ -351,6 +357,17 @@ export const buildApp = (): HTMLElement => {
     const matchParticipantKey = formSeasonSelect.value ? `season:${formSeasonSelect.value}` : "open";
     const relatedParticipants = !tournamentId ? matchParticipantCache.get(matchParticipantKey) ?? [] : [];
     relatedParticipants.forEach((participant) => {
+      if (!entries.has(participant.userId)) {
+        entries.set(participant.userId, {
+          userId: participant.userId,
+          displayName: participant.displayName,
+          avatarUrl: participant.avatarUrl,
+          elo: participant.elo,
+          rank: Number.MAX_SAFE_INTEGER,
+        });
+      }
+    });
+    rememberedMatchParticipants.forEach((participant) => {
       if (!entries.has(participant.userId)) {
         entries.set(participant.userId, {
           userId: participant.userId,
@@ -408,6 +425,7 @@ export const buildApp = (): HTMLElement => {
       limit: 100,
     });
     matchParticipantCache.set(cacheKey, data.participants);
+    rememberMatchParticipants(data.participants);
     populateMatchFormOptions();
     syncMatchPlayerSearchInputs();
     syncDashboardState();
@@ -433,6 +451,7 @@ export const buildApp = (): HTMLElement => {
             limit: 100,
           })
         ).participants;
+    rememberMatchParticipants(relatedParticipants);
 
     const leaderboardById = new Map(
       dashboardState.players.map((player) => [
@@ -1784,6 +1803,25 @@ export const buildApp = (): HTMLElement => {
     getCurrentUserId: () => getCurrentUserId(state.current),
     getAllowedMatchPlayerIds,
     getMatchPlayerEntries,
+    searchPlayers: async (query) => {
+      if (!isAuthedState(state.current) || formTournamentSelect.value) {
+        return [];
+      }
+      const data = await runAuthedAction("searchParticipants", {
+        segmentType: "season",
+        seasonId: formSeasonSelect.value || null,
+        query,
+        limit: 12,
+      });
+      rememberMatchParticipants(data.participants);
+      return data.participants.map((participant) => ({
+        userId: participant.userId,
+        displayName: participant.displayName,
+        avatarUrl: participant.avatarUrl,
+        elo: participant.elo,
+        rank: Number.MAX_SAFE_INTEGER,
+      }));
+    },
     formSeasonSelect,
     formTournamentSelect,
     teamA1Field,

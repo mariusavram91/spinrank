@@ -555,4 +555,127 @@ describe("match player search inputs", () => {
     expect(seasonInfoField.hidden).toBe(true);
     expect(seasonInfoValue.textContent).toBe("");
   });
+
+  it("closes the menu on blur after clearing a selected player", async () => {
+    const dashboardState = createDashboardStateStub();
+    const teamA1Field = document.createElement("div");
+    const teamA2Field = document.createElement("div");
+    const teamB1Field = document.createElement("div");
+    const teamB2Field = document.createElement("div");
+    const teamA1Select = document.createElement("select");
+    const option = document.createElement("option");
+    option.value = "user_a";
+    option.textContent = "Alice (1200) (You)";
+    option.selected = true;
+    teamA1Select.append(option);
+
+    const sync = createMatchPlayerSearchInputs({
+      dashboardState,
+      getCurrentUserId: () => "user_a",
+      getAllowedMatchPlayerIds: () => ["user_a", "user_b"],
+      getMatchPlayerEntries: () => [
+        { userId: "user_a", displayName: "Alice", avatarUrl: null, elo: 1200, rank: 1 },
+        { userId: "user_b", displayName: "Bob", avatarUrl: null, elo: 1180, rank: 2 },
+      ],
+      formSeasonSelect: document.createElement("select"),
+      formTournamentSelect: document.createElement("select"),
+      teamA1Field,
+      teamA2Field,
+      teamB1Field,
+      teamB2Field,
+      teamA1Select,
+      teamA2Select: document.createElement("select"),
+      teamB1Select: document.createElement("select"),
+      teamB2Select: document.createElement("select"),
+    }).sync;
+
+    sync();
+
+    const input = teamA1Field.querySelector<HTMLInputElement>('[data-testid="match-player-search-team-a-1"]');
+    const clearButton = teamA1Field.querySelector<HTMLButtonElement>(".score-card__player-search-clear");
+    const field = teamA1Field.querySelector<HTMLElement>(".match-player-search-field");
+    expect(input).not.toBeNull();
+    expect(clearButton).not.toBeNull();
+    expect(field).not.toBeNull();
+
+    input?.dispatchEvent(new Event("focus"));
+    clearButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    clearButton?.click();
+    input?.dispatchEvent(new Event("blur"));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(field?.classList.contains("score-card__player-search-field--open")).toBe(false);
+    expect(input?.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("searches remote players for open matches and keeps selected players in later slots", async () => {
+    const dashboardState = createDashboardStateStub();
+    const teamA1Field = document.createElement("div");
+    const teamA2Field = document.createElement("div");
+    const teamB1Field = document.createElement("div");
+    const teamB2Field = document.createElement("div");
+    const teamA1Select = document.createElement("select");
+    const teamA2Select = document.createElement("select");
+    const teamB1Select = document.createElement("select");
+    const teamB2Select = document.createElement("select");
+
+    [teamA1Select, teamA2Select, teamB1Select, teamB2Select].forEach((select) => {
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "empty";
+      select.append(emptyOption);
+    });
+
+    const remotePlayer = {
+      userId: "user_c",
+      displayName: "Carla",
+      avatarUrl: null,
+      elo: 1175,
+      rank: Number.MAX_SAFE_INTEGER,
+    };
+
+    const sync = createMatchPlayerSearchInputs({
+      dashboardState,
+      getCurrentUserId: () => "user_a",
+      getAllowedMatchPlayerIds: () => null,
+      getMatchPlayerEntries: () => [
+        { userId: "user_a", displayName: "Alice", avatarUrl: null, elo: 1200, rank: 1 },
+        { userId: "user_b", displayName: "Bob", avatarUrl: null, elo: 1180, rank: 2 },
+      ],
+      searchPlayers: vi.fn(async (query: string) => (
+        query.toLowerCase() === "car" ? [remotePlayer] : []
+      )),
+      formSeasonSelect: document.createElement("select"),
+      formTournamentSelect: document.createElement("select"),
+      teamA1Field,
+      teamA2Field,
+      teamB1Field,
+      teamB2Field,
+      teamA1Select,
+      teamA2Select,
+      teamB1Select,
+      teamB2Select,
+    }).sync;
+
+    sync();
+
+    const input = teamB1Field.querySelector<HTMLInputElement>('[data-testid="match-player-search-team-b-1"]');
+    expect(input).not.toBeNull();
+
+    input!.dispatchEvent(new Event("focus"));
+    input!.value = "car";
+    input!.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    const optionButton = teamB1Field.querySelector<HTMLButtonElement>('[data-testid="match-player-search-option"]');
+    expect(optionButton?.textContent).toBe("Carla (1175)");
+
+    optionButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    optionButton?.click();
+
+    expect(teamB1Select.value).toBe("user_c");
+    expect(Array.from(teamB1Select.options).some((option) => option.value === "user_c")).toBe(true);
+    sync();
+    expect(input?.value).toBe("Carla (1175)");
+  });
 });

@@ -54,6 +54,23 @@ export type DraftRenderers = {
 };
 
 export const createDraftRenderers = (args: DraftRendererArgs): DraftRenderers => {
+  const getSelectOptionLabel = (select: HTMLSelectElement, playerId: string): string => {
+    const option = Array.from(select.options).find((entry) => entry.value === playerId);
+    return option?.textContent?.trim() || "";
+  };
+
+  const getTeamLabel = (playerIds: string[], selects: HTMLSelectElement[], fallbackKey: TextKey): string => {
+    const labelFromPlayers = args.renderPlayerNames(playerIds, args.dashboardState.players);
+    if (labelFromPlayers && labelFromPlayers !== playerIds.join(" / ")) {
+      return labelFromPlayers;
+    }
+    const labels = playerIds
+      .map((playerId, index) => getSelectOptionLabel(selects[index] ?? selects[0], playerId))
+      .filter(Boolean)
+      .map((label) => label.replace(/\s+\(\d+\)(?:\s+\([^)]*\))?$/, ""));
+    return labels.join(" / ") || args.t(fallbackKey);
+  };
+
   const updateScoreLabelsAndPlaceholders = (teamALabel: string, teamBLabel: string): void => {
     const aLabel = teamALabel || args.t("teamALabel");
     const bLabel = teamBLabel || args.t("teamBLabel");
@@ -126,10 +143,16 @@ export const createDraftRenderers = (args: DraftRendererArgs): DraftRenderers =>
         ? [args.teamB1Select.value]
         : [args.teamB1Select.value, args.teamB2Select.value],
     );
-    const teamALabel =
-      args.renderPlayerNames(teamAPlayerIds, args.dashboardState.players) || args.t("teamALabel");
-    const teamBLabel =
-      args.renderPlayerNames(teamBPlayerIds, args.dashboardState.players) || args.t("teamBLabel");
+    const teamALabel = getTeamLabel(
+      teamAPlayerIds,
+      args.matchTypeSelect.value === "singles" ? [args.teamA1Select] : [args.teamA1Select, args.teamA2Select],
+      "teamALabel",
+    );
+    const teamBLabel = getTeamLabel(
+      teamBPlayerIds,
+      args.matchTypeSelect.value === "singles" ? [args.teamB1Select] : [args.teamB1Select, args.teamB2Select],
+      "teamBLabel",
+    );
     updateScoreLabelsAndPlaceholders(teamALabel, teamBLabel);
     const derivedWinner = deriveMatchWinnerFromInputs();
     if (derivedWinner) {

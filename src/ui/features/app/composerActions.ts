@@ -62,6 +62,10 @@ export const createComposerActions = (args: {
       return;
     }
 
+    args.teamA1Select.dataset.pendingValue = suggestion.teamAPlayerIds[0] || "";
+    args.teamA2Select.dataset.pendingValue = suggestion.teamAPlayerIds[1] || "";
+    args.teamB1Select.dataset.pendingValue = suggestion.teamBPlayerIds[0] || "";
+    args.teamB2Select.dataset.pendingValue = suggestion.teamBPlayerIds[1] || "";
     args.teamA1Select.value = suggestion.teamAPlayerIds[0] || "";
     args.teamA2Select.value = suggestion.teamAPlayerIds[1] || "";
     args.teamB1Select.value = suggestion.teamBPlayerIds[0] || "";

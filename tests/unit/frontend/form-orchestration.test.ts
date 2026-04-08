@@ -114,10 +114,18 @@ const createHarness = (overrides?: {
   const suggestMatchButton = document.createElement("button");
   const submitMatchButton = document.createElement("button");
   const scoreGrid = document.createElement("div");
+  const contextToggle = document.createElement("div");
   const scoreInputs = Array.from({ length: 3 }, () => ({
     teamA: document.createElement("input"),
     teamB: document.createElement("input"),
   }));
+
+  contextToggle.innerHTML = [
+    '<button data-value="open"></button>',
+    '<button data-value="season"></button>',
+    '<button data-value="tournament"></button>',
+  ].join("");
+  contextToggle.dataset.mode = "open";
 
   scoreInputs.forEach(() => {
     scoreGrid.append(document.createElement("div"));
@@ -188,7 +196,7 @@ const createHarness = (overrides?: {
       teamA2Field: document.createElement("div"),
       teamB2Field: document.createElement("div"),
       scoreGrid,
-      contextToggle: null,
+      contextToggle,
       matchTypeToggle: null,
       formatTypeToggle: null,
       pointsToggle: null,
@@ -217,6 +225,7 @@ const createHarness = (overrides?: {
     matchTypeSelect,
     formatTypeSelect,
     pointsToWinSelect,
+    contextToggle,
     teamA1Select,
     teamA2Select,
     teamB1Select,
@@ -370,4 +379,132 @@ describe("form orchestration", () => {
     expect(harness.teamA2Select.disabled).toBe(false);
     expect(harness.teamB2Select.disabled).toBe(false);
   });
+
+  it("disables season and tournament context toggles when none are available", () => {
+    const harness = createHarness();
+    harness.dashboardState.seasons = [];
+    harness.dashboardState.tournaments = [];
+    harness.contextToggle.dataset.mode = "tournament";
+
+    harness.orchestration.populateMatchFormOptions();
+
+    const openButton = harness.contextToggle.querySelector<HTMLButtonElement>('button[data-value="open"]');
+    const seasonButton = harness.contextToggle.querySelector<HTMLButtonElement>('button[data-value="season"]');
+    const tournamentButton = harness.contextToggle.querySelector<HTMLButtonElement>('button[data-value="tournament"]');
+
+    expect(openButton?.disabled).toBe(false);
+    expect(seasonButton?.disabled).toBe(true);
+    expect(tournamentButton?.disabled).toBe(true);
+    expect(harness.contextToggle.dataset.mode).toBe("open");
+    expect(harness.formSeasonSelect.value).toBe("");
+    expect(harness.formTournamentSelect.value).toBe("");
+  });
+
+  it("rejects season and tournament payloads when no target is selected", () => {
+    const seasonHarness = createHarness();
+    seasonHarness.contextToggle.dataset.mode = "season";
+    seasonHarness.formSeasonSelect.value = "";
+    seasonHarness.scoreInputs[0].teamA.value = "11";
+    seasonHarness.scoreInputs[0].teamB.value = "8";
+
+    expect(() => seasonHarness.orchestration.collectMatchPayload()).toThrow(
+      "Select a season before creating a season match.",
+    );
+
+    const tournamentHarness = createHarness();
+    tournamentHarness.contextToggle.dataset.mode = "tournament";
+    tournamentHarness.formTournamentSelect.value = "";
+    tournamentHarness.scoreInputs[0].teamA.value = "11";
+    tournamentHarness.scoreInputs[0].teamB.value = "8";
+
+    expect(() => tournamentHarness.orchestration.collectMatchPayload()).toThrow(
+      "Select a tournament before creating a tournament match.",
+    );
+  });
+
+  it("preserves a selected remote open-match player when rebuilding player selects", () => {
+    const dashboardState = createDashboardStateStub();
+    const tournamentPlannerState = createTournamentPlannerStateStub();
+    const teamA1Select = document.createElement("select");
+    const teamA2Select = document.createElement("select");
+    const teamB1Select = document.createElement("select");
+    const teamB2Select = document.createElement("select");
+
+    [teamA1Select, teamA2Select, teamB1Select, teamB2Select].forEach((select) => {
+      addSelectOptions(select, [""]);
+    });
+
+    teamA1Select.append(new Option("Alice", "user_a"));
+    teamA1Select.value = "user_a";
+    teamB1Select.dataset.pendingValue = "user_remote";
+
+    const orchestration = createFormOrchestration({
+      dashboardState,
+      tournamentPlannerState,
+      getViewState: () => authState,
+      getCurrentUserId: () => "user_a",
+      isAuthedState: (
+        state: ViewState,
+      ): state is Extract<ViewState, { status: "authenticated" }> => state.status === "authenticated",
+      getActiveTournamentBracketMatchId: () => null,
+      loadSeasonSelect: document.createElement("select"),
+      loadTournamentSelect: document.createElement("select"),
+      seasonSelect: document.createElement("select"),
+      tournamentSelect: document.createElement("select"),
+      matchTypeSelect: Object.assign(document.createElement("select"), { value: "singles" }),
+      formatTypeSelect: Object.assign(document.createElement("select"), { value: "single_game" }),
+      pointsToWinSelect: Object.assign(document.createElement("select"), { value: "11" }),
+      formSeasonSelect: document.createElement("select"),
+      formTournamentSelect: document.createElement("select"),
+      matchBracketSelect: document.createElement("select"),
+      tournamentSeasonSelect: document.createElement("select"),
+      teamA1Select,
+      teamA2Select,
+      teamB1Select,
+      teamB2Select,
+      winnerTeamSelect: document.createElement("select"),
+      scoreInputs: [{ teamA: document.createElement("input"), teamB: document.createElement("input") }],
+      seasonNameInput: document.createElement("input"),
+      seasonStartDateInput: document.createElement("input"),
+      seasonEndDateInput: document.createElement("input"),
+      seasonBaseEloSelect: document.createElement("select"),
+      seasonIsActiveInput: document.createElement("input"),
+      seasonIsPublicInput: document.createElement("input"),
+      tournamentNameInput: document.createElement("input"),
+      tournamentDateInput: document.createElement("input"),
+      suggestMatchButton: document.createElement("button"),
+      submitMatchButton: document.createElement("button"),
+      setSeasonSharePanelTargetId: () => {},
+      setTournamentSharePanelTargetId: () => {},
+      getMatchScreenRefs: () => ({
+        teamA2Field: null,
+        teamB2Field: null,
+        scoreGrid: null,
+        contextToggle: null,
+        matchTypeToggle: null,
+        formatTypeToggle: null,
+        pointsToggle: null,
+        seasonField: null,
+        seasonInfoField: null,
+        seasonInfoValue: null,
+        tournamentField: null,
+        bracketField: null,
+      }),
+      getAllowedMatchPlayerIds: () => null,
+      getMatchPlayerEntries: () => [
+        { userId: "user_a", displayName: "Alice", avatarUrl: null, elo: 1200, rank: 1 },
+        { userId: "user_b", displayName: "Bob", avatarUrl: null, elo: 1180, rank: 2 },
+        { userId: "user_remote", displayName: "Cruz Novak", avatarUrl: null, elo: 1123, rank: Number.MAX_SAFE_INTEGER },
+      ],
+      formatDate: (value) => value,
+      t: (key) => key,
+    });
+
+    orchestration.populateMatchFormOptions();
+
+    expect(teamB1Select.value).toBe("user_remote");
+    expect(Array.from(teamB1Select.options).some((option) => option.value === "user_remote")).toBe(true);
+    expect(teamB1Select.dataset.pendingValue).toBeUndefined();
+  });
+
 });

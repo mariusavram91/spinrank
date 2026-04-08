@@ -109,11 +109,29 @@ export const createFormOrchestration = (args: {
     blockedValues: string[],
     emptyLabel: string,
   ): void => {
+    const existingSelectedOption = selectedValue
+      ? options.find((option) => option.value === selectedValue)
+        ?? (() => {
+          const selectedPlayer = args.getMatchPlayerEntries().find((player) => player.userId === selectedValue);
+          if (!selectedPlayer) {
+            return null;
+          }
+          return {
+            value: selectedPlayer.userId,
+            label: `${selectedPlayer.displayName} (${selectedPlayer.elo})`,
+          };
+        })()
+      : null;
     const nextOptions = [
       {
         value: "",
         label: emptyLabel,
       },
+      ...(
+        existingSelectedOption && !options.some((option) => option.value === existingSelectedOption.value)
+          ? [existingSelectedOption]
+          : []
+      ),
       ...options,
     ];
 
@@ -149,6 +167,18 @@ export const createFormOrchestration = (args: {
     }
     toggle.querySelectorAll<HTMLButtonElement>("button[data-value]").forEach((button) => {
       button.disabled = disabled;
+    });
+  };
+
+  const setSegmentedToggleOptionDisabled = (
+    toggle: HTMLElement | null,
+    value: string,
+    disabled: boolean,
+  ): void => {
+    toggle?.querySelectorAll<HTMLButtonElement>("button[data-value]").forEach((button) => {
+      if (button.dataset.value === value) {
+        button.disabled = disabled;
+      }
     });
   };
 
@@ -265,7 +295,19 @@ export const createFormOrchestration = (args: {
       tournamentField,
       bracketField,
     } = args.getMatchScreenRefs();
-    const contextMode = resolveMatchContextMode(contextToggle);
+    const visibleSeasons = args.dashboardState.seasons.filter((season) =>
+      shouldShowSeasonInDropdown(season, sessionUserId),
+    );
+    const visibleTournaments = args.dashboardState.tournaments.filter((tournament) =>
+      shouldShowTournamentInDropdown(tournament, sessionUserId),
+    );
+    let contextMode = resolveMatchContextMode(contextToggle);
+    if (contextMode === "season" && visibleSeasons.length === 0) {
+      contextMode = "open";
+    }
+    if (contextMode === "tournament" && visibleTournaments.length === 0) {
+      contextMode = "open";
+    }
     const isTournamentContext = Boolean(args.formTournamentSelect.value) || contextMode === "tournament";
     const hasActiveTournamentBracket = !isTournamentContext || Boolean(args.getActiveTournamentBracketMatchId());
 
@@ -321,12 +363,6 @@ export const createFormOrchestration = (args: {
       "",
     );
 
-    const visibleSeasons = args.dashboardState.seasons.filter((season) =>
-      shouldShowSeasonInDropdown(season, sessionUserId),
-    );
-    const visibleTournaments = args.dashboardState.tournaments.filter((tournament) =>
-      shouldShowTournamentInDropdown(tournament, sessionUserId),
-    );
     const selectedTournamentValue =
       contextMode === "tournament"
         ? (visibleTournaments.some((tournament) => tournament.id === args.formTournamentSelect.value)
@@ -521,6 +557,9 @@ export const createFormOrchestration = (args: {
       bracketField.hidden = contextMode !== "tournament";
     }
     syncSegmentedToggle(contextToggle, contextMode);
+    setSegmentedToggleOptionDisabled(contextToggle, "open", false);
+    setSegmentedToggleOptionDisabled(contextToggle, "season", visibleSeasons.length === 0);
+    setSegmentedToggleOptionDisabled(contextToggle, "tournament", visibleTournaments.length === 0);
     syncSegmentedToggle(matchTypeToggle, args.matchTypeSelect.value || "singles");
     syncSegmentedToggle(formatTypeToggle, args.formatTypeSelect.value || "single_game");
     syncSegmentedToggle(pointsToggle, args.pointsToWinSelect.value || "11");
@@ -530,6 +569,14 @@ export const createFormOrchestration = (args: {
   };
 
   const collectMatchPayload = (): CreateMatchPayload => {
+    const contextMode = resolveMatchContextMode(args.getMatchScreenRefs().contextToggle);
+    if (contextMode === "season" && !args.formSeasonSelect.value) {
+      throw new Error("Select a season before creating a season match.");
+    }
+    if (contextMode === "tournament" && !args.formTournamentSelect.value) {
+      throw new Error("Select a tournament before creating a tournament match.");
+    }
+
     const playerIdsA = [args.teamA1Select.value];
     const playerIdsB = [args.teamB1Select.value];
 

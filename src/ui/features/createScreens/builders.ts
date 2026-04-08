@@ -59,6 +59,15 @@ const dispatchSelectChange = (select: HTMLSelectElement): void => {
   select.dispatchEvent(new Event("change", { bubbles: true }));
 };
 
+const resetMatchPlayerSelections = (
+  selects: HTMLSelectElement[],
+): void => {
+  selects.forEach((select) => {
+    select.value = "";
+    delete select.dataset.pendingValue;
+  });
+};
+
 const buildChoiceRow = (labelKey: TextKey, select: HTMLSelectElement, actionButton: HTMLButtonElement): HTMLElement => {
   const row = document.createElement("div");
   row.className = "form-choice-row";
@@ -115,6 +124,12 @@ export const buildMatchScreen = (args: {
     ],
     (value) => {
       contextToggle.dataset.mode = value;
+      resetMatchPlayerSelections([
+        args.teamA1Select,
+        args.teamA2Select,
+        args.teamB1Select,
+        args.teamB2Select,
+      ]);
       if (value === "open") {
         args.formSeasonSelect.value = "";
         args.formTournamentSelect.value = "";
