@@ -1,3 +1,4 @@
+import { MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
 import { isoNow, parseJsonObject } from "../db";
 import { successResponse } from "../responses";
 import type { ApiRequest, Env, MatchRecord, UserProgressPoint, UserRow } from "../types";
@@ -18,7 +19,18 @@ export async function handleGetUserProgress(
       FROM (
         SELECT
           id,
-          ROW_NUMBER() OVER (ORDER BY global_elo DESC, wins DESC, losses ASC, display_name ASC) AS rank
+          ROW_NUMBER() OVER (
+            ORDER BY
+              CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN 0 ELSE 1 END ASC,
+              CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN global_elo END DESC,
+              CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN wins END DESC,
+              CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN losses END ASC,
+              CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN wins + losses END DESC,
+              CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN global_elo END DESC,
+              CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN wins END DESC,
+              CASE WHEN wins + losses < ${MINIMUM_LEADERBOARD_MATCHES} THEN losses END ASC,
+              display_name ASC
+          ) AS rank
         FROM users
       )
       WHERE id = ?1

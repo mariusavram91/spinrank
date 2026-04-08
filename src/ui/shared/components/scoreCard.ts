@@ -815,7 +815,7 @@ export const buildScoreCard = (args: {
         }
         return left.rank - right.rank;
       })
-      .slice(0, query.trim() ? 12 : 8);
+      .slice(0, 15);
 
     control.optionsByLabel = new Map(
       filtered.map((player) => [getPlayerOptionLabel(player, currentUserId), player.userId]),

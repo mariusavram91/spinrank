@@ -125,7 +125,7 @@ export const createMatchPlayerSearchInputs = (args: {
         }
         return left.rank - right.rank;
       })
-      .slice(0, normalized ? 12 : 8);
+      .slice(0, 15);
   };
 
   const getVisiblePlayers = (slot: SlotKey, query: string): MatchPlayerEntry[] =>

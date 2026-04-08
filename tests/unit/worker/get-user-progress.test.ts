@@ -95,4 +95,65 @@ describe("worker getUserProgress action", () => {
       ],
     });
   });
+
+  it("uses the same qualification-aware ranking rules as the leaderboard", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1141,
+      wins: 8,
+      losses: 14,
+      streak: 1,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql, args) => {
+            if (statementSql.includes("ROW_NUMBER() OVER")) {
+              expect(statementSql).toContain("CASE WHEN wins + losses >= 5 THEN 0 ELSE 1 END ASC");
+              expect(args).toEqual(["user_a"]);
+              return { rank: 13 };
+            }
+
+            return {
+              results: [],
+            };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetUserProgress(
+      {
+        action: "getUserProgress",
+        requestId: "req_progress_rank_alignment_unit",
+        payload: { mode: "summary" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data).toMatchObject({
+      currentRank: 13,
+      bestRank: 13,
+      currentElo: 1141,
+      points: [
+        {
+          elo: 1141,
+          rank: 13,
+        },
+      ],
+    });
+  });
 });
