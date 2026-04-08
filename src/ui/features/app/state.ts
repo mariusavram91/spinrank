@@ -39,6 +39,7 @@ export const createDashboardState = (): DashboardState => ({
   profileLoading: false,
   profileMatchesLoading: false,
   profileAchievementsExpanded: false,
+  profileSelectedAchievementKey: "",
   profileRecentlySeenAchievementKeys: [],
   profileSegmentSummaries: {},
   profileSegmentSummaryLoadingKeys: [],

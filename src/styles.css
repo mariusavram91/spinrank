@@ -1146,6 +1146,28 @@ button:disabled,
 .profile-achievements__summary-icon {
   width: 32px;
   height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04);
+  appearance: none;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, outline-color 140ms ease;
+}
+
+.profile-achievements__summary-icon[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.16);
+}
+
+.profile-achievements__summary-icon:hover,
+.profile-achievements__summary-icon:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+.achievement-chip-list--profile-preview {
+  flex: 0 0 100%;
+  margin-top: 0;
 }
 
 .achievement-chip-list {

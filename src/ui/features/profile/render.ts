@@ -349,6 +349,7 @@ const buildSegmentCard = (args: {
 export const renderProfileScreen = (args: {
   dashboardState: DashboardState;
   achievementsSummary: HTMLElement;
+  achievementsPreview: HTMLElement;
   achievementsUnread: HTMLElement;
   achievementsToggle: HTMLButtonElement;
   achievementsList: HTMLElement;
@@ -401,17 +402,43 @@ export const renderProfileScreen = (args: {
       return left.points - right.points;
     })
     .map((item) => buildAchievementChip(item, args.t));
+  const selectedAchievement = unlockedAchievements.find(
+    (item) => item.key === args.dashboardState.profileSelectedAchievementKey,
+  );
   const summaryNodes = unlockedAchievements.map((item) => {
-      const icon = document.createElement("span");
+      const icon = document.createElement("button");
+      icon.type = "button";
       icon.className = "achievement-card__icon profile-achievements__summary-icon";
       icon.textContent = ACHIEVEMENT_ICONS[item.icon];
       icon.title = args.t(item.titleKey as TextKey);
       icon.setAttribute("aria-label", args.t(item.titleKey as TextKey));
+      icon.dataset.achievementKey = item.key;
+      icon.setAttribute("aria-pressed", String(selectedAchievement?.key === item.key));
       return icon;
     });
-  args.achievementsSummary.replaceChildren(
-    ...(summaryNodes.length > 0 ? summaryNodes : [createEmptyState(args.t("achievementsEmpty"))]),
-  );
+  args.achievementsPreview.hidden = !selectedAchievement;
+  args.achievementsPreview.replaceChildren(...(selectedAchievement ? [buildAchievementChip(selectedAchievement, args.t)] : []));
+  if (summaryNodes.length === 0) {
+    args.achievementsSummary.replaceChildren(createEmptyState(args.t("achievementsEmpty")));
+  } else {
+    args.achievementsSummary.replaceChildren(...summaryNodes);
+    if (selectedAchievement) {
+      const summaryIcons = [...args.achievementsSummary.querySelectorAll<HTMLElement>("[data-achievement-key]")];
+      const selectedIcon = summaryIcons.find((icon) => icon.dataset.achievementKey === selectedAchievement.key) ?? null;
+      if (selectedIcon) {
+        const selectedRowTop = selectedIcon.offsetTop;
+        let insertionAnchor: HTMLElement = selectedIcon;
+        for (const icon of summaryIcons) {
+          if (icon.offsetTop === selectedRowTop && icon.offsetLeft >= selectedIcon.offsetLeft) {
+            insertionAnchor = icon;
+          }
+        }
+        insertionAnchor.after(args.achievementsPreview);
+      } else {
+        args.achievementsSummary.append(args.achievementsPreview);
+      }
+    }
+  }
   args.achievementsUnread.hidden = unreadAchievementNodes.length === 0;
   args.achievementsUnread.replaceChildren(...unreadAchievementNodes);
   args.achievementsToggle.hidden = achievementNodes.length === 0;

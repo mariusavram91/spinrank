@@ -18,6 +18,7 @@ const createAchievement = (overrides: Partial<AchievementSummaryItem> & { key: s
 describe("profile render", () => {
   it("sorts visible achievements by unlocked state first and points ascending within each group", () => {
     const achievementsSummary = document.createElement("div");
+    const achievementsPreview = document.createElement("div");
     const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
@@ -58,6 +59,7 @@ describe("profile render", () => {
     renderProfileScreen({
       dashboardState,
       achievementsSummary,
+      achievementsPreview,
       achievementsUnread,
       achievementsToggle,
       achievementsList,
@@ -79,11 +81,13 @@ describe("profile render", () => {
 
     const titles = [...achievementsList.querySelectorAll(".profile-segment-card__title")].map((node) => node.textContent);
     expect(titles).toEqual(["unlocked_low", "unlocked_high", "locked_low", "locked_high"]);
+    expect(achievementsPreview.hidden).toBe(true);
     expect(achievementsUnread.hidden).toBe(true);
   });
 
   it("shows unread unlocked achievements in the summary without duplicating them in the profile list", () => {
     const achievementsSummary = document.createElement("div");
+    const achievementsPreview = document.createElement("div");
     const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
@@ -110,6 +114,7 @@ describe("profile render", () => {
         nextUp: null,
       },
       profileAchievementsExpanded: true,
+      profileSelectedAchievementKey: "",
       profileRecentlySeenAchievementKeys: ["unlocked_new"],
       seasons: [],
       tournaments: [],
@@ -125,6 +130,7 @@ describe("profile render", () => {
     renderProfileScreen({
       dashboardState,
       achievementsSummary,
+      achievementsPreview,
       achievementsUnread,
       achievementsToggle,
       achievementsList,
@@ -150,6 +156,79 @@ describe("profile render", () => {
     expect(titles).toEqual(["unlocked_seen", "locked_mid"]);
     expect(summaryTitles).toEqual(["unlocked_seen", "unlocked_new"]);
     expect(unreadTitles).toEqual(["unlocked_new"]);
+    expect(achievementsPreview.hidden).toBe(true);
     expect(achievementsUnread.hidden).toBe(false);
+  });
+
+  it("renders the selected unlocked achievement in the preview strip", () => {
+    const achievementsSummary = document.createElement("div");
+    const achievementsPreview = document.createElement("div");
+    const achievementsUnread = document.createElement("div");
+    const achievementsToggle = document.createElement("button");
+    const achievementsList = document.createElement("div");
+    const seasonsList = document.createElement("div");
+    const tournamentsList = document.createElement("div");
+    const matchesList = document.createElement("div");
+    const status = document.createElement("p");
+    const loadMoreButton = document.createElement("button");
+
+    const dashboardState = {
+      achievements: {
+        totalUnlocked: 2,
+        totalAvailable: 3,
+        score: 30,
+        items: [
+          createAchievement({ key: "account_created", icon: "user_plus", points: 10, unlockedAt: "2026-04-01T00:00:00.000Z" }),
+          createAchievement({ key: "first_match", icon: "ping_pong", points: 20, unlockedAt: "2026-04-02T00:00:00.000Z" }),
+          createAchievement({ key: "locked_mid", points: 15 }),
+        ],
+        recentUnlocks: [],
+        featured: [],
+        nextUp: null,
+      },
+      profileAchievementsExpanded: false,
+      profileSelectedAchievementKey: "account_created",
+      profileRecentlySeenAchievementKeys: [],
+      seasons: [],
+      tournaments: [],
+      profileMatches: [],
+      profileMatchesLoading: false,
+      profileLoading: false,
+      profileSegmentSummaries: {},
+      profileSegmentSummaryLoadingKeys: [],
+      players: [],
+      matchBracketContextByMatchId: {},
+    } as unknown as DashboardState;
+
+    renderProfileScreen({
+      dashboardState,
+      achievementsSummary,
+      achievementsPreview,
+      achievementsUnread,
+      achievementsToggle,
+      achievementsList,
+      currentUserId: "user_1",
+      seasonsList,
+      tournamentsList,
+      matchesList,
+      status,
+      loadMoreButton,
+      t: (key) => key,
+      renderMatchScore: () => "",
+      renderPlayerNames: () => "",
+      renderMatchContext: () => "",
+      formatDateTime: (value) => value,
+      onOpenSeason: () => undefined,
+      onOpenTournament: () => undefined,
+      onLoadMoreMatches: () => undefined,
+    });
+
+    expect(achievementsPreview.hidden).toBe(false);
+    expect(achievementsPreview.querySelector(".profile-segment-card__title")?.textContent).toBe("account_created");
+    expect(
+      achievementsSummary.querySelector('[data-achievement-key="account_created"]')?.getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(achievementsPreview.parentElement).toBe(achievementsSummary);
+    expect(achievementsList.hidden).toBe(true);
   });
 });

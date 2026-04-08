@@ -137,6 +137,7 @@ export const buildApp = (): HTMLElement => {
     closeProfileButton,
     profileStatus,
     profileAchievementsSummary,
+    profileAchievementsPreview,
     profileAchievementsUnread,
     profileAchievementsToggle,
     profileAchievementsList,
@@ -1057,6 +1058,7 @@ export const buildApp = (): HTMLElement => {
       renderProfileScreen({
         dashboardState,
         achievementsSummary: profileAchievementsSummary,
+        achievementsPreview: profileAchievementsPreview,
         achievementsUnread: profileAchievementsUnread,
         achievementsToggle: profileAchievementsToggle,
         achievementsList: profileAchievementsList,
@@ -1510,6 +1512,20 @@ export const buildApp = (): HTMLElement => {
 
   profileAchievementsToggle.addEventListener("click", () => {
     dashboardState.profileAchievementsExpanded = !dashboardState.profileAchievementsExpanded;
+    syncDashboardState();
+  });
+
+  profileAchievementsSummary.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const trigger = target.closest<HTMLElement>("[data-achievement-key]");
+    if (!trigger) {
+      return;
+    }
+    const key = trigger.dataset.achievementKey ?? "";
+    dashboardState.profileSelectedAchievementKey = dashboardState.profileSelectedAchievementKey === key ? "" : key;
     syncDashboardState();
   });
 
