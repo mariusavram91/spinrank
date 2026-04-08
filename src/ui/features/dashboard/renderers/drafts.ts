@@ -60,15 +60,19 @@ export const createDraftRenderers = (args: DraftRendererArgs): DraftRenderers =>
   };
 
   const getTeamLabel = (playerIds: string[], selects: HTMLSelectElement[], fallbackKey: TextKey): string => {
+    const labelsFromSelects = playerIds
+      .map((playerId, index) => getSelectOptionLabel(selects[index] ?? selects[0], playerId))
+      .filter(Boolean)
+      .map((label) => label.replace(/\s+\(\d+\)(?:\s+\([^)]*\))?$/, ""));
+    if (labelsFromSelects.length === playerIds.length) {
+      return labelsFromSelects.join(" / ");
+    }
+
     const labelFromPlayers = args.renderPlayerNames(playerIds, args.dashboardState.players);
     if (labelFromPlayers && labelFromPlayers !== playerIds.join(" / ")) {
       return labelFromPlayers;
     }
-    const labels = playerIds
-      .map((playerId, index) => getSelectOptionLabel(selects[index] ?? selects[0], playerId))
-      .filter(Boolean)
-      .map((label) => label.replace(/\s+\(\d+\)(?:\s+\([^)]*\))?$/, ""));
-    return labels.join(" / ") || args.t(fallbackKey);
+    return labelsFromSelects.join(" / ") || args.t(fallbackKey);
   };
 
   const updateScoreLabelsAndPlaceholders = (teamALabel: string, teamBLabel: string): void => {
