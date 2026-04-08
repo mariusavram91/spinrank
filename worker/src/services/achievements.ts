@@ -357,7 +357,7 @@ function computeMatchHistoryStats(
       if (wonGame && ownScore === 11 && opponentScore === 7) {
         luckyNumbersCount.set(userId, (luckyNumbersCount.get(userId) ?? 0) + 1);
       }
-      if (wonGame && ownScore >= row.points_to_win && opponentScore >= row.points_to_win - 1) {
+      if (wonGame && ownScore >= row.points_to_win + 1 && opponentScore >= row.points_to_win - 1) {
         deuceWinsCount.set(userId, (deuceWinsCount.get(userId) ?? 0) + 1);
       }
 
@@ -813,6 +813,10 @@ async function loadCompletedTournamentOutcomeCounts(
       WHERE tbm.is_final = 1
         AND tbm.winner_player_id IS NOT NULL
         AND t.status != 'deleted'
+        AND (
+          t.status = 'completed'
+          OR (t.completed_at IS NOT NULL AND t.completed_at != '')
+        )
     `,
   ).all<{ left_player_id: string | null; right_player_id: string | null; winner_player_id: string }>();
 

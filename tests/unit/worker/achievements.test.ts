@@ -724,6 +724,135 @@ describe("worker unit: achievements", () => {
     }
   });
 
+  it("counts deuce master only for wins that actually go beyond deuce", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const matches = [
+        ["deuce_invalid_1", '[{"teamA":11,"teamB":10}]'],
+        ["deuce_invalid_2", '[{"teamA":11,"teamB":10}]'],
+        ["deuce_invalid_3", '[{"teamA":11,"teamB":10}]'],
+        ["deuce_invalid_4", '[{"teamA":11,"teamB":10}]'],
+        ["deuce_valid", '[{"teamA":12,"teamB":10}]'],
+      ] as const;
+
+      for (const [matchId, score] of matches) {
+        await context.env.DB.prepare(
+          `
+            INSERT INTO matches (
+              id, match_type, format_type, points_to_win, team_a_player_ids_json, team_b_player_ids_json,
+              score_json, winner_team, global_elo_delta_json, segment_elo_delta_json, played_at, season_id,
+              tournament_id, created_by_user_id, status, deactivated_at, deactivated_by_user_id,
+              deactivation_reason, created_at
+            ) VALUES (
+              ?1, 'singles', 'single_game', 11, '["user_a"]', '["user_b"]', ?2, 'A', '{}', '{}',
+              '2026-04-08T10:00:00.000Z', NULL, NULL, 'user_a', 'active', NULL, NULL, NULL, '2026-04-08T10:00:00.000Z'
+            )
+          `,
+        )
+          .bind(matchId, score)
+          .run();
+        await context.env.DB.prepare(
+          `
+            INSERT INTO match_players (match_id, user_id, team)
+            VALUES (?1, 'user_a', 'A'), (?1, 'user_b', 'B')
+          `,
+        )
+          .bind(matchId)
+          .run();
+      }
+
+      await evaluateAchievementsForTrigger(context.env, {
+        type: "match_created",
+        userIds: ["user_a"],
+        actorUserId: "user_a",
+        matchId: "deuce_valid",
+        nowIso: "2026-04-08T12:00:00.000Z",
+      });
+
+      const overview = await getAchievementOverview(context.env, "user_a");
+      const item = overview.items.find((entry) => entry.key === "deuce_master");
+      expect(item).toMatchObject({
+        key: "deuce_master",
+        unlockedAt: null,
+        progressValue: 1,
+        progressTarget: 5,
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("only awards tournament finalist and winner after the tournament is completed", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      await context.env.DB.prepare(
+        `
+          INSERT INTO tournaments (
+            id, name, date, status, season_id, created_by_user_id, created_at, completed_at
+          ) VALUES ('tournament_1', 'Tournament 1', '2026-04-05', 'active', NULL, 'user_a', '2026-04-01T00:00:00.000Z', '')
+        `,
+      ).run();
+      await context.env.DB.prepare(
+        `
+          INSERT INTO tournament_bracket_matches (
+            id, tournament_id, round_index, round_title, match_index, left_player_id, right_player_id,
+            created_match_id, winner_player_id, locked, is_final
+          ) VALUES ('tbm_final', 'tournament_1', 0, 'Final', 0, 'user_a', 'user_b', NULL, 'user_a', 1, 1)
+        `,
+      ).run();
+
+      await evaluateAchievementsForTrigger(context.env, {
+        type: "rankings_recomputed",
+        userIds: ["user_a", "user_b"],
+        nowIso: "2026-04-08T12:00:00.000Z",
+      });
+
+      let overviewA = await getAchievementOverview(context.env, "user_a");
+      let overviewB = await getAchievementOverview(context.env, "user_b");
+      expect(overviewA.items.find((entry) => entry.key === "tournament_winner")).toMatchObject({
+        unlockedAt: null,
+        progressValue: 0,
+      });
+      expect(overviewB.items.find((entry) => entry.key === "tournament_finalist")).toMatchObject({
+        unlockedAt: null,
+        progressValue: 0,
+      });
+
+      await context.env.DB.prepare(
+        `
+          UPDATE tournaments
+          SET status = 'completed', completed_at = '2026-04-08T13:00:00.000Z'
+          WHERE id = 'tournament_1'
+        `,
+      ).run();
+
+      await evaluateAchievementsForTrigger(context.env, {
+        type: "rankings_recomputed",
+        userIds: ["user_a", "user_b"],
+        nowIso: "2026-04-08T13:05:00.000Z",
+      });
+
+      overviewA = await getAchievementOverview(context.env, "user_a");
+      overviewB = await getAchievementOverview(context.env, "user_b");
+      expect(overviewA.items.find((entry) => entry.key === "tournament_winner")).toMatchObject({
+        unlockedAt: "2026-04-08T13:05:00.000Z",
+        progressValue: 1,
+      });
+      expect(overviewB.items.find((entry) => entry.key === "tournament_finalist")).toMatchObject({
+        unlockedAt: "2026-04-08T13:05:00.000Z",
+        progressValue: 1,
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it("flushes match-triggered achievement progress through a single batch write", async () => {
     const batchCalls: string[][] = [];
     const runCalls: string[] = [];
