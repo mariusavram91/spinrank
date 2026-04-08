@@ -204,9 +204,13 @@ export const createAppDom = (args: {
   profileAchievementsSection.className = "profile-section";
   const profileAchievementsHeader = document.createElement("div");
   profileAchievementsHeader.className = "profile-achievements__header";
+  const profileAchievementsTitleBlock = document.createElement("div");
+  profileAchievementsTitleBlock.className = "profile-achievements__title-block";
   const profileAchievementsTitle = document.createElement("h4");
   profileAchievementsTitle.className = "card-title profile-section__title";
   bindLocalizedText(profileAchievementsTitle, "achievementsTitle");
+  const profileAchievementsSubtitle = document.createElement("p");
+  profileAchievementsSubtitle.className = "profile-section__subtitle";
   const profileAchievementsToggle = document.createElement("button");
   profileAchievementsToggle.type = "button";
   profileAchievementsToggle.className = "secondary-button";
@@ -229,7 +233,8 @@ export const createAppDom = (args: {
     profileAchievementsUnread,
     profileAchievementsList,
   );
-  profileAchievementsHeader.append(profileAchievementsTitle, profileAchievementsToggle);
+  profileAchievementsTitleBlock.append(profileAchievementsTitle, profileAchievementsSubtitle);
+  profileAchievementsHeader.append(profileAchievementsTitleBlock, profileAchievementsToggle);
 
   profileBody.append(
     profileAchievementsSection,
@@ -728,6 +733,8 @@ export const createAppDom = (args: {
     profilePanel,
     closeProfileButton,
     profileStatus,
+    profileAchievementsTitle,
+    profileAchievementsSubtitle,
     profileAchievementsSummary,
     profileAchievementsPreview,
     profileAchievementsUnread,

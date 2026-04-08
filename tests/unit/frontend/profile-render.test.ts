@@ -35,6 +35,8 @@ const createMatch = (id: string): MatchRecord => ({
 
 describe("profile render", () => {
   it("sorts visible achievements by unlocked state first and points ascending within each group", () => {
+    const achievementsTitle = document.createElement("h4");
+    const achievementsSubtitle = document.createElement("p");
     const achievementsSummary = document.createElement("div");
     const achievementsPreview = document.createElement("div");
     const achievementsUnread = document.createElement("div");
@@ -76,6 +78,8 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      achievementsTitle,
+      achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
       achievementsUnread,
@@ -99,11 +103,15 @@ describe("profile render", () => {
 
     const titles = [...achievementsList.querySelectorAll(".profile-segment-card__title")].map((node) => node.textContent);
     expect(titles).toEqual(["unlocked_low", "unlocked_high", "locked_low", "locked_high"]);
+    expect(achievementsTitle.textContent).toBe("achievementsTitle");
+    expect(achievementsSubtitle.textContent).toBe("achievementsTotalPointsLabel 60");
     expect(achievementsPreview.hidden).toBe(true);
     expect(achievementsUnread.hidden).toBe(true);
   });
 
   it("shows unread unlocked achievements in the summary without duplicating them in the profile list", () => {
+    const achievementsTitle = document.createElement("h4");
+    const achievementsSubtitle = document.createElement("p");
     const achievementsSummary = document.createElement("div");
     const achievementsPreview = document.createElement("div");
     const achievementsUnread = document.createElement("div");
@@ -147,6 +155,8 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      achievementsTitle,
+      achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
       achievementsUnread,
@@ -179,6 +189,8 @@ describe("profile render", () => {
   });
 
   it("renders the selected unlocked achievement in the preview strip", () => {
+    const achievementsTitle = document.createElement("h4");
+    const achievementsSubtitle = document.createElement("p");
     const achievementsSummary = document.createElement("div");
     const achievementsPreview = document.createElement("div");
     const achievementsUnread = document.createElement("div");
@@ -220,6 +232,8 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      achievementsTitle,
+      achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
       achievementsUnread,
@@ -251,6 +265,8 @@ describe("profile render", () => {
   });
 
   it("shows the latest 8 profile matches and toggles load more from the cursor", () => {
+    const achievementsTitle = document.createElement("h4");
+    const achievementsSubtitle = document.createElement("p");
     const achievementsSummary = document.createElement("div");
     const achievementsPreview = document.createElement("div");
     const achievementsUnread = document.createElement("div");
@@ -281,6 +297,8 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      achievementsTitle,
+      achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
       achievementsUnread,
@@ -311,6 +329,8 @@ describe("profile render", () => {
   });
 
   it("shows appended profile matches after loading more", () => {
+    const achievementsTitle = document.createElement("h4");
+    const achievementsSubtitle = document.createElement("p");
     const achievementsSummary = document.createElement("div");
     const achievementsPreview = document.createElement("div");
     const achievementsUnread = document.createElement("div");
@@ -341,6 +361,8 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      achievementsTitle,
+      achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
       achievementsUnread,

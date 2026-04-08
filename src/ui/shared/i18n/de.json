@@ -307,6 +307,7 @@
   "achievementsEmpty": "Noch keine Erfolge.",
   "achievementsShowAll": "Alle anzeigen",
   "achievementsHideAll": "Ausblenden",
+  "achievementsTotalPointsLabel": "Gesamtpunkte",
   "achievementProgressLabel": "Fortschritt",
   "achievementPointsLabel": "Punkte",
   "achievement.account_created.title": "Konto erstellt",

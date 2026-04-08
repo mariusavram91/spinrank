@@ -1137,6 +1137,17 @@ button:disabled,
   gap: 0.75rem;
 }
 
+.profile-achievements__title-block {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.profile-section__subtitle {
+  margin: 0;
+  font-size: 0.84rem;
+  color: rgba(15, 23, 42, 0.62);
+}
+
 .profile-achievements__summary {
   display: flex;
   flex-wrap: wrap;

@@ -307,6 +307,7 @@
   "achievementsEmpty": "No achievements yet.",
   "achievementsShowAll": "Show all",
   "achievementsHideAll": "Hide",
+  "achievementsTotalPointsLabel": "Total Points",
   "achievementProgressLabel": "Progress",
   "achievementPointsLabel": "Points",
   "achievement.account_created.title": "Account created",

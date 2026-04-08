@@ -136,6 +136,8 @@ export const buildApp = (): HTMLElement => {
     profileScreen,
     closeProfileButton,
     profileStatus,
+    profileAchievementsTitle,
+    profileAchievementsSubtitle,
     profileAchievementsSummary,
     profileAchievementsPreview,
     profileAchievementsUnread,
@@ -1057,6 +1059,8 @@ export const buildApp = (): HTMLElement => {
       const currentUserId = getCurrentUserId(state.current);
       renderProfileScreen({
         dashboardState,
+        achievementsTitle: profileAchievementsTitle,
+        achievementsSubtitle: profileAchievementsSubtitle,
         achievementsSummary: profileAchievementsSummary,
         achievementsPreview: profileAchievementsPreview,
         achievementsUnread: profileAchievementsUnread,

@@ -348,6 +348,8 @@ const buildSegmentCard = (args: {
 
 export const renderProfileScreen = (args: {
   dashboardState: DashboardState;
+  achievementsTitle: HTMLElement;
+  achievementsSubtitle: HTMLElement;
   achievementsSummary: HTMLElement;
   achievementsPreview: HTMLElement;
   achievementsUnread: HTMLElement;
@@ -379,6 +381,9 @@ export const renderProfileScreen = (args: {
 
   const allAchievements = args.dashboardState.achievements?.items ?? [];
   const unlockedAchievements = allAchievements.filter((item) => item.unlockedAt);
+  const unlockedAchievementPoints = unlockedAchievements.reduce((total, item) => total + item.points, 0);
+  args.achievementsTitle.textContent = args.t("achievementsTitle");
+  args.achievementsSubtitle.textContent = `${args.t("achievementsTotalPointsLabel" as TextKey)} ${unlockedAchievementPoints}`;
   const unreadAchievementKeys = new Set(args.dashboardState.profileRecentlySeenAchievementKeys);
   const recentUnlocks = args.dashboardState.achievements?.recentUnlocks ?? [];
   const unreadUnlockedAchievements = (
