@@ -2937,9 +2937,12 @@ button:disabled,
 
 .score-card__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .score-card__heading {
@@ -3425,15 +3428,14 @@ button:disabled,
 }
 
 .score-card__close-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  position: static;
   color: rgba(187, 56, 43, 0.92);
   font-size: 1.4rem;
   line-height: 1;
   padding: 2px 4px;
   border-radius: 999px;
-  align-self: flex-start;
+  margin-left: auto;
+  align-self: center;
   z-index: 2;
 }
 
@@ -3445,10 +3447,6 @@ button:disabled,
   .score-card {
     width: 100%;
     padding: 18px 16px 16px;
-  }
-
-  .score-card__header {
-    flex-direction: column;
   }
 
   .score-card__settings,

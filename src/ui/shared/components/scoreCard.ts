@@ -283,7 +283,7 @@ export const buildScoreCard = (args: {
   instructions.className = "score-card__instructions";
   bindLocalizedText(instructions, "scoreCardInstructions");
 
-  titleBlock.append(title, instructions);
+  titleBlock.append(title);
 
   const closeButton = document.createElement("button");
   closeButton.type = "button";
@@ -706,11 +706,18 @@ export const buildScoreCard = (args: {
     playersById.get(playerId)?.displayName || t("scoreCardAnonymous");
 
   const getTeamLabel = (team: TeamKey, playersById: Map<string, LeaderboardEntry>): string => {
-    const playerIds = team === "A"
+    const [primaryPlayerId, secondaryPlayerId] = team === "A"
       ? [selections.teamA1, selections.teamA2]
       : [selections.teamB1, selections.teamB2];
-    const names = playerIds.filter(Boolean).map((playerId) => getPlayerLabel(playerId, playersById));
-    return names.length > 0 ? names.join(" / ") : t("scoreCardAnonymous");
+
+    if (matchType === "doubles") {
+      return [
+        primaryPlayerId ? getPlayerLabel(primaryPlayerId, playersById) : t("scoreCardAnonymous"),
+        secondaryPlayerId ? getPlayerLabel(secondaryPlayerId, playersById) : t("scoreCardAnonymous"),
+      ].join(" / ");
+    }
+
+    return primaryPlayerId ? getPlayerLabel(primaryPlayerId, playersById) : t("scoreCardAnonymous");
   };
 
   const getCompletedGames = (): GameRecord[] => {
@@ -1286,10 +1293,10 @@ export const buildScoreCard = (args: {
 
   scoreActions.append(resetButton, switchServeButton, nextGameButton, saveButton);
 
-  header.append(titleBlock);
-  topLine.append(statusPanel);
+  header.append(titleBlock, closeButton);
+  topLine.append(instructions, statusPanel);
   controls.append(topLine);
-  scoreCard.append(closeButton, header, controls, tiles, contextPanel, previousGamesPanel, scoreActions);
+  scoreCard.append(header, controls, tiles, contextPanel, previousGamesPanel, scoreActions);
   overlay.append(scoreCard);
 
   scoreCard.addEventListener("focusin", (event) => {
