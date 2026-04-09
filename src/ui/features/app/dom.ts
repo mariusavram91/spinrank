@@ -308,6 +308,36 @@ export const createAppDom = (args: {
   openScoreCardButton.dataset.testid = "open-scorecard-button";
   const { overlay: deleteWarningOverlay, prompt: promptDeleteWarning } = buildDeleteWarning();
 
+  const exitAppOverlay = document.createElement("div");
+  exitAppOverlay.className = "delete-warning-overlay";
+  exitAppOverlay.hidden = true;
+  exitAppOverlay.tabIndex = -1;
+
+  const exitAppModal = document.createElement("div");
+  exitAppModal.className = "delete-warning-modal";
+  exitAppModal.setAttribute("role", "alertdialog");
+  exitAppModal.setAttribute("aria-modal", "true");
+
+  const exitAppTitle = document.createElement("h3");
+  exitAppTitle.className = "delete-warning__title";
+  bindLocalizedText(exitAppTitle, "exitAppTitle");
+
+  const exitAppDescription = document.createElement("p");
+  exitAppDescription.className = "delete-warning__description";
+  bindLocalizedText(exitAppDescription, "exitAppBody");
+
+  const exitAppActions = document.createElement("div");
+  exitAppActions.className = "delete-warning__actions";
+
+  const exitAppStayButton = document.createElement("button");
+  exitAppStayButton.type = "button";
+  exitAppStayButton.className = "secondary-button";
+  bindLocalizedText(exitAppStayButton, "exitAppStay");
+
+  exitAppActions.append(exitAppStayButton);
+  exitAppModal.append(exitAppTitle, exitAppDescription, exitAppActions);
+  exitAppOverlay.append(exitAppModal);
+
   const dashboardOverview = buildDashboardOverview(args.assetsBaseUrl);
 
   const composerPanel = document.createElement("section");
@@ -709,7 +739,7 @@ export const createAppDom = (args: {
     privacyScreen,
     footer,
   );
-  container.append(card, scoreCardOverlay, deleteWarningOverlay, loadingOverlay);
+  container.append(card, scoreCardOverlay, deleteWarningOverlay, exitAppOverlay, loadingOverlay);
 
   return {
     container,
@@ -770,6 +800,8 @@ export const createAppDom = (args: {
     syncScoreCard,
     setScoreCardSaveMatchHandler,
     deleteWarningOverlay,
+    exitAppOverlay,
+    exitAppStayButton,
     promptDeleteWarning,
     ...dashboardOverview,
     composerPanel,

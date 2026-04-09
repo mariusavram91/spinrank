@@ -113,9 +113,48 @@ import {
 } from "./features/app/helpers";
 
 export const buildApp = (): HTMLElement => {
+  const DASHBOARD_HASH = "dashboard";
+  const DASHBOARD_GUARD_HASH = "dashboard-guard";
+  const SCORECARD_HASH = "scorecard";
+  const SCREEN_HASH_ROUTES: Array<Exclude<DashboardState["screen"], "dashboard">> = [
+    "createMatch",
+    "createTournament",
+    "createSeason",
+    "profile",
+    "faq",
+    "privacy",
+  ];
   let scoreCardPlayersGetter: () => LeaderboardEntry[] = () => [];
   let scoreCardUserGetter: () => string = () => "";
   let dashboardState: DashboardState = createDashboardState();
+  let dashboardExitArmed = false;
+  let suppressHashSync = false;
+  const getHashRoute = (): string => window.location.hash.replace(/^#/, "");
+  const isScreenHashRoute = (route: string): route is Exclude<DashboardState["screen"], "dashboard"> =>
+    SCREEN_HASH_ROUTES.includes(route as Exclude<DashboardState["screen"], "dashboard">);
+  const ensureDashboardHashGuard = (): void => {
+    const route = getHashRoute();
+    if (route === DASHBOARD_GUARD_HASH) {
+      return;
+    }
+    if (route === DASHBOARD_HASH) {
+      window.history.pushState(null, "", `#${DASHBOARD_GUARD_HASH}`);
+      return;
+    }
+    window.history.pushState(null, "", `#${DASHBOARD_HASH}`);
+    window.history.pushState(null, "", `#${DASHBOARD_GUARD_HASH}`);
+  };
+  const setHashRoute = (route: string): void => {
+    if (getHashRoute() === route) {
+      return;
+    }
+    suppressHashSync = true;
+    window.location.hash = route;
+  };
+  if (getHashRoute() === "") {
+    window.history.replaceState(null, "", `#${DASHBOARD_HASH}`);
+    window.history.pushState(null, "", `#${DASHBOARD_GUARD_HASH}`);
+  }
   const {
     container,
     loadingOverlay,
@@ -171,6 +210,8 @@ export const buildApp = (): HTMLElement => {
     hideScoreCard,
     isScoreCardVisible,
     deleteWarningOverlay,
+    exitAppOverlay,
+    exitAppStayButton,
     promptDeleteWarning,
     dashboardStatus,
     shareAlert,
@@ -314,6 +355,48 @@ export const buildApp = (): HTMLElement => {
   scoreCardPlayersGetter = () => dashboardState.players;
   scoreCardUserGetter = () => getCurrentUserId(state.current);
   captureShareTokenFromUrl(dashboardState);
+
+  const dismissExitOverlay = (options?: { restoreGuard?: boolean }): void => {
+    dashboardExitArmed = false;
+    exitAppOverlay.hidden = true;
+    if (options?.restoreGuard) {
+      ensureDashboardHashGuard();
+    }
+  };
+
+  const hideScoreCardIfVisible = (): void => {
+    if (isScoreCardVisible()) {
+      hideScoreCard();
+    }
+  };
+
+  const syncDashboardHash = (): void => {
+    if (isScoreCardVisible()) {
+      setHashRoute(SCORECARD_HASH);
+      return;
+    }
+    if (dashboardState.screen === "dashboard") {
+      if (!dashboardExitArmed) {
+        ensureDashboardHashGuard();
+      }
+      return;
+    }
+    setHashRoute(dashboardState.screen);
+  };
+
+  const applyScreenRoute = (screen: DashboardState["screen"]): void => {
+    dismissExitOverlay();
+    hideScoreCardIfVisible();
+    if (dashboardState.screen !== screen) {
+      dashboardState.screen = screen;
+      syncAuthState();
+      syncDashboardState();
+    }
+  };
+
+  const navigateToDashboard = (): void => {
+    applyScreenRoute("dashboard");
+  };
 
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
   const matchParticipantCache = new Map<string, ParticipantSearchEntry[]>();
@@ -1054,6 +1137,13 @@ export const buildApp = (): HTMLElement => {
   });
 
   const syncDashboardState = (): void => {
+    if (!suppressHashSync) {
+      syncDashboardHash();
+    }
+    suppressHashSync = false;
+
+    exitAppOverlay.hidden = dashboardState.screen !== "dashboard" || !dashboardExitArmed;
+
     dashboardSync.syncDashboardState();
     if (isAuthedState(state.current)) {
       const currentUserId = getCurrentUserId(state.current);
@@ -1540,6 +1630,26 @@ export const buildApp = (): HTMLElement => {
     syncDashboardState();
   });
 
+  exitAppStayButton.addEventListener("click", () => {
+    dismissExitOverlay({ restoreGuard: true });
+  });
+
+  exitAppOverlay.addEventListener("click", (event) => {
+    if (event.target !== exitAppOverlay) {
+      return;
+    }
+    dismissExitOverlay({ restoreGuard: true });
+  });
+
+  window.addEventListener("pagehide", () => {
+    dismissExitOverlay();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      dismissExitOverlay();
+    }
+  });
+
   const topLevelUiHandlers = createTopLevelUiHandlers({
     authActions,
     createMenu,
@@ -1706,7 +1816,44 @@ export const buildApp = (): HTMLElement => {
     syncAuthState();
   }, 30_000);
 
-  bindWindowLifecycleHandlers({ sessionId: sessionTicker });
+  bindWindowLifecycleHandlers({
+    sessionId: sessionTicker,
+    onHashChange: () => {
+      const route = getHashRoute();
+      if (route === SCORECARD_HASH) {
+        dismissExitOverlay();
+        if (!isScoreCardVisible()) {
+          showScoreCard();
+        }
+        return;
+      }
+      if (route === DASHBOARD_GUARD_HASH) {
+        applyScreenRoute("dashboard");
+        return;
+      }
+      if (isScreenHashRoute(route)) {
+        applyScreenRoute(route);
+        return;
+      }
+      if (route === DASHBOARD_HASH) {
+        if (dashboardState.screen !== "dashboard" || isScoreCardVisible()) {
+          navigateToDashboard();
+          return;
+        }
+        dashboardExitArmed = true;
+        exitAppOverlay.hidden = false;
+        return;
+      }
+      if (dashboardState.screen !== "dashboard" || isScoreCardVisible()) {
+        navigateToDashboard();
+        return;
+      }
+      dismissExitOverlay();
+      window.setTimeout(() => {
+        window.history.back();
+      }, 0);
+    },
+  });
 
   const {
     seasonSharePanelInstance,

@@ -91,7 +91,7 @@ test.describe("achievements", () => {
     await page.locator(".auth-avatar-button").click();
     await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
     const summary = page.locator(".profile-achievements__summary");
-    const unreadList = page.locator(".achievement-chip-list--profile-unread");
+    const unreadList = page.locator(".achievement-chip-list--profile-unread").last();
     const expandedList = page.locator(".achievement-chip-list--profile:not(.achievement-chip-list--profile-unread)");
     await expect(summary).toBeVisible();
     await expect(summary.getByLabel("First match")).toBeVisible();

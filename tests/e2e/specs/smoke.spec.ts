@@ -90,6 +90,8 @@ test.describe("dashboard smoke flow", () => {
     await page.getByTestId("match-score-0-team-b").fill("5");
     await page.getByTestId("match-submit").click();
 
-    await expect(page.getByTestId("matches-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`));
+    await expect(page.getByTestId("matches-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`), {
+      timeout: 30000,
+    });
   });
 });

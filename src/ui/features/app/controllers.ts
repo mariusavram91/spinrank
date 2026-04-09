@@ -149,6 +149,7 @@ export const createTopLevelUiHandlers = (args: {
     args.menuState.createMenuOpen = false;
     args.showScoreCard();
     args.syncAuthState();
+    args.syncDashboardState();
   },
   onCloseCreateMatch: () => {
     args.dashboardState.screen = "dashboard";
@@ -178,10 +179,12 @@ export const createTopLevelUiHandlers = (args: {
   },
   onCloseScoreCard: () => {
     args.hideScoreCard();
+    args.syncDashboardState();
   },
   onScoreCardOverlayClick: (event) => {
     if (event.target === event.currentTarget) {
       args.hideScoreCard();
+      args.syncDashboardState();
     }
   },
   onSuggestMatch: () => {

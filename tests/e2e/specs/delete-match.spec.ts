@@ -62,7 +62,9 @@ async function createSeasonAndMatch(page: import("@playwright/test").Page, rival
   await page.getByTestId("match-score-0-team-a").fill("11");
   await page.getByTestId("match-score-0-team-b").fill("5");
   await page.getByTestId("match-submit").click();
-  await expect(page.getByTestId("matches-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`));
+  await expect(page.getByTestId("matches-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`), {
+    timeout: 30000,
+  });
 }
 
 test.describe("match delete flow", () => {

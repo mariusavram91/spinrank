@@ -198,6 +198,7 @@ describe("event bindings", () => {
     const createButtonEl = createButton();
     const copyFeedback = document.createElement("span");
     const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+    const onHashChange = vi.fn();
 
     bindSharePanelHandlers({
       segmentType: "season",
@@ -214,12 +215,14 @@ describe("event bindings", () => {
       onCopy: vi.fn(),
       onCreate: vi.fn(),
     });
-    bindWindowLifecycleHandlers({ sessionId: 42 });
+    bindWindowLifecycleHandlers({ sessionId: 42, onHashChange });
 
     copyButton.click();
     createButtonEl.click();
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
     window.dispatchEvent(new Event("beforeunload"));
 
+    expect(onHashChange).toHaveBeenCalledTimes(1);
     expect(clearIntervalSpy).toHaveBeenCalledWith(42);
     clearIntervalSpy.mockRestore();
   });

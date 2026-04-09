@@ -4,7 +4,7 @@ export default defineConfig({
   plugins: [],
   base: "./",
   server: {
-    allowedHosts: ["frontend-dev", "frontend-e2e"],
+    allowedHosts: ["frontend-dev", "frontend-e2e", "clan-arabia-monitors-printed.trycloudflare.com"],
     proxy: {
       "/api": {
         target: process.env.VITE_DEV_PROXY_TARGET ?? "http://127.0.0.1:8787",

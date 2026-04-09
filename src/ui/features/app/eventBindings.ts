@@ -154,8 +154,12 @@ export const bindSharePanelHandlers = (args: {
 
 export const bindWindowLifecycleHandlers = (args: {
   sessionId: number;
+  onHashChange?: () => void;
 }): void => {
   window.addEventListener("beforeunload", () => {
     window.clearInterval(args.sessionId);
   });
+  if (args.onHashChange) {
+    window.addEventListener("hashchange", args.onHashChange);
+  }
 };
