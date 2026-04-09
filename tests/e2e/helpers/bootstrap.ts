@@ -32,7 +32,16 @@ export async function bootstrapTestUser(
     data: payload,
   });
 
-  const body = (await response.json()) as BootstrapUserResponse;
+  const rawBody = await response.text();
+  let body: BootstrapUserResponse | null = null;
+  try {
+    body = rawBody ? (JSON.parse(rawBody) as BootstrapUserResponse) : null;
+  } catch {
+    throw new Error(
+      `Failed to bootstrap test user. Expected JSON from ${endpoint}, received: ${rawBody.slice(0, 200)}`,
+    );
+  }
+
   if (!body || !body.ok || !body.data) {
     throw new Error(body?.error?.message || "Failed to bootstrap test user.");
   }

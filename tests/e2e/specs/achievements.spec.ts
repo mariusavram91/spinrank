@@ -1,18 +1,21 @@
 import { expect, test } from "@playwright/test";
-import { bootstrapTestUser, persistAppSession } from "../helpers/bootstrap";
+import { gotoDashboard, waitForDashboard } from "../helpers/dashboard";
+import { createSeasonMatch } from "../helpers/matches";
+import { bootstrapPersona, createTestToken, signInAsPersona } from "../helpers/personas";
+import { mockParticipantSearch } from "../helpers/participants";
+import { openProfile } from "../helpers/profile";
+import { createSeason } from "../helpers/seasons";
 
 test.describe("achievements", () => {
   test("shows a new-achievement dot on the avatar and clears it after opening the profile", async ({
     page,
     request,
   }) => {
-    const timestamp = Date.now();
-    const sessionUser = await bootstrapTestUser(request, {
-      userId: `e2e-achievements-owner-${timestamp}`,
+    const token = createTestToken("achievements");
+    await signInAsPersona(page, request, "owner", token, {
       displayName: "E2E Achievement Owner",
     });
-    const rival = await bootstrapTestUser(request, {
-      userId: `e2e-achievements-rival-${timestamp}`,
+    const rival = await bootstrapPersona(request, "rival", token, {
       displayName: "E2E Achievement Rival",
     });
 
@@ -22,74 +25,32 @@ test.describe("achievements", () => {
         sessionStorage.setItem("spinrank.e2e-cleared-achievements", "1");
       }
     });
-    await persistAppSession(page, sessionUser);
-    await page.goto("/", { waitUntil: "networkidle" });
-    await expect(page.getByTestId("leaderboard-list")).toBeVisible();
+    await gotoDashboard(page);
     await expect(page.getByTestId("achievements-avatar-badge")).toBeHidden();
 
-    await page.route("**/api", async (route, interceptedRequest) => {
-      if (interceptedRequest.method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      const body = interceptedRequest.postDataJSON?.();
-      if (body?.action === "searchParticipants" && body?.payload?.segmentType === "season") {
-        await route.fulfill({
-          status: 200,
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            ok: true,
-            data: {
-              participants: [
-                {
-                  userId: rival.user.id,
-                  displayName: rival.user.displayName,
-                  avatarUrl: null,
-                  elo: 1200,
-                  isSuggested: true,
-                },
-              ],
-            },
-            error: null,
-            requestId: body?.requestId ?? "search-achievements-season",
-          }),
-        });
-        return;
-      }
-
-      await route.continue();
+    await mockParticipantSearch(page, {
+      segmentType: "season",
+      requestId: "search-achievements-season",
+      participants: [
+        {
+          userId: rival.session.user.id,
+          displayName: rival.session.user.displayName,
+        },
+      ],
     });
 
-    await page.getByTestId("create-menu-toggle").click();
-    await page.getByTestId("open-season-button").click();
-    await page.getByTestId("season-name").fill(`E2E Achievement Season ${timestamp}`);
-    await page.getByTestId("season-start").fill("2026-04-05");
-    await page.getByTestId("season-end").fill("2026-04-30");
-    await page.getByTestId("season-participant-search").fill("Rival");
-    await expect(page.getByTestId("participant-search-result")).toBeVisible();
-    await page.getByTestId("participant-add-button").first().click();
-    await page.getByTestId("season-submit").click();
+    await createSeason(page, {
+      name: `E2E Achievement Season ${token}`,
+      participantSearchTerm: "Rival",
+    });
     await expect(page.getByTestId("achievements-avatar-badge")).toBeVisible({ timeout: 30000 });
     await page.getByTestId("close-create-season-button").click();
 
-    await page.getByTestId("create-menu-toggle").click();
-    await page.getByTestId("open-match-button").click();
-    await page.getByTestId("match-context-season").click();
-    await expect(page.getByTestId("match-season-select")).not.toHaveValue("");
-    const rivalPicker = page.getByTestId("match-player-search-team-b-1").locator("..");
-    await rivalPicker.getByTestId("match-player-search-team-b-1").fill(`${rival.user.displayName} (1200)`);
-    await rivalPicker.getByTestId("match-player-search-option").filter({ hasText: rival.user.displayName }).click();
-    await page.getByTestId("match-score-0-team-a").fill("11");
-    await page.getByTestId("match-score-0-team-b").fill("4");
-    await page.getByTestId("match-submit").click();
+    await createSeasonMatch(page, rival.session.user.displayName, { scoreB: "4" });
 
     await expect(page.getByTestId("achievements-avatar-badge")).toBeVisible({ timeout: 30000 });
 
-    await page.locator(".auth-avatar-button").click();
-    await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
+    await openProfile(page);
     const summary = page.locator(".profile-achievements__summary");
     const unreadList = page.locator(".achievement-chip-list--profile-unread").last();
     const expandedList = page.locator(".achievement-chip-list--profile:not(.achievement-chip-list--profile-unread)");
@@ -112,8 +73,8 @@ test.describe("achievements", () => {
     );
     await expect(page.getByTestId("achievements-avatar-badge")).toBeHidden();
 
-    await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByTestId("leaderboard-list")).toBeVisible();
+    await page.reload();
+    await waitForDashboard(page);
     await expect(page.getByTestId("achievements-avatar-badge")).toBeHidden();
     await page.locator(".auth-avatar-button").click();
     await expect(summary).toBeVisible();

@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { bootstrapTestUser, persistAppSession } from "../helpers/bootstrap";
+import { persistAppSession } from "../helpers/bootstrap";
+import { gotoDashboard } from "../helpers/dashboard";
+import { bootstrapPersona, createTestToken, signInAsPersona } from "../helpers/personas";
+import { mockParticipantSearch } from "../helpers/participants";
+import { createSeason } from "../helpers/seasons";
+import { captureShareToken } from "../helpers/shares";
 
 test.describe("season share invite flow", () => {
   test("lets a second signed-in user join a private season from a share link", async ({
@@ -7,97 +12,42 @@ test.describe("season share invite flow", () => {
     page,
     request,
   }) => {
-    const timestamp = Date.now();
-    const ownerSession = await bootstrapTestUser(request, {
-      userId: `e2e-share-owner-${timestamp}`,
+    const token = createTestToken("share");
+    const owner = await signInAsPersona(page, request, "owner", token, {
       displayName: "E2E Share Owner",
     });
-    const rival = await bootstrapTestUser(request, {
-      userId: `e2e-share-rival-${timestamp}`,
+    const rival = await bootstrapPersona(request, "rival", token, {
       displayName: "E2E Share Rival",
     });
-    const guestSession = await bootstrapTestUser(request, {
-      userId: `e2e-share-guest-${timestamp}`,
+    const guest = await bootstrapPersona(request, "guest", token, {
       displayName: "E2E Share Guest",
     });
 
-    let shareToken = "";
-
-    await persistAppSession(page, ownerSession);
-    await page.route("**/api", async (route, routedRequest) => {
-      if (routedRequest.method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      const body = routedRequest.postDataJSON?.();
-      if (body?.action === "searchParticipants" && body?.payload?.segmentType === "season") {
-        await route.fulfill({
-          status: 200,
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            ok: true,
-            data: {
-              participants: [
-                {
-                  userId: rival.user.id,
-                  displayName: rival.user.displayName,
-                  avatarUrl: null,
-                  elo: 1200,
-                  isSuggested: true,
-                },
-              ],
-            },
-            error: null,
-            requestId: body?.requestId ?? "search-season",
-          }),
-        });
-        return;
-      }
-
-      if (body?.action === "createSegmentShareLink") {
-        const response = await route.fetch();
-        const payload = await response.json();
-        if (!shareToken) {
-          shareToken = String(payload?.data?.shareToken ?? "");
-        }
-        await route.fulfill({
-          response,
-          body: JSON.stringify(payload),
-          headers: {
-            "content-type": "application/json",
-          },
-        });
-        return;
-      }
-
-      await route.continue();
+    await mockParticipantSearch(page, {
+      segmentType: "season",
+      requestId: "search-season",
+      participants: [
+        {
+          userId: rival.session.user.id,
+          displayName: rival.session.user.displayName,
+        },
+      ],
     });
+    const shareCapture = await captureShareToken(page);
 
-    await page.goto("/", { waitUntil: "networkidle" });
-    await expect(page.getByTestId("leaderboard-list")).toBeVisible();
+    await gotoDashboard(page);
 
-    await page.getByTestId("create-menu-toggle").click();
-    await page.getByTestId("open-season-button").click();
-    await page.getByTestId("season-name").fill(`Private Invite Season ${timestamp}`);
-    await page.getByTestId("season-start").fill("2026-04-05");
-    await page.getByTestId("season-end").fill("2026-04-30");
-    await page.getByTestId("season-participant-search").fill("Rival");
-    await expect(page.getByTestId("participant-search-result")).toBeVisible();
-    await page.getByTestId("participant-add-button").first().click();
-    await page.getByTestId("season-submit").click();
-    await expect(page.getByTestId("season-status")).toContainText("Season created and added to the dashboard.", {
-      timeout: 30000,
+    await createSeason(page, {
+      name: `Private Invite Season ${token}`,
+      participantSearchTerm: "Rival",
     });
-    await expect.poll(() => shareToken, { timeout: 30000 }).not.toBe("");
+    await expect.poll(() => shareCapture.token(), { timeout: 30000 }).not.toBe("");
 
     const guestContext = await browser.newContext();
     const guestPage = await guestContext.newPage();
     try {
-      await persistAppSession(guestPage, guestSession);
-      await guestPage.goto(`/?shareToken=${encodeURIComponent(shareToken)}`, {
+      await persistAppSession(guestPage, guest.session);
+      await guestPage.goto(`/?shareToken=${encodeURIComponent(shareCapture.token())}`, {
         waitUntil: "networkidle",
       });
 
