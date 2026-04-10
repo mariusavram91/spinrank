@@ -5,7 +5,14 @@ import { parseApiRequest, routeApiRequest } from "./router";
 import { resolveWorkerRuntime } from "./runtime";
 import { processPendingAchievementJobs } from "./services/achievements";
 import { handleTestBootstrapRequest, isTestBootstrapRequest } from "./testAuth";
-import { handleTestSeedDashboardRequest, isTestSeedDashboardRequest } from "./testSeed";
+import {
+  handleTestSeedAchievementsRequest,
+  handleTestSeedDashboardRequest,
+  handleTestSeedProfileRequest,
+  isTestSeedAchievementsRequest,
+  isTestSeedDashboardRequest,
+  isTestSeedProfileRequest,
+} from "./testSeed";
 import type { Env } from "./types";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -46,6 +53,14 @@ export default {
 
     if (isTestSeedDashboardRequest(request)) {
       return handleTestSeedDashboardRequest(request, env);
+    }
+
+    if (isTestSeedProfileRequest(request)) {
+      return handleTestSeedProfileRequest(request, env);
+    }
+
+    if (isTestSeedAchievementsRequest(request)) {
+      return handleTestSeedAchievementsRequest(request, env);
     }
 
     if (!env.APP_SESSION_SECRET) {

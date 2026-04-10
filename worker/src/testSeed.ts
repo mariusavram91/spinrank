@@ -1,6 +1,7 @@
 import { randomId } from "./db";
 import { isTestAuthEnabled } from "./auth";
 import { errorResponse, json, successResponse } from "./responses";
+import { ensureAchievementCatalog } from "./services/achievements";
 import { saveTournamentBracket } from "./services/brackets";
 import type { Env, UserRow } from "./types";
 
@@ -24,11 +25,40 @@ interface SeedDashboardResponse {
 }
 
 const TEST_SEED_DASHBOARD_ROUTE = "/test/seed-dashboard";
+const TEST_SEED_PROFILE_ROUTE = "/test/seed-profile";
+const TEST_SEED_ACHIEVEMENTS_ROUTE = "/test/seed-achievements";
 
 export const isTestSeedDashboardRequest = (request: Request): boolean => {
   const url = new URL(request.url);
   return request.method === "POST" && url.pathname === TEST_SEED_DASHBOARD_ROUTE;
 };
+
+export const isTestSeedProfileRequest = (request: Request): boolean => {
+  const url = new URL(request.url);
+  return request.method === "POST" && url.pathname === TEST_SEED_PROFILE_ROUTE;
+};
+
+export const isTestSeedAchievementsRequest = (request: Request): boolean => {
+  const url = new URL(request.url);
+  return request.method === "POST" && url.pathname === TEST_SEED_ACHIEVEMENTS_ROUTE;
+};
+
+interface SeedProfilePayload {
+  ownerId?: string;
+  namespace?: string;
+}
+
+interface SeedProfileResponse {
+  seasonId: string;
+  seasonName: string;
+  rivalId: string;
+  rivalDisplayName: string;
+}
+
+interface SeedAchievementsPayload {
+  ownerId?: string;
+  namespace?: string;
+}
 
 async function requireAuthorizedTestRequest(
   request: Request,
@@ -65,6 +95,28 @@ async function parseSeedDashboardPayload(
 
   try {
     return JSON.parse(rawBody) as SeedDashboardPayload;
+  } catch {
+    return json(
+      env,
+      errorResponse("test-seed", "BAD_REQUEST", "Request body contains invalid JSON."),
+      400,
+      requestOrigin,
+    );
+  }
+}
+
+async function parseJsonPayload<T>(
+  request: Request,
+  env: Env,
+  requestOrigin: string | null,
+): Promise<T | Response> {
+  const rawBody = await request.text();
+  if (!rawBody) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(rawBody) as T;
   } catch {
     return json(
       env,
@@ -417,6 +469,217 @@ async function seedScopeFixtures(
   return { seasonId, tournamentId, emptyTournamentId, rivalId };
 }
 
+async function upsertSeasonSegment(
+  env: Env,
+  args: {
+    segmentId: string;
+    userId: string;
+    elo: number;
+    wins: number;
+    losses: number;
+    streak: number;
+    matchesPlayedEquivalent: number;
+    seasonGlickoRating: number;
+    seasonGlickoRd: number;
+    seasonConservativeRating: number;
+    seasonAttendedWeeks: number;
+    seasonTotalWeeks: number;
+    seasonAttendancePenalty: number;
+    lastMatchAt: string;
+    nowIso: string;
+  },
+): Promise<void> {
+  await env.DB.prepare(
+    `
+      INSERT INTO elo_segments (
+        id, segment_type, segment_id, user_id, elo, matches_played, wins, losses, streak, updated_at,
+        matches_played_equivalent, last_match_at, season_glicko_rating, season_glicko_rd,
+        season_conservative_rating, season_attended_weeks, season_total_weeks, season_attendance_penalty
+      )
+      VALUES (?1, 'season', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+      ON CONFLICT(segment_type, segment_id, user_id) DO UPDATE SET
+        elo = excluded.elo,
+        matches_played = excluded.matches_played,
+        wins = excluded.wins,
+        losses = excluded.losses,
+        streak = excluded.streak,
+        updated_at = excluded.updated_at,
+        matches_played_equivalent = excluded.matches_played_equivalent,
+        last_match_at = excluded.last_match_at,
+        season_glicko_rating = excluded.season_glicko_rating,
+        season_glicko_rd = excluded.season_glicko_rd,
+        season_conservative_rating = excluded.season_conservative_rating,
+        season_attended_weeks = excluded.season_attended_weeks,
+        season_total_weeks = excluded.season_total_weeks,
+        season_attendance_penalty = excluded.season_attendance_penalty
+    `,
+  )
+    .bind(
+      randomId("es", env.runtime),
+      args.segmentId,
+      args.userId,
+      args.elo,
+      Math.round(args.matchesPlayedEquivalent),
+      args.wins,
+      args.losses,
+      args.streak,
+      args.nowIso,
+      args.matchesPlayedEquivalent,
+      args.lastMatchAt,
+      args.seasonGlickoRating,
+      args.seasonGlickoRd,
+      args.seasonConservativeRating,
+      args.seasonAttendedWeeks,
+      args.seasonTotalWeeks,
+      args.seasonAttendancePenalty,
+    )
+    .run();
+}
+
+async function seedProfileScenario(
+  env: Env,
+  owner: UserRow,
+  namespace: string,
+): Promise<SeedProfileResponse> {
+  const nowIso = "2026-04-10T12:00:00.000Z";
+  const playedAt = "2026-04-09T12:00:00.000Z";
+  const rivalId = `${namespace}-profile-rival`;
+  const rivalDisplayName = "Profile Rival";
+  const seasonId = `${namespace}-profile-season`;
+  const seasonName = `Profile Season ${namespace}`;
+  const matchId = `${namespace}-profile-match`;
+
+  await upsertUser(env, {
+    userId: rivalId,
+    providerUserId: `test:${rivalId}`,
+    displayName: rivalDisplayName,
+    email: `${rivalId}@test.spinrank.local`,
+    globalElo: 1180,
+    wins: 0,
+    losses: 1,
+    streak: -1,
+    nowIso,
+  });
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `
+        INSERT INTO seasons (
+          id, name, start_date, end_date, is_active, status, base_elo_mode, participant_ids_json,
+          created_by_user_id, created_at, completed_at, is_public
+        )
+        VALUES (?1, ?2, '2026-04-01', '2026-04-30', 1, 'active', 'carry_over', ?3, ?4, ?5, NULL, 0)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          start_date = excluded.start_date,
+          end_date = excluded.end_date,
+          is_active = excluded.is_active,
+          status = excluded.status,
+          participant_ids_json = excluded.participant_ids_json
+      `,
+    ).bind(
+      seasonId,
+      seasonName,
+      JSON.stringify([owner.id, rivalId]),
+      owner.id,
+      nowIso,
+    ),
+    env.DB.prepare(`DELETE FROM season_participants WHERE season_id = ?1`).bind(seasonId),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, owner.id),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, rivalId),
+    env.DB.prepare(`DELETE FROM match_players WHERE match_id = ?1`).bind(matchId),
+    env.DB.prepare(`DELETE FROM matches WHERE id = ?1`).bind(matchId),
+  ]);
+
+  await insertMatch(env, {
+    matchId,
+    ownerId: owner.id,
+    rivalId,
+    ownerDelta: 20,
+    rivalDelta: -20,
+    playedAt,
+    nowIso,
+  });
+
+  await env.DB.prepare(`UPDATE matches SET season_id = ?2 WHERE id = ?1`).bind(matchId, seasonId).run();
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `
+        UPDATE users
+        SET global_elo = 1220, wins = 1, losses = 0, streak = 1, updated_at = ?2
+        WHERE id = ?1
+      `,
+    ).bind(owner.id, nowIso),
+    env.DB.prepare(
+      `
+        UPDATE users
+        SET global_elo = 1180, wins = 0, losses = 1, streak = -1, updated_at = ?2
+        WHERE id = ?1
+      `,
+    ).bind(rivalId, nowIso),
+  ]);
+
+  await upsertSeasonSegment(env, {
+    segmentId: seasonId,
+    userId: owner.id,
+    elo: 1220,
+    wins: 1,
+    losses: 0,
+    streak: 1,
+    matchesPlayedEquivalent: 1,
+    seasonGlickoRating: 1220,
+    seasonGlickoRd: 90,
+    seasonConservativeRating: 1130,
+    seasonAttendedWeeks: 1,
+    seasonTotalWeeks: 4,
+    seasonAttendancePenalty: 0,
+    lastMatchAt: playedAt,
+    nowIso,
+  });
+  await upsertSeasonSegment(env, {
+    segmentId: seasonId,
+    userId: rivalId,
+    elo: 1180,
+    wins: 0,
+    losses: 1,
+    streak: -1,
+    matchesPlayedEquivalent: 1,
+    seasonGlickoRating: 1180,
+    seasonGlickoRd: 90,
+    seasonConservativeRating: 1090,
+    seasonAttendedWeeks: 1,
+    seasonTotalWeeks: 4,
+    seasonAttendancePenalty: 0,
+    lastMatchAt: playedAt,
+    nowIso,
+  });
+
+  return { seasonId, seasonName, rivalId, rivalDisplayName };
+}
+
+async function seedAchievementsScenario(env: Env, owner: UserRow): Promise<void> {
+  const nowIso = "2026-04-10T12:00:00.000Z";
+  await ensureAchievementCatalog(env);
+
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM user_achievements WHERE user_id = ?1`).bind(owner.id),
+    env.DB.prepare(
+      `
+        INSERT INTO user_achievements (
+          user_id, achievement_key, unlocked_at, progress_value, progress_target, last_evaluated_at, context_json
+        )
+        VALUES
+          (?1, 'first_match', '2026-04-10T11:58:00.000Z', 1, 1, ?2, '{}'),
+          (?1, 'first_win', '2026-04-10T11:59:00.000Z', 1, 1, ?2, '{}'),
+          (?1, 'matches_10', '2026-04-01T10:00:00.000Z', 10, 10, ?2, '{}'),
+          (?1, 'tournament_creator', '2026-04-02T10:00:00.000Z', 1, 1, ?2, '{}'),
+          (?1, 'matches_25', NULL, 10, 25, ?2, '{}')
+      `,
+    ).bind(owner.id, nowIso),
+  ]);
+}
+
 export async function handleTestSeedDashboardRequest(request: Request, env: Env): Promise<Response> {
   const auth = await requireAuthorizedTestRequest(request, env);
   if (auth instanceof Response) {
@@ -468,4 +731,63 @@ export async function handleTestSeedDashboardRequest(request: Request, env: Env)
   }
 
   return json(env, successResponse("test-seed", data), 200, requestOrigin);
+}
+
+export async function handleTestSeedProfileRequest(request: Request, env: Env): Promise<Response> {
+  const auth = await requireAuthorizedTestRequest(request, env);
+  if (auth instanceof Response) {
+    return auth;
+  }
+
+  const { requestOrigin } = auth;
+  const parsedPayload = await parseJsonPayload<SeedProfilePayload>(request, env, requestOrigin);
+  if (parsedPayload instanceof Response) {
+    return parsedPayload;
+  }
+
+  const ownerId = String(parsedPayload.ownerId || "").trim();
+  const namespace = String(parsedPayload.namespace || "").trim() || randomId("profile-seed", env.runtime);
+
+  if (!ownerId) {
+    return json(env, errorResponse("test-seed", "BAD_REQUEST", "seed-profile requires ownerId."), 400, requestOrigin);
+  }
+
+  const owner = await getRequiredUser(env, ownerId);
+  if (!owner) {
+    return json(env, errorResponse("test-seed", "NOT_FOUND", "Seed owner was not found."), 404, requestOrigin);
+  }
+
+  const data = await seedProfileScenario(env, owner, namespace);
+  return json(env, successResponse("test-seed", data), 200, requestOrigin);
+}
+
+export async function handleTestSeedAchievementsRequest(request: Request, env: Env): Promise<Response> {
+  const auth = await requireAuthorizedTestRequest(request, env);
+  if (auth instanceof Response) {
+    return auth;
+  }
+
+  const { requestOrigin } = auth;
+  const parsedPayload = await parseJsonPayload<SeedAchievementsPayload>(request, env, requestOrigin);
+  if (parsedPayload instanceof Response) {
+    return parsedPayload;
+  }
+
+  const ownerId = String(parsedPayload.ownerId || "").trim();
+  if (!ownerId) {
+    return json(
+      env,
+      errorResponse("test-seed", "BAD_REQUEST", "seed-achievements requires ownerId."),
+      400,
+      requestOrigin,
+    );
+  }
+
+  const owner = await getRequiredUser(env, ownerId);
+  if (!owner) {
+    return json(env, errorResponse("test-seed", "NOT_FOUND", "Seed owner was not found."), 404, requestOrigin);
+  }
+
+  await seedAchievementsScenario(env, owner);
+  return json(env, successResponse("test-seed", {}), 200, requestOrigin);
 }

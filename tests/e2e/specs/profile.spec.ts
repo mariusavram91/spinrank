@@ -1,66 +1,49 @@
 import { expect, test } from "@playwright/test";
 import { gotoDashboard } from "../helpers/dashboard";
-import { createSeasonMatch } from "../helpers/matches";
-import { bootstrapPersona, createTestToken, signInAsPersona } from "../helpers/personas";
-import { mockParticipantSearch } from "../helpers/participants";
 import { openProfile } from "../helpers/profile";
-import { createSeason } from "../helpers/seasons";
+import { createTestToken, signInAsPersona } from "../helpers/personas";
+import { seedProfileState } from "../helpers/seeds";
 
 test.describe("profile flow", () => {
-  let rivalDisplayName = "";
-  let rivalId = "";
-
-  test.beforeEach(async ({ page, request }) => {
+  test("loads profile activity and lets the user reopen a season from profile", async ({ page, request }) => {
     const token = createTestToken("profile");
-    await signInAsPersona(page, request, "owner", token, {
+    const owner = await signInAsPersona(page, request, "owner", token, {
       displayName: "E2E Profile Owner",
     });
-    const rival = await bootstrapPersona(request, "rival", token, {
-      displayName: "E2E Profile Rival",
+    const seeded = await seedProfileState(request, {
+      ownerId: owner.session.user.id,
+      namespace: token,
     });
 
-    rivalDisplayName = rival.session.user.displayName;
-    rivalId = rival.session.user.id;
     await gotoDashboard(page);
-  });
-
-  test("loads profile activity and lets the user reopen a season from profile", async ({ page }) => {
-    const seasonName = `E2E Profile Season ${createTestToken("season")}`;
-
-    await mockParticipantSearch(page, {
-      segmentType: "season",
-      requestId: "search-profile-season",
-      participants: [{ userId: rivalId, displayName: rivalDisplayName }],
-    });
-
-    await createSeason(page, { name: seasonName, participantSearchTerm: "Rival" });
-    await page.getByTestId("close-create-season-button").click();
-
-    await createSeasonMatch(page, rivalDisplayName);
-    await expect(page.getByTestId("matches-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`), {
-      timeout: 30000,
-    });
+    await expect(page.getByTestId("matches-list")).toContainText(seeded.rivalDisplayName);
 
     await openProfile(page);
+
     const seasonsSection = page.locator(".profile-section", {
       has: page.locator(".profile-section__title", { hasText: "Seasons" }),
     });
-    await expect(seasonsSection).toContainText(seasonName, { timeout: 30000 });
+    await expect(seasonsSection).toContainText(seeded.seasonName, { timeout: 30000 });
     await expect(seasonsSection).toContainText("Participants 2", { timeout: 30000 });
-    await expect(page.locator(".profile-match-list")).toContainText(new RegExp(`${rivalDisplayName}|${rivalId}`), {
+    await expect(page.locator(".profile-match-list")).toContainText(seeded.rivalDisplayName, {
       timeout: 30000,
     });
 
-    await page.locator(".profile-segment-card").filter({ hasText: seasonName }).click();
-    await expect(page.getByTestId("season-name")).toHaveValue(seasonName, { timeout: 30000 });
+    await page.locator(".profile-segment-card").filter({ hasText: seeded.seasonName }).click();
+    await expect(page.getByTestId("season-name")).toHaveValue(seeded.seasonName, { timeout: 30000 });
   });
 
-  test("does not reload profile data when the avatar is clicked again from the profile screen", async ({ page }) => {
+  test("does not reload profile data when the avatar is clicked again from the profile screen", async ({ page, request }) => {
+    const token = createTestToken("profile-idempotent");
+    await signInAsPersona(page, request, "owner", token, {
+      displayName: "E2E Profile Owner",
+    });
+
     let profileMatchesRequests = 0;
 
-    await page.route("**/api", async (route, request) => {
-      if (request.method() === "POST") {
-        const body = request.postDataJSON?.();
+    await page.route("**/api", async (route, routeRequest) => {
+      if (routeRequest.method() === "POST") {
+        const body = routeRequest.postDataJSON?.();
         if (body?.action === "getMatches" && body?.payload?.filter === "mine") {
           profileMatchesRequests += 1;
         }
@@ -69,9 +52,31 @@ test.describe("profile flow", () => {
       await route.continue();
     });
 
+    await gotoDashboard(page);
     await openProfile(page);
     await page.getByRole("button", { name: /open profile/i }).click();
 
     await expect.poll(() => profileMatchesRequests).toBe(1);
+  });
+
+  test("shows empty profile states for an inactive user", async ({ page, request }) => {
+    const token = createTestToken("profile-empty");
+    await signInAsPersona(page, request, "owner", token, {
+      displayName: "Inactive Profile Owner",
+    });
+
+    await gotoDashboard(page);
+    await openProfile(page);
+
+    const seasonsSection = page.locator(".profile-section", {
+      has: page.locator(".profile-section__title", { hasText: "Seasons" }),
+    });
+    const tournamentsSection = page.locator(".profile-section", {
+      has: page.locator(".profile-section__title", { hasText: "Tournaments" }),
+    });
+
+    await expect(seasonsSection).toContainText("Nothing to show here yet.");
+    await expect(tournamentsSection).toContainText("Nothing to show here yet.");
+    await expect(page.locator(".profile-match-list")).toContainText("No matches involving you yet.");
   });
 });
