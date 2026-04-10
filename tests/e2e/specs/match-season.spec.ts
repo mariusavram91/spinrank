@@ -4,6 +4,7 @@ import { createSeasonMatch } from "../helpers/matches";
 import { createTestToken, signInAsPersona, bootstrapPersona } from "../helpers/personas";
 import { mockParticipantSearch } from "../helpers/participants";
 import { createSeason } from "../helpers/seasons";
+import { seedMatchLockState } from "../helpers/seeds";
 
 test.describe("season match flow", () => {
   test("creates a season and records a season-linked match", async ({ page, request }) => {
@@ -46,5 +47,29 @@ test.describe("season match flow", () => {
       { timeout: 30000 },
     );
     await expect(page.getByTestId("leaderboard-list")).toContainText(owner.session.user.displayName);
+  });
+
+  test("disables season-context submission for a completed season", async ({ page, request }) => {
+    const token = createTestToken("match-season-lock");
+    const owner = await signInAsPersona(page, request, "owner", token, {
+      displayName: "Season Lock Owner",
+    });
+
+    await seedMatchLockState(request, {
+      ownerId: owner.session.user.id,
+      namespace: token,
+      scenario: "completed-season",
+    });
+
+    await gotoDashboard(page);
+    await page.getByTestId("create-menu-toggle").click();
+    await page.getByTestId("open-match-button").click();
+    await page.getByTestId("match-context-season").click();
+    await expect(page.getByTestId("match-season-select")).not.toHaveValue("");
+
+    await expect(page.getByTestId("match-submit")).toBeDisabled();
+    await expect(page.getByTestId("match-lock-notice")).toContainText(
+      "This season is completed and no further matches can be added.",
+    );
   });
 });

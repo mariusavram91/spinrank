@@ -94,9 +94,11 @@ export const createAppDom = (args: {
 
   const authMenu = document.createElement("div");
   authMenu.className = "auth-menu";
+  authMenu.dataset.testid = "auth-menu";
 
   const createMenu = document.createElement("div");
   createMenu.className = "create-menu";
+  createMenu.dataset.testid = "create-menu";
 
   const authAvatar = document.createElement("img");
   authAvatar.className = "auth-avatar";
@@ -109,6 +111,7 @@ export const createAppDom = (args: {
   authMenuButton.className = "secondary-button auth-menu-button";
   authMenuButton.textContent = "☰";
   authMenuButton.setAttribute("aria-label", "Open account menu");
+  authMenuButton.dataset.testid = "auth-menu-toggle";
 
   const createMenuButton = document.createElement("button");
   createMenuButton.type = "button";
@@ -260,11 +263,13 @@ export const createAppDom = (args: {
   logoutButton.type = "button";
   logoutButton.className = "secondary-button";
   bindLocalizedText(logoutButton, "logout");
+  logoutButton.dataset.testid = "auth-menu-logout";
 
   const faqMenuButton = document.createElement("button");
   faqMenuButton.type = "button";
   faqMenuButton.className = "secondary-button";
   bindLocalizedText(faqMenuButton, "faqMenuLabel");
+  faqMenuButton.dataset.testid = "auth-menu-faq";
 
   const refreshButton = document.createElement("button");
   refreshButton.type = "button";
@@ -365,6 +370,7 @@ export const createAppDom = (args: {
   composerStatus.className = "form-status share-alert match-composer-alert";
   composerStatus.hidden = true;
   composerStatus.setAttribute("aria-live", "polite");
+  composerStatus.dataset.testid = "match-status";
 
   const matchOutcome = document.createElement("p");
   matchOutcome.className = "match-outcome";
@@ -372,6 +378,7 @@ export const createAppDom = (args: {
   const matchLockNotice = document.createElement("p");
   matchLockNotice.className = "form-status";
   matchLockNotice.hidden = true;
+  matchLockNotice.dataset.testid = "match-lock-notice";
 
   const matchQuickBar = document.createElement("div");
   matchQuickBar.className = "quick-bar quick-bar--match";
@@ -541,6 +548,7 @@ export const createAppDom = (args: {
   const seasonLockNotice = document.createElement("p");
   seasonLockNotice.className = "form-status";
   seasonLockNotice.hidden = true;
+  seasonLockNotice.dataset.testid = "season-lock-notice";
 
   const seasonQuickBar = document.createElement("div");
   seasonQuickBar.className = "segment-lock-bar";
@@ -560,11 +568,13 @@ export const createAppDom = (args: {
 
   const loadSeasonSelect = document.createElement("select");
   loadSeasonSelect.className = "select-input";
+  loadSeasonSelect.dataset.testid = "season-load-select";
 
   const resetSeasonDraftButton = document.createElement("button");
   resetSeasonDraftButton.type = "button";
   resetSeasonDraftButton.className = "secondary-button";
   bindLocalizedText(resetSeasonDraftButton, "createNewSeasonDraft");
+  resetSeasonDraftButton.dataset.testid = "season-reset-draft";
 
   const seasonStartDateInput = document.createElement("input");
   seasonStartDateInput.className = "text-input";
@@ -645,6 +655,7 @@ export const createAppDom = (args: {
   resetTournamentDraftButton.type = "button";
   resetTournamentDraftButton.className = "secondary-button";
   bindLocalizedText(resetTournamentDraftButton, "createNewTournamentDraft");
+  resetTournamentDraftButton.dataset.testid = "tournament-reset-draft";
 
   const tournamentStatus = document.createElement("p");
   tournamentStatus.className = "form-status share-alert match-composer-alert";
@@ -658,6 +669,7 @@ export const createAppDom = (args: {
   const tournamentLockNotice = document.createElement("p");
   tournamentLockNotice.className = "form-status";
   tournamentLockNotice.hidden = true;
+  tournamentLockNotice.dataset.testid = "tournament-lock-notice";
 
   const tournamentQuickBar = document.createElement("div");
   tournamentQuickBar.className = "segment-lock-bar";

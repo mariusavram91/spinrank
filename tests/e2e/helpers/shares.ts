@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 
 export interface ShareTokenCapture {
   token: () => string;
@@ -7,7 +7,7 @@ export interface ShareTokenCapture {
 export async function captureShareToken(page: Page): Promise<ShareTokenCapture> {
   let shareToken = "";
 
-  await page.route("**/api", async (route) => {
+  const handler = async (route: Route) => {
     const request = route.request();
     if (request.method() !== "POST") {
       await route.continue();
@@ -22,9 +22,7 @@ export async function captureShareToken(page: Page): Promise<ShareTokenCapture> 
 
     const response = await route.fetch();
     const payload = await response.json();
-    if (!shareToken) {
-      shareToken = String(payload?.data?.shareToken ?? "");
-    }
+    shareToken = String(payload?.data?.shareToken ?? "");
 
     await route.fulfill({
       response,
@@ -33,7 +31,11 @@ export async function captureShareToken(page: Page): Promise<ShareTokenCapture> 
         "content-type": "application/json",
       },
     });
-  });
+
+    await page.unroute("**/api", handler);
+  };
+
+  await page.route("**/api", handler);
 
   return {
     token: () => shareToken,

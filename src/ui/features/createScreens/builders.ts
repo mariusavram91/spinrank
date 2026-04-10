@@ -161,6 +161,9 @@ export const buildMatchScreen = (args: {
       dispatchSelectChange(args.matchTypeSelect);
     },
   );
+  Array.from(matchTypeToggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
+    button.dataset.testid = `match-type-${button.dataset.value}`;
+  });
 
   const formatTypeToggle = buildSegmentedControl(
     [
@@ -172,6 +175,9 @@ export const buildMatchScreen = (args: {
       dispatchSelectChange(args.formatTypeSelect);
     },
   );
+  Array.from(formatTypeToggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
+    button.dataset.testid = `match-format-${button.dataset.value}`;
+  });
 
   const pointsToggle = buildSegmentedControl(
     [
@@ -183,6 +189,9 @@ export const buildMatchScreen = (args: {
       dispatchSelectChange(args.pointsToWinSelect);
     },
   );
+  Array.from(pointsToggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
+    button.dataset.testid = `match-points-${button.dataset.value}`;
+  });
 
   const seasonField = buildField("matchFieldSeason", args.formSeasonSelect);
   seasonField.classList.add("match-context-field");
@@ -280,6 +289,7 @@ export const buildMatchScreen = (args: {
   args.matchOutcome.className = "match-outcome";
   bindLocalizedText(args.matchOutcome, "matchOutcomePending");
   args.matchLockNotice.classList.add("match-lock-notice");
+  args.suggestMatchButton.dataset.testid = "match-suggest";
 
   const matchRulesSection = createPanelSection(
     "matchSectionSetup",

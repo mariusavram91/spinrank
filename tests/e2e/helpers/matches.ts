@@ -41,3 +41,15 @@ export async function createSeasonMatch(
   await page.getByTestId("match-score-0-team-b").fill(options?.scoreB ?? "5");
   await page.getByTestId("match-submit").click();
 }
+
+export async function submitSinglesMatch(
+  page: Page,
+  options?: {
+    scoreA?: string;
+    scoreB?: string;
+  },
+): Promise<void> {
+  await page.getByTestId("match-score-0-team-a").fill(options?.scoreA ?? "11");
+  await page.getByTestId("match-score-0-team-b").fill(options?.scoreB ?? "5");
+  await page.getByTestId("match-submit").click();
+}

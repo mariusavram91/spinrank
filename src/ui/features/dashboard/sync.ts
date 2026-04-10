@@ -239,10 +239,10 @@ export const createDashboardSync = (args: {
       args.dom.tournamentStatus.hidden = !hasTournamentStatus;
       args.dom.tournamentStatus.classList.toggle("share-alert--visible", hasTournamentStatus);
       const currentUserId = args.helpers.getCurrentUserId();
-      args.dom.deleteSeasonButton.hidden = !args.helpers.canSoftDelete(
-        args.helpers.getEditingSeason() ?? {},
-        currentUserId,
-      );
+      const editingSeason = args.helpers.getEditingSeason();
+      const seasonLocked = args.helpers.isLockedSeason(editingSeason);
+      args.dom.deleteSeasonButton.hidden =
+        !args.helpers.canSoftDelete(editingSeason ?? {}, currentUserId) || seasonLocked;
       args.dom.deleteTournamentButton.hidden = !args.helpers.canSoftDelete(
         args.helpers.getEditingTournament() ?? {},
         currentUserId,
@@ -261,8 +261,6 @@ export const createDashboardSync = (args: {
         Boolean(args.tournamentPlannerState.error || args.dashboardState.tournamentFormMessage),
       );
 
-      const editingSeason = args.helpers.getEditingSeason();
-      const seasonLocked = args.helpers.isLockedSeason(editingSeason);
       const seasonEditable = !seasonLocked;
       const seasonEndDateEditable = !seasonLocked;
       args.dom.seasonLockNotice.hidden = !seasonLocked;
@@ -295,6 +293,8 @@ export const createDashboardSync = (args: {
 
       const editingTournament = args.helpers.getEditingTournament();
       const tournamentLocked = args.helpers.isLockedTournament(editingTournament);
+      args.dom.deleteTournamentButton.hidden =
+        !args.helpers.canSoftDelete(editingTournament ?? {}, currentUserId) || tournamentLocked;
       args.dom.tournamentLockNotice.hidden = !args.helpers.isLockedTournament(editingTournament);
       if (editingTournament) {
         args.dom.tournamentLockNotice.textContent =

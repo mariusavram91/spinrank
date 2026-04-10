@@ -75,8 +75,15 @@ export const createDashboardActions = (args: {
   };
 
   const loadLeaderboard = async (): Promise<void> => {
-    if (args.dashboardState.segmentMode === "global") {
+    const requestedMode = args.dashboardState.segmentMode;
+    const requestedSeasonId = args.dashboardState.selectedSeasonId;
+    const requestedTournamentId = args.dashboardState.selectedTournamentId;
+
+    if (requestedMode === "global") {
       const data = await args.runAuthedAction("getLeaderboard", {});
+      if (args.dashboardState.segmentMode !== requestedMode) {
+        return;
+      }
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
       args.dashboardState.leaderboardStats = null;
@@ -85,8 +92,8 @@ export const createDashboardActions = (args: {
       return;
     }
 
-    if (args.dashboardState.segmentMode === "season") {
-      if (!isVisibleSeasonId(args.dashboardState.selectedSeasonId)) {
+    if (requestedMode === "season") {
+      if (!isVisibleSeasonId(requestedSeasonId)) {
         args.dashboardState.leaderboard = [];
         args.dashboardState.leaderboardUpdatedAt = "";
         args.dashboardState.leaderboardStats = null;
@@ -96,8 +103,14 @@ export const createDashboardActions = (args: {
 
       const data = await args.runAuthedAction("getSegmentLeaderboard", {
         segmentType: "season",
-        segmentId: args.dashboardState.selectedSeasonId,
+        segmentId: requestedSeasonId,
       });
+      if (
+        args.dashboardState.segmentMode !== requestedMode ||
+        args.dashboardState.selectedSeasonId !== requestedSeasonId
+      ) {
+        return;
+      }
       args.dashboardState.players = mergePlayers(args.dashboardState.players, data.leaderboard);
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
@@ -107,7 +120,7 @@ export const createDashboardActions = (args: {
       return;
     }
 
-    if (!isVisibleTournamentId(args.dashboardState.selectedTournamentId)) {
+    if (!isVisibleTournamentId(requestedTournamentId)) {
       args.dashboardState.leaderboard = [];
       args.dashboardState.leaderboardUpdatedAt = "";
       args.dashboardState.leaderboardStats = null;
@@ -119,12 +132,18 @@ export const createDashboardActions = (args: {
     const [leaderboardData, bracketData] = await Promise.all([
       args.runAuthedAction("getSegmentLeaderboard", {
         segmentType: "tournament",
-        segmentId: args.dashboardState.selectedTournamentId,
+        segmentId: requestedTournamentId,
       }),
       args.runAuthedAction("getTournamentBracket", {
-        tournamentId: args.dashboardState.selectedTournamentId,
+        tournamentId: requestedTournamentId,
       }),
     ]);
+    if (
+      args.dashboardState.segmentMode !== requestedMode ||
+      args.dashboardState.selectedTournamentId !== requestedTournamentId
+    ) {
+      return;
+    }
     args.dashboardState.players = mergePlayers(
       args.dashboardState.players,
       leaderboardData.leaderboard,

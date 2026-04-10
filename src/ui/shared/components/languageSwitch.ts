@@ -14,16 +14,19 @@ export interface LanguageSwitchElements {
 export const buildLanguageSwitch = (): LanguageSwitchElements => {
   const languageSwitch = document.createElement("div");
   languageSwitch.className = "language-switch";
+  languageSwitch.dataset.testid = "language-switch";
 
   const languageTrigger = document.createElement("button");
   languageTrigger.type = "button";
   languageTrigger.className = "language-switch__trigger";
   languageTrigger.setAttribute("aria-haspopup", "true");
   languageTrigger.setAttribute("aria-expanded", "false");
+  languageTrigger.dataset.testid = "language-switch-trigger";
 
   const languageMenu = document.createElement("div");
   languageMenu.className = "language-switch__menu";
   languageMenu.hidden = true;
+  languageMenu.dataset.testid = "language-switch-menu";
 
   const languageButtons = new Map<LanguageCode, HTMLButtonElement>();
   let languageMenuOpen = false;
@@ -64,6 +67,7 @@ export const buildLanguageSwitch = (): LanguageSwitchElements => {
     option.className = "language-switch__option";
     option.textContent = `${languageOptions[code].flag} ${languageOptions[code].label}`;
     option.setAttribute("aria-pressed", String(code === getCurrentLanguage()));
+    option.dataset.testid = `language-option-${code}`;
     option.addEventListener("click", (event) => {
       event.stopPropagation();
       selectLanguage(code);

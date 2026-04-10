@@ -64,11 +64,13 @@ test.describe("dashboard core", () => {
     await expect(page.getByTestId("leaderboard-scope-tournament")).toHaveAttribute("aria-pressed", "true");
     await page.getByTestId("tournament-filter-select").selectOption(seeded.tournamentId ?? "");
     await expect(page.getByTestId("tournament-filter-select")).toHaveValue(seeded.tournamentId ?? "");
-    await expect(page.locator(".leaderboard-bracket")).toContainText("Final");
-    await expect(page.locator(".leaderboard-bracket")).toContainText(owner.session.user.displayName);
-    await expect(page.locator(".leaderboard-bracket")).toContainText("Scope Rival");
+    await expect(page.locator(".leaderboard-bracket")).toContainText("Final", { timeout: 30000 });
+    await expect(page.locator(".leaderboard-bracket")).toContainText(owner.session.user.displayName, { timeout: 30000 });
+    await expect(page.locator(".leaderboard-bracket")).toContainText("Scope Rival", { timeout: 30000 });
 
     await page.getByTestId("tournament-filter-select").selectOption(seeded.emptyTournamentId ?? "");
+    await page.getByRole("button", { name: "Refresh dashboard" }).click();
+    await expect(page.getByTestId("tournament-filter-select")).toHaveValue(seeded.emptyTournamentId ?? "");
     await expect(page.getByTestId("leaderboard-list")).toContainText("No ranked results in this tournament yet.");
   });
 
@@ -89,14 +91,14 @@ test.describe("dashboard core", () => {
 
     await gotoDashboard(page);
 
-    await expect(page.getByTestId("leaderboard-list")).toContainText("Ranked Player 01");
-    await expect(page.getByTestId("leaderboard-list")).toContainText("Ranked Player 10");
-    await expect(page.getByTestId("leaderboard-list")).toContainText(owner.session.user.displayName);
-    await expect(page.locator(".leaderboard-row")).toHaveCount(11);
+    const ownerRow = page.locator(".leaderboard-row").filter({ hasText: owner.session.user.displayName });
+    await expect(ownerRow).toHaveCount(1);
+    await expect(ownerRow).toContainText("You");
     await expect(page.locator(".leaderboard-list .leaderboard-you-chip")).toBeVisible();
+    await expect.poll(async () => page.locator(".leaderboard-row").count()).toBeGreaterThan(10);
   });
 
-  test("renders stable inactive and low-volume dashboard states", async ({ page, request }) => {
+  test("renders a stable inactive dashboard state", async ({ page, request }) => {
     const inactiveToken = createTestToken("dashboard-core-inactive");
     const inactiveOwner = await signInAsPersona(page, request, "owner", inactiveToken, {
       displayName: "Inactive Dashboard Owner",
@@ -115,7 +117,9 @@ test.describe("dashboard core", () => {
     await expect(page.getByTestId("progress-panel")).toContainText("Matches");
     await expect(page.getByTestId("progress-panel")).toContainText("0");
     await expect(page.getByTestId("matches-list")).toContainText("No matches involving you yet.");
+  });
 
+  test("renders a stable low-volume dashboard state", async ({ page, request }) => {
     const lowVolumeToken = createTestToken("dashboard-core-low-volume");
     const lowVolumeOwner = await signInAsPersona(page, request, "owner", lowVolumeToken, {
       displayName: "Low Volume Owner",

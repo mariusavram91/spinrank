@@ -11,6 +11,12 @@ type DashboardSeedScenario =
   | "low-volume"
   | "global-rank-gt11";
 
+type MatchLockSeedScenario =
+  | "completed-season"
+  | "completed-tournament"
+  | "no-eligible-bracket"
+  | "locked-bracket";
+
 interface SeedDashboardPayload {
   ownerId?: string;
   namespace?: string;
@@ -24,9 +30,21 @@ interface SeedDashboardResponse {
   rivalId?: string;
 }
 
+interface SeedMatchLocksPayload {
+  ownerId?: string;
+  namespace?: string;
+  scenario?: MatchLockSeedScenario;
+}
+
+interface SeedMatchLocksResponse {
+  seasonId?: string;
+  tournamentId?: string;
+}
+
 const TEST_SEED_DASHBOARD_ROUTE = "/test/seed-dashboard";
 const TEST_SEED_PROFILE_ROUTE = "/test/seed-profile";
 const TEST_SEED_ACHIEVEMENTS_ROUTE = "/test/seed-achievements";
+const TEST_SEED_MATCH_LOCKS_ROUTE = "/test/seed-match-locks";
 
 export const isTestSeedDashboardRequest = (request: Request): boolean => {
   const url = new URL(request.url);
@@ -41,6 +59,11 @@ export const isTestSeedProfileRequest = (request: Request): boolean => {
 export const isTestSeedAchievementsRequest = (request: Request): boolean => {
   const url = new URL(request.url);
   return request.method === "POST" && url.pathname === TEST_SEED_ACHIEVEMENTS_ROUTE;
+};
+
+export const isTestSeedMatchLocksRequest = (request: Request): boolean => {
+  const url = new URL(request.url);
+  return request.method === "POST" && url.pathname === TEST_SEED_MATCH_LOCKS_ROUTE;
 };
 
 interface SeedProfilePayload {
@@ -251,6 +274,7 @@ async function seedLowVolumeDashboard(
   nowIso: string,
 ): Promise<SeedDashboardResponse> {
   const rivalId = `${namespace}-low-volume-rival`;
+  const matchIds = Array.from({ length: 4 }, (_, index) => `${namespace}-low-volume-match-${index + 1}`);
 
   await upsertUser(env, {
     userId: rivalId,
@@ -266,17 +290,13 @@ async function seedLowVolumeDashboard(
 
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM match_players WHERE user_id IN (?1, ?2)`).bind(owner.id, rivalId),
-    env.DB.prepare(
-      `
-        DELETE FROM matches
-        WHERE id LIKE ?1
-      `,
-    ).bind(`${namespace}-low-volume-match-%`),
+    ...matchIds.map((matchId) => env.DB.prepare(`DELETE FROM match_players WHERE match_id = ?1`).bind(matchId)),
+    ...matchIds.map((matchId) => env.DB.prepare(`DELETE FROM matches WHERE id = ?1`).bind(matchId)),
   ]);
 
   for (let index = 0; index < 4; index += 1) {
     await insertMatch(env, {
-      matchId: `${namespace}-low-volume-match-${index + 1}`,
+      matchId: matchIds[index],
       ownerId: owner.id,
       rivalId,
       ownerDelta: 10,
@@ -312,6 +332,13 @@ async function seedGlobalRankGt11Dashboard(
   namespace: string,
   nowIso: string,
 ): Promise<SeedDashboardResponse> {
+  await env.DB.prepare(
+    `
+      DELETE FROM users
+      WHERE provider_user_id LIKE 'test:%-ranked-%'
+    `,
+  ).run();
+
   const statements = [];
 
   for (let index = 0; index < 11; index += 1) {
@@ -467,6 +494,328 @@ async function seedScopeFixtures(
   await env.DB.prepare(`DELETE FROM tournament_bracket_matches WHERE tournament_id = ?1`).bind(emptyTournamentId).run();
 
   return { seasonId, tournamentId, emptyTournamentId, rivalId };
+}
+
+async function seedCompletedSeasonLock(
+  env: Env,
+  owner: UserRow,
+  namespace: string,
+  nowIso: string,
+): Promise<SeedMatchLocksResponse> {
+  const rivalId = `${namespace}-season-lock-rival`;
+  const seasonId = `${namespace}-completed-season`;
+
+  await upsertUser(env, {
+    userId: rivalId,
+    providerUserId: `test:${rivalId}`,
+    displayName: "Season Lock Rival",
+    email: `${rivalId}@test.spinrank.local`,
+    nowIso,
+  });
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `
+        INSERT INTO seasons (
+          id, name, start_date, end_date, is_active, status, base_elo_mode, participant_ids_json,
+          created_by_user_id, created_at, completed_at, is_public
+        )
+        VALUES (?1, ?2, '2026-04-01', '2026-04-09', 1, 'active', 'carry_over', ?3, ?4, ?5, NULL, 0)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          start_date = excluded.start_date,
+          end_date = excluded.end_date,
+          is_active = excluded.is_active,
+          status = excluded.status,
+          participant_ids_json = excluded.participant_ids_json,
+          completed_at = excluded.completed_at
+      `,
+    ).bind(
+      seasonId,
+      `Completed Season ${namespace}`,
+      JSON.stringify([owner.id, rivalId]),
+      owner.id,
+      nowIso,
+    ),
+    env.DB.prepare(`DELETE FROM season_participants WHERE season_id = ?1`).bind(seasonId),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, owner.id),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, rivalId),
+  ]);
+
+  return { seasonId };
+}
+
+async function seedCompletedTournamentLock(
+  env: Env,
+  owner: UserRow,
+  namespace: string,
+  nowIso: string,
+): Promise<SeedMatchLocksResponse> {
+  const rivalId = `${namespace}-tournament-lock-rival`;
+  const seasonId = `${namespace}-tournament-lock-season`;
+  const tournamentId = `${namespace}-completed-tournament`;
+
+  await upsertUser(env, {
+    userId: rivalId,
+    providerUserId: `test:${rivalId}`,
+    displayName: "Tournament Lock Rival",
+    email: `${rivalId}@test.spinrank.local`,
+    nowIso,
+  });
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `
+        INSERT INTO seasons (
+          id, name, start_date, end_date, is_active, status, base_elo_mode, participant_ids_json,
+          created_by_user_id, created_at, completed_at, is_public
+        )
+        VALUES (?1, ?2, '2026-04-01', '2026-04-30', 1, 'active', 'carry_over', ?3, ?4, ?5, NULL, 0)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          start_date = excluded.start_date,
+          end_date = excluded.end_date,
+          is_active = excluded.is_active,
+          status = excluded.status,
+          participant_ids_json = excluded.participant_ids_json
+      `,
+    ).bind(
+      seasonId,
+      `Tournament Lock Season ${namespace}`,
+      JSON.stringify([owner.id, rivalId]),
+      owner.id,
+      nowIso,
+    ),
+    env.DB.prepare(`DELETE FROM season_participants WHERE season_id = ?1`).bind(seasonId),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, owner.id),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, rivalId),
+    env.DB.prepare(
+      `
+        INSERT INTO tournaments (
+          id, name, date, status, season_id, created_by_user_id, created_at, completed_at
+        )
+        VALUES (?1, ?2, '2026-04-09', 'completed', ?3, ?4, ?5, ?6)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          date = excluded.date,
+          status = excluded.status,
+          season_id = excluded.season_id,
+          completed_at = excluded.completed_at
+      `,
+    ).bind(
+      tournamentId,
+      `Completed Tournament ${namespace}`,
+      seasonId,
+      owner.id,
+      nowIso,
+      "2026-04-09T18:00:00.000Z",
+    ),
+    env.DB.prepare(`DELETE FROM tournament_participants WHERE tournament_id = ?1`).bind(tournamentId),
+    env.DB.prepare(`INSERT INTO tournament_participants (tournament_id, user_id) VALUES (?1, ?2)`).bind(
+      tournamentId,
+      owner.id,
+    ),
+    env.DB.prepare(`INSERT INTO tournament_participants (tournament_id, user_id) VALUES (?1, ?2)`).bind(
+      tournamentId,
+      rivalId,
+    ),
+  ]);
+
+  await saveTournamentBracket(
+    env,
+    tournamentId,
+    [owner.id, rivalId],
+    [
+      {
+        title: "Final",
+        matches: [
+          {
+            id: `${namespace}-completed-final`,
+            leftPlayerId: owner.id,
+            rightPlayerId: rivalId,
+            createdMatchId: null,
+            winnerPlayerId: owner.id,
+            locked: true,
+            isFinal: true,
+          },
+        ],
+      },
+    ],
+    owner.id,
+    nowIso,
+  );
+
+  return { seasonId, tournamentId };
+}
+
+async function seedNoEligibleBracketLock(
+  env: Env,
+  owner: UserRow,
+  namespace: string,
+  nowIso: string,
+): Promise<SeedMatchLocksResponse> {
+  const rivalId = `${namespace}-empty-bracket-rival`;
+  const seasonId = `${namespace}-empty-bracket-season`;
+  const tournamentId = `${namespace}-empty-bracket-tournament`;
+
+  await upsertUser(env, {
+    userId: rivalId,
+    providerUserId: `test:${rivalId}`,
+    displayName: "Empty Bracket Rival",
+    email: `${rivalId}@test.spinrank.local`,
+    nowIso,
+  });
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `
+        INSERT INTO seasons (
+          id, name, start_date, end_date, is_active, status, base_elo_mode, participant_ids_json,
+          created_by_user_id, created_at, completed_at, is_public
+        )
+        VALUES (?1, ?2, '2026-04-01', '2026-04-30', 1, 'active', 'carry_over', ?3, ?4, ?5, NULL, 0)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          start_date = excluded.start_date,
+          end_date = excluded.end_date,
+          is_active = excluded.is_active,
+          status = excluded.status,
+          participant_ids_json = excluded.participant_ids_json
+      `,
+    ).bind(
+      seasonId,
+      `Empty Bracket Season ${namespace}`,
+      JSON.stringify([owner.id, rivalId]),
+      owner.id,
+      nowIso,
+    ),
+    env.DB.prepare(`DELETE FROM season_participants WHERE season_id = ?1`).bind(seasonId),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, owner.id),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, rivalId),
+    env.DB.prepare(
+      `
+        INSERT INTO tournaments (
+          id, name, date, status, season_id, created_by_user_id, created_at, completed_at
+        )
+        VALUES (?1, ?2, '2026-04-10', 'active', ?3, ?4, ?5, '')
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          date = excluded.date,
+          status = excluded.status,
+          season_id = excluded.season_id,
+          completed_at = excluded.completed_at
+      `,
+    ).bind(tournamentId, `Empty Bracket Tournament ${namespace}`, seasonId, owner.id, nowIso),
+    env.DB.prepare(`DELETE FROM tournament_participants WHERE tournament_id = ?1`).bind(tournamentId),
+    env.DB.prepare(`INSERT INTO tournament_participants (tournament_id, user_id) VALUES (?1, ?2)`).bind(
+      tournamentId,
+      owner.id,
+    ),
+    env.DB.prepare(`INSERT INTO tournament_participants (tournament_id, user_id) VALUES (?1, ?2)`).bind(
+      tournamentId,
+      rivalId,
+    ),
+    env.DB.prepare(`DELETE FROM tournament_plans WHERE tournament_id = ?1`).bind(tournamentId),
+    env.DB.prepare(`DELETE FROM tournament_bracket_matches WHERE tournament_id = ?1`).bind(tournamentId),
+  ]);
+
+  return { seasonId, tournamentId };
+}
+
+async function seedLockedBracketLock(
+  env: Env,
+  owner: UserRow,
+  namespace: string,
+  nowIso: string,
+): Promise<SeedMatchLocksResponse> {
+  const rivalId = `${namespace}-locked-bracket-rival`;
+  const seasonId = `${namespace}-locked-bracket-season`;
+  const tournamentId = `${namespace}-locked-bracket-tournament`;
+
+  await upsertUser(env, {
+    userId: rivalId,
+    providerUserId: `test:${rivalId}`,
+    displayName: "Locked Bracket Rival",
+    email: `${rivalId}@test.spinrank.local`,
+    nowIso,
+  });
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `
+        INSERT INTO seasons (
+          id, name, start_date, end_date, is_active, status, base_elo_mode, participant_ids_json,
+          created_by_user_id, created_at, completed_at, is_public
+        )
+        VALUES (?1, ?2, '2026-04-01', '2026-04-30', 1, 'active', 'carry_over', ?3, ?4, ?5, NULL, 0)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          start_date = excluded.start_date,
+          end_date = excluded.end_date,
+          is_active = excluded.is_active,
+          status = excluded.status,
+          participant_ids_json = excluded.participant_ids_json
+      `,
+    ).bind(
+      seasonId,
+      `Locked Bracket Season ${namespace}`,
+      JSON.stringify([owner.id, rivalId]),
+      owner.id,
+      nowIso,
+    ),
+    env.DB.prepare(`DELETE FROM season_participants WHERE season_id = ?1`).bind(seasonId),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, owner.id),
+    env.DB.prepare(`INSERT INTO season_participants (season_id, user_id) VALUES (?1, ?2)`).bind(seasonId, rivalId),
+    env.DB.prepare(
+      `
+        INSERT INTO tournaments (
+          id, name, date, status, season_id, created_by_user_id, created_at, completed_at
+        )
+        VALUES (?1, ?2, '2026-04-10', 'active', ?3, ?4, ?5, '')
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          date = excluded.date,
+          status = excluded.status,
+          season_id = excluded.season_id,
+          completed_at = excluded.completed_at
+      `,
+    ).bind(tournamentId, `Locked Bracket Tournament ${namespace}`, seasonId, owner.id, nowIso),
+    env.DB.prepare(`DELETE FROM tournament_participants WHERE tournament_id = ?1`).bind(tournamentId),
+    env.DB.prepare(`INSERT INTO tournament_participants (tournament_id, user_id) VALUES (?1, ?2)`).bind(
+      tournamentId,
+      owner.id,
+    ),
+    env.DB.prepare(`INSERT INTO tournament_participants (tournament_id, user_id) VALUES (?1, ?2)`).bind(
+      tournamentId,
+      rivalId,
+    ),
+  ]);
+
+  await saveTournamentBracket(
+    env,
+    tournamentId,
+    [owner.id, rivalId],
+    [
+      {
+        title: "Final",
+        matches: [
+          {
+            id: `${namespace}-locked-final`,
+            leftPlayerId: owner.id,
+            rightPlayerId: rivalId,
+            createdMatchId: null,
+            winnerPlayerId: null,
+            locked: true,
+            isFinal: true,
+          },
+        ],
+      },
+    ],
+    owner.id,
+    nowIso,
+  );
+
+  return { seasonId, tournamentId };
 }
 
 async function upsertSeasonSegment(
@@ -731,6 +1080,62 @@ export async function handleTestSeedDashboardRequest(request: Request, env: Env)
   }
 
   return json(env, successResponse("test-seed", data), 200, requestOrigin);
+}
+
+export async function handleTestSeedMatchLocksRequest(request: Request, env: Env): Promise<Response> {
+  const authResult = await requireAuthorizedTestRequest(request, env);
+  if (authResult instanceof Response) {
+    return authResult;
+  }
+
+  const payloadResult = await parseJsonPayload<SeedMatchLocksPayload>(request, env, authResult.requestOrigin);
+  if (payloadResult instanceof Response) {
+    return payloadResult;
+  }
+
+  const ownerId = payloadResult.ownerId?.trim();
+  const namespace = payloadResult.namespace?.trim() || ownerId || "match-locks";
+  const scenario = payloadResult.scenario;
+
+  if (!ownerId || !scenario) {
+    return json(
+      env,
+      errorResponse("test-seed", "BAD_REQUEST", "ownerId and scenario are required."),
+      400,
+      authResult.requestOrigin,
+    );
+  }
+
+  const owner = await getRequiredUser(env, ownerId);
+  if (!owner) {
+    return json(env, errorResponse("test-seed", "NOT_FOUND", "Owner user not found."), 404, authResult.requestOrigin);
+  }
+
+  const nowIso = "2026-04-10T12:00:00.000Z";
+  let data: SeedMatchLocksResponse;
+  switch (scenario) {
+    case "completed-season":
+      data = await seedCompletedSeasonLock(env, owner, namespace, nowIso);
+      break;
+    case "completed-tournament":
+      data = await seedCompletedTournamentLock(env, owner, namespace, nowIso);
+      break;
+    case "no-eligible-bracket":
+      data = await seedNoEligibleBracketLock(env, owner, namespace, nowIso);
+      break;
+    case "locked-bracket":
+      data = await seedLockedBracketLock(env, owner, namespace, nowIso);
+      break;
+    default:
+      return json(
+        env,
+        errorResponse("test-seed", "BAD_REQUEST", `Unknown match lock scenario: ${String(scenario)}`),
+        400,
+        authResult.requestOrigin,
+      );
+  }
+
+  return json(env, successResponse("test-seed", data), 200, authResult.requestOrigin);
 }
 
 export async function handleTestSeedProfileRequest(request: Request, env: Env): Promise<Response> {

@@ -830,6 +830,39 @@ export const buildApp = (): HTMLElement => {
     );
   };
 
+  const getTournamentBracketMatchOption = (
+    tournamentId: string,
+    matchId: string,
+  ): {
+    id: string;
+    label: string;
+    leftPlayerId: string;
+    rightPlayerId: string;
+  } | null => {
+    const bracketData = dashboardState.matchTournamentBracketCache[tournamentId];
+    if (!bracketData) {
+      return null;
+    }
+
+    for (const round of bracketData.rounds) {
+      for (const match of round.matches) {
+        if (match.id !== matchId || !match.leftPlayerId || !match.rightPlayerId) {
+          continue;
+        }
+        const leftName = findMatchPlayer(match.leftPlayerId)?.displayName || "Player 1";
+        const rightName = findMatchPlayer(match.rightPlayerId)?.displayName || "Player 2";
+        return {
+          id: match.id,
+          label: `${round.title}: ${leftName} vs ${rightName}`,
+          leftPlayerId: match.leftPlayerId,
+          rightPlayerId: match.rightPlayerId,
+        };
+      }
+    }
+
+    return null;
+  };
+
   const syncMatchBracketOptions = async (): Promise<void> => {
     const tournamentId = formTournamentSelect.value;
     if (!tournamentId) {
@@ -851,23 +884,33 @@ export const buildApp = (): HTMLElement => {
       dashboardState.matchTournamentBracketCache[tournamentId] = data;
     }
     const options = getEligibleTournamentBracketMatches(tournamentId);
-    if (!options.some((option) => option.id === activeTournamentBracketMatchId)) {
+    const retainedBracketMatch = activeTournamentBracketMatchId
+      ? getTournamentBracketMatchOption(tournamentId, activeTournamentBracketMatchId)
+      : null;
+    const selectedOption = retainedBracketMatch && !options.some((option) => option.id === retainedBracketMatch.id)
+      ? retainedBracketMatch
+      : null;
+
+    if (!options.some((option) => option.id === activeTournamentBracketMatchId) && !selectedOption) {
       activeTournamentBracketMatchId = options[0]?.id ?? null;
     }
     replaceOptions(
       matchBracketSelect,
-      options.length > 0
-        ? options.map((option) => ({ value: option.id, label: option.label }))
+      options.length > 0 || selectedOption
+        ? [...(selectedOption ? [selectedOption] : []), ...options].map((option) => ({
+            value: option.id,
+            label: option.label,
+          }))
         : [
             {
               value: "",
               label: t("matchBracketNoEligible"),
             },
           ],
-      activeTournamentBracketMatchId || "",
-      options.length > 0 ? options[0]?.label ?? t("matchBracketSelectPrompt") : t("matchBracketNoEligible"),
+      (selectedOption?.id ?? activeTournamentBracketMatchId) || "",
+      selectedOption?.label ?? options[0]?.label ?? t("matchBracketNoEligible"),
     );
-    matchBracketSelect.disabled = options.length === 0;
+    matchBracketSelect.disabled = options.length === 0 && !selectedOption;
     if (activeTournamentBracketMatchId) {
       applySelectedTournamentBracketMatch();
       return;

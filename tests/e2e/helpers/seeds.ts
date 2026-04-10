@@ -7,6 +7,12 @@ export type DashboardSeedScenario =
   | "low-volume"
   | "global-rank-gt11";
 
+export type MatchLockSeedScenario =
+  | "completed-season"
+  | "completed-tournament"
+  | "no-eligible-bracket"
+  | "locked-bracket";
+
 export interface SeedDashboardResponse {
   seasonId?: string;
   tournamentId?: string;
@@ -21,9 +27,14 @@ export interface SeedProfileResponse {
   rivalDisplayName: string;
 }
 
+export interface SeedMatchLocksResponse {
+  seasonId?: string;
+  tournamentId?: string;
+}
+
 interface SeedResponseEnvelope {
   ok: boolean;
-  data: SeedDashboardResponse | SeedProfileResponse | Record<string, never> | null;
+  data: SeedDashboardResponse | SeedProfileResponse | SeedMatchLocksResponse | Record<string, never> | null;
   error: { message: string } | null;
 }
 
@@ -115,4 +126,33 @@ export async function seedAchievementsState(
   if (!body || !body.ok) {
     throw new Error(body?.error?.message || "Failed to seed achievements state.");
   }
+}
+
+export async function seedMatchLockState(
+  request: APIRequestContext,
+  payload: {
+    ownerId: string;
+    namespace: string;
+    scenario: MatchLockSeedScenario;
+  },
+): Promise<SeedMatchLocksResponse> {
+  const endpoint = `${WORKER_BASE_URL.replace(/\/$/, "")}/test/seed-match-locks`;
+  const response = await request.post(endpoint, {
+    headers: {
+      "content-type": "application/json",
+      "x-test-auth-secret": TEST_AUTH_SECRET,
+    },
+    data: payload,
+  });
+
+  const body = await parseSeedResponse(
+    response,
+    endpoint,
+    `Failed to seed match lock state for ${payload.scenario}.`,
+  );
+  if (!body || !body.ok || !body.data) {
+    throw new Error(body?.error?.message || `Failed to seed match lock state for ${payload.scenario}.`);
+  }
+
+  return body.data as SeedMatchLocksResponse;
 }

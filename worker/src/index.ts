@@ -8,9 +8,11 @@ import { handleTestBootstrapRequest, isTestBootstrapRequest } from "./testAuth";
 import {
   handleTestSeedAchievementsRequest,
   handleTestSeedDashboardRequest,
+  handleTestSeedMatchLocksRequest,
   handleTestSeedProfileRequest,
   isTestSeedAchievementsRequest,
   isTestSeedDashboardRequest,
+  isTestSeedMatchLocksRequest,
   isTestSeedProfileRequest,
 } from "./testSeed";
 import type { Env } from "./types";
@@ -61,6 +63,10 @@ export default {
 
     if (isTestSeedAchievementsRequest(request)) {
       return handleTestSeedAchievementsRequest(request, env);
+    }
+
+    if (isTestSeedMatchLocksRequest(request)) {
+      return handleTestSeedMatchLocksRequest(request, env);
     }
 
     if (!env.APP_SESSION_SECRET) {

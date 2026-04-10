@@ -57,6 +57,7 @@ export const buildMatchesPanel = (args: {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = t(args.matchFilterLabels[filter]);
+    button.dataset.testid = `matches-filter-${filter}`;
     button.addEventListener("click", () => {
       args.onFilterClick(filter);
     });
@@ -71,6 +72,7 @@ export const buildMatchesPanel = (args: {
   const loadMoreButton = document.createElement("button");
   loadMoreButton.type = "button";
   loadMoreButton.className = "secondary-button matches-load-more-button";
+  loadMoreButton.dataset.testid = "matches-load-more";
   bindLocalizedText(loadMoreButton, "loadMore");
 
   matchesTop.append(matchesHeading, matchFiltersRow);

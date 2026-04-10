@@ -14,6 +14,12 @@ export async function openSeasonEditor(page: Page): Promise<void> {
   await page.getByTestId("open-season-button").click();
 }
 
+export async function loadSavedSeason(page: Page, seasonId: string): Promise<void> {
+  await openSeasonEditor(page);
+  await expect(page.getByTestId("season-load-select").locator("option")).toHaveCount(2);
+  await page.getByTestId("season-load-select").selectOption(seasonId);
+}
+
 export async function createSeason(page: Page, options: CreateSeasonOptions): Promise<void> {
   await openSeasonEditor(page);
   await page.getByTestId("season-name").fill(options.name);
