@@ -56,6 +56,7 @@ describe("app orchestration helpers", () => {
 
   it("clears form statuses after their timeout", () => {
     const dashboardState = {
+      profileFormMessage: "Saved profile",
       matchFormError: "Bad score",
       matchFormMessage: "",
       seasonFormError: "",
@@ -71,16 +72,18 @@ describe("app orchestration helpers", () => {
       syncDashboardState,
     });
 
+    orchestration.scheduleFormStatusHide("profile", true);
     orchestration.scheduleFormStatusHide("match", true);
     orchestration.scheduleFormStatusHide("season", true);
     orchestration.scheduleFormStatusHide("tournament", true);
     vi.advanceTimersByTime(5000);
 
+    expect(dashboardState.profileFormMessage).toBe("");
     expect(dashboardState.matchFormError).toBe("");
     expect(dashboardState.seasonFormMessage).toBe("");
     expect(dashboardState.tournamentFormMessage).toBe("");
     expect(tournamentPlannerState.error).toBe("");
-    expect(syncDashboardState).toHaveBeenCalledTimes(3);
+    expect(syncDashboardState).toHaveBeenCalledTimes(4);
   });
 
   it("formats share state, animates panels, and updates share ui", () => {

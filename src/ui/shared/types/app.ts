@@ -60,6 +60,8 @@ export interface DashboardState {
   profileMatchesCursor: string | null;
   profileLoading: boolean;
   profileMatchesLoading: boolean;
+  profileSubmitting: boolean;
+  profileFormMessage: string;
   profileAchievementsExpanded: boolean;
   profileSelectedAchievementKey: string;
   profileRecentlySeenAchievementKeys: string[];

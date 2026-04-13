@@ -56,6 +56,8 @@ export const setLanguage = (language: LanguageCode): void => {
   languageChangeHandlers.forEach((handler) => handler());
 };
 
+export const isSupportedLanguage = (value: string): value is LanguageCode => value in languageOptions;
+
 export const bindLocalizedText = (element: HTMLElement, key: TextKey): void => {
   registerTranslation(() => {
     element.textContent = t(key);

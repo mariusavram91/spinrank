@@ -78,6 +78,7 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      currentUserDisplayName: "user_1",
       achievementsTitle,
       achievementsSubtitle,
       achievementsSummary,
@@ -155,6 +156,7 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      currentUserDisplayName: "user_1",
       achievementsTitle,
       achievementsSubtitle,
       achievementsSummary,
@@ -232,6 +234,7 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      currentUserDisplayName: "user_1",
       achievementsTitle,
       achievementsSubtitle,
       achievementsSummary,
@@ -297,6 +300,7 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      currentUserDisplayName: "user_1",
       achievementsTitle,
       achievementsSubtitle,
       achievementsSummary,
@@ -361,6 +365,7 @@ describe("profile render", () => {
 
     renderProfileScreen({
       dashboardState,
+      currentUserDisplayName: "user_1",
       achievementsTitle,
       achievementsSubtitle,
       achievementsSummary,

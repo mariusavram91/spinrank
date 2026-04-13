@@ -36,6 +36,7 @@ export const createDashboardSelectors = <TSeason, TTournament>(args: {
 
 export const createFormStatusOrchestration = (args: {
   dashboardState: {
+    profileFormMessage: string;
     matchFormError: string;
     matchFormMessage: string;
     seasonFormError: string;
@@ -47,13 +48,18 @@ export const createFormStatusOrchestration = (args: {
   };
   syncDashboardState: () => void;
 }) => {
-  const statusHideTimers: Record<"match" | "season" | "tournament", number | null> = {
+  const statusHideTimers: Record<"profile" | "match" | "season" | "tournament", number | null> = {
+    profile: null,
     match: null,
     season: null,
     tournament: null,
   };
 
-  const clearFormStatus = (target: "match" | "season" | "tournament"): void => {
+  const clearFormStatus = (target: "profile" | "match" | "season" | "tournament"): void => {
+    if (target === "profile") {
+      args.dashboardState.profileFormMessage = "";
+      return;
+    }
     if (target === "match") {
       args.dashboardState.matchFormError = "";
       args.dashboardState.matchFormMessage = "";
@@ -68,7 +74,7 @@ export const createFormStatusOrchestration = (args: {
     args.tournamentPlannerState.error = "";
   };
 
-  const scheduleFormStatusHide = (target: "match" | "season" | "tournament", visible: boolean): void => {
+  const scheduleFormStatusHide = (target: "profile" | "match" | "season" | "tournament", visible: boolean): void => {
     if (statusHideTimers[target]) {
       window.clearTimeout(statusHideTimers[target]!);
       statusHideTimers[target] = null;

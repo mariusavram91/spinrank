@@ -1,5 +1,6 @@
 import { requireSessionUser } from "./auth";
 import { handleBootstrapUser } from "./actions/bootstrapUser";
+import { handleUpdateProfile } from "./actions/updateProfile";
 import { handleCreateMatch } from "./actions/createMatch";
 import { handleCreateSeason } from "./actions/createSeason";
 import { handleCreateSegmentShareLink } from "./actions/createSegmentShareLink";
@@ -35,6 +36,7 @@ import type {
   GetTournamentsPayload,
   MatchFeedFilter,
   RedeemSegmentShareLinkPayload,
+  UpdateProfilePayload,
   Env,
 } from "./types";
 
@@ -89,6 +91,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
     case "getDashboard":
       return handleGetDashboard(
         apiRequest as ApiRequest<"getDashboard", DashboardPayload>,
+        sessionUser,
+        env,
+      );
+    case "updateProfile":
+      return handleUpdateProfile(
+        apiRequest as ApiRequest<"updateProfile", UpdateProfilePayload>,
         sessionUser,
         env,
       );

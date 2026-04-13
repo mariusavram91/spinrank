@@ -63,7 +63,7 @@ test.describe("language switch", () => {
     await page.getByRole("button", { name: "Zurück" }).click();
 
     await page.getByRole("button", { name: /open profile/i }).click();
-    await expect(page.getByRole("heading", { name: "Deine Aktivität" })).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText("Öffne hier Einträge direkt im Bearbeitungsmodus.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Profil", exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText("Aktualisiere hier deinen Anzeigenamen und prüfe deine Aktivität.")).toBeVisible();
   });
 });

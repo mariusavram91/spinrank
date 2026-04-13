@@ -64,7 +64,13 @@ export const createSessionStore = ({
         return null;
       }
 
-      return parsed;
+      return {
+        ...parsed,
+        user: {
+          ...parsed.user,
+          locale: parsed.user.locale === "de" ? "de" : "en",
+        },
+      };
     } catch {
       storage.removeItem(storageKey);
       return null;

@@ -6,6 +6,7 @@ import type {
 import { postAction } from "../../../api/client";
 import type { DashboardState, ViewState } from "../../shared/types/app";
 import type { AppSession } from "../../../api/contract";
+import { getCurrentLanguage, setLanguage } from "../../shared/i18n/runtime";
 
 export const createSessionActions = (args: {
   state: { current: ViewState };
@@ -71,6 +72,7 @@ export const createSessionActions = (args: {
         provider: result.provider,
         idToken: result.idToken,
         nonce: result.nonce,
+        locale: getCurrentLanguage(),
         profile: result.profile,
       });
 
@@ -80,6 +82,7 @@ export const createSessionActions = (args: {
 
       const session = args.buildSessionFromBootstrap(response.data);
       args.saveSession(session);
+      setLanguage(session.user.locale);
       args.state.current = {
         status: "authenticated",
         message: "Signed in",

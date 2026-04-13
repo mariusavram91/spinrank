@@ -64,7 +64,10 @@ import { buildLoginView } from "./shared/components/loginView";
 import { buildScoreCard } from "./shared/components/scoreCard";
 import {
   bindLocalizedText,
+  getCurrentLanguage,
+  isSupportedLanguage,
   onLanguageChange,
+  setLanguage,
   t,
 } from "./shared/i18n/runtime";
 import type { TextKey } from "./shared/i18n/translations";
@@ -175,6 +178,9 @@ export const buildApp = (): HTMLElement => {
     profileScreen,
     closeProfileButton,
     profileStatus,
+    profileDisplayNameInput,
+    profileLocaleSelect,
+    profileSaveButton,
     profileAchievementsTitle,
     profileAchievementsSubtitle,
     profileAchievementsSummary,
@@ -352,6 +358,9 @@ export const buildApp = (): HTMLElement => {
   });
 
   const state: { current: ViewState } = createViewState();
+  if (isAuthedState(state.current) && getCurrentLanguage() !== state.current.session.user.locale) {
+    setLanguage(state.current.session.user.locale);
+  }
   scoreCardPlayersGetter = () => dashboardState.players;
   scoreCardUserGetter = () => getCurrentUserId(state.current);
   captureShareTokenFromUrl(dashboardState);
@@ -1192,6 +1201,7 @@ export const buildApp = (): HTMLElement => {
       const currentUserId = getCurrentUserId(state.current);
       renderProfileScreen({
         dashboardState,
+        currentUserDisplayName: state.current.session.user.displayName,
         achievementsTitle: profileAchievementsTitle,
         achievementsSubtitle: profileAchievementsSubtitle,
         achievementsSummary: profileAchievementsSummary,
@@ -1217,6 +1227,17 @@ export const buildApp = (): HTMLElement => {
           void loadProfileMatches(false);
         },
       });
+      scheduleFormStatusHide("profile", Boolean(dashboardState.profileFormMessage));
+
+      if (document.activeElement !== profileDisplayNameInput) {
+        profileDisplayNameInput.value = state.current.session.user.displayName;
+      }
+      if (document.activeElement !== profileLocaleSelect) {
+        profileLocaleSelect.value = state.current.session.user.locale;
+      }
+      profileDisplayNameInput.disabled = dashboardState.profileSubmitting;
+      profileLocaleSelect.disabled = dashboardState.profileSubmitting;
+      profileSaveButton.disabled = dashboardState.profileSubmitting;
 
       const renderSegmentInsights = (
         target: HTMLElement,
@@ -1657,6 +1678,84 @@ export const buildApp = (): HTMLElement => {
       return;
     }
     void loadProfileMatches(false);
+  });
+
+  const applyUpdatedCurrentUser = (displayName: string, locale: AppSession["user"]["locale"]): void => {
+    if (!isAuthedState(state.current)) {
+      return;
+    }
+
+    const nextSession = {
+      ...state.current.session,
+      user: {
+        ...state.current.session.user,
+        displayName,
+        locale,
+      },
+    };
+
+    state.current = {
+      ...state.current,
+      session: nextSession,
+    };
+    saveSession(nextSession);
+
+    dashboardState.players = dashboardState.players.map((player) =>
+      player.userId === nextSession.user.id ? { ...player, displayName } : player,
+    );
+    dashboardState.leaderboard = dashboardState.leaderboard.map((player) =>
+      player.userId === nextSession.user.id ? { ...player, displayName } : player,
+    );
+    setLanguage(locale);
+  };
+
+  const submitProfile = async (): Promise<void> => {
+    if (!isAuthedState(state.current) || dashboardState.profileSubmitting) {
+      return;
+    }
+
+    const displayName = profileDisplayNameInput.value.trim();
+    const locale = isSupportedLanguage(profileLocaleSelect.value) ? profileLocaleSelect.value : getCurrentLanguage();
+    dashboardState.profileFormMessage = "";
+
+    if (!displayName) {
+      dashboardState.profileFormMessage = t("profileNameRequired");
+      syncDashboardState();
+      return;
+    }
+
+    dashboardState.profileSubmitting = true;
+    syncDashboardState();
+
+    try {
+      const response = await runAuthedAction("updateProfile", { displayName, locale });
+      applyUpdatedCurrentUser(response.user.displayName, response.user.locale);
+      dashboardState.profileFormMessage = t("profileSaveSuccess");
+      syncAuthState();
+      syncDashboardState();
+    } catch (error) {
+      dashboardState.profileFormMessage = error instanceof Error ? error.message : t("profileSaveError");
+      syncDashboardState();
+    } finally {
+      dashboardState.profileSubmitting = false;
+      syncDashboardState();
+    }
+  };
+
+  profileSaveButton.addEventListener("click", () => {
+    void submitProfile();
+  });
+  profileDisplayNameInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    void submitProfile();
+  });
+  profileLocaleSelect.addEventListener("change", () => {
+    if (isSupportedLanguage(profileLocaleSelect.value)) {
+      setLanguage(profileLocaleSelect.value);
+    }
   });
 
   profileAchievementsSummary.addEventListener("click", (event) => {

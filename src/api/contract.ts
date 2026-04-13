@@ -1,6 +1,7 @@
 export const apiActions = [
   "health",
   "bootstrapUser",
+  "updateProfile",
   "getDashboard",
   "getLeaderboard",
   "searchParticipants",
@@ -31,6 +32,7 @@ export type SegmentType = "season" | "tournament";
 export type SeasonStatus = "active" | "completed" | "deleted";
 export type TournamentStatus = "active" | "completed" | "deleted";
 export type MatchFeedFilter = "recent" | "mine" | "all";
+export type LocaleCode = "en" | "de";
 export type ErrorCode =
   | "BAD_REQUEST"
   | "UNAUTHORIZED"
@@ -74,6 +76,7 @@ export interface BootstrapUserPayload {
   provider: AuthProvider;
   idToken: string;
   nonce: string;
+  locale?: LocaleCode;
   profile?: {
     displayName?: string | null;
     email?: string | null;
@@ -87,11 +90,21 @@ export interface AppUser {
   displayName: string;
   email: string | null;
   avatarUrl: string | null;
+  locale: LocaleCode;
 }
 
 export interface BootstrapUserData {
   sessionToken: string;
   expiresAt: string;
+  user: AppUser;
+}
+
+export interface UpdateProfilePayload {
+  displayName: string;
+  locale: LocaleCode;
+}
+
+export interface UpdateProfileData {
   user: AppUser;
 }
 
@@ -543,6 +556,10 @@ export interface ApiActionMap {
   bootstrapUser: {
     payload: BootstrapUserPayload;
     data: BootstrapUserData;
+  };
+  updateProfile: {
+    payload: UpdateProfilePayload;
+    data: UpdateProfileData;
   };
   getDashboard: {
     payload: GetDashboardPayload;

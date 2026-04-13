@@ -9,6 +9,7 @@ const session: AppSession = {
     displayName: "Alice",
     email: "alice@example.com",
     avatarUrl: null,
+    locale: "en",
   },
 };
 

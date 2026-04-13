@@ -13,6 +13,7 @@ const authState: ViewState = {
       displayName: "Alice",
       email: null,
       avatarUrl: null,
+      locale: "en",
     },
   },
 };

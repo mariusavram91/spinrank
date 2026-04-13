@@ -30,23 +30,23 @@ export async function handleBootstrapUser(
     const email = claims.email ? String(claims.email) : null;
     const displayName = String(claims.name ?? claims.email ?? "Google user");
     const avatarUrl = claims.picture ? String(claims.picture) : null;
+    const locale = request.payload.locale === "de" ? "de" : "en";
     const nowIso = isoNow(env.runtime);
 
     await env.DB.prepare(
       `
         INSERT INTO users (
-          id, provider, provider_user_id, email, display_name, avatar_url,
+          id, provider, provider_user_id, email, display_name, avatar_url, locale,
           global_elo, wins, losses, streak, created_at, updated_at
         )
-        VALUES (?1, 'google', ?2, ?3, ?4, ?5, 1200, 0, 0, 0, ?6, ?6)
+        VALUES (?1, 'google', ?2, ?3, ?4, ?5, ?6, 1200, 0, 0, 0, ?7, ?7)
         ON CONFLICT(provider, provider_user_id) DO UPDATE SET
           email = excluded.email,
-          display_name = excluded.display_name,
           avatar_url = excluded.avatar_url,
           updated_at = excluded.updated_at
       `,
     )
-      .bind(randomId("user", env.runtime), providerUserId, email, displayName, avatarUrl, nowIso)
+      .bind(randomId("user", env.runtime), providerUserId, email, displayName, avatarUrl, locale, nowIso)
       .run();
 
     const user = await env.DB.prepare(
@@ -79,6 +79,7 @@ export async function handleBootstrapUser(
         displayName: user.display_name,
         email: user.email,
         avatarUrl: user.avatar_url,
+        locale: user.locale,
       },
     });
   } catch (error) {

@@ -348,6 +348,7 @@ const buildSegmentCard = (args: {
 
 export const renderProfileScreen = (args: {
   dashboardState: DashboardState;
+  currentUserDisplayName: string;
   achievementsTitle: HTMLElement;
   achievementsSubtitle: HTMLElement;
   achievementsSummary: HTMLElement;
@@ -376,8 +377,11 @@ export const renderProfileScreen = (args: {
   onOpenTournament: (tournamentId: string) => void;
   onLoadMoreMatches: () => void;
 }): void => {
-  args.status.textContent = "";
-  args.status.hidden = true;
+  const profileFormMessage = args.dashboardState.profileFormMessage ?? "";
+  args.status.textContent = profileFormMessage;
+  args.status.hidden = !profileFormMessage;
+  args.status.dataset.status = profileFormMessage.toLowerCase().includes("failed") ? "error" : "success";
+  args.status.classList.toggle("share-alert--visible", Boolean(profileFormMessage));
 
   const allAchievements = args.dashboardState.achievements?.items ?? [];
   const unlockedAchievements = allAchievements.filter((item) => item.unlockedAt);

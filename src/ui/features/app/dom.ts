@@ -6,6 +6,7 @@ import { buildLanguageSwitch } from "../../shared/components/languageSwitch";
 import { buildLoginView } from "../../shared/components/loginView";
 import { buildScoreCard } from "../../shared/components/scoreCard";
 import { buildDeleteWarning } from "../../shared/components/deleteWarning";
+import { languageOptions } from "../../shared/i18n/translations";
 import { bindLocalizedAttribute, bindLocalizedText, t } from "../../shared/i18n/runtime";
 import type { TextKey } from "../../shared/i18n/translations";
 import { getTodayDateValue } from "../../shared/utils/format";
@@ -165,12 +166,58 @@ export const createAppDom = (args: {
   profileTop.append(profileHeading, closeProfileButton);
 
   const profileStatus = document.createElement("p");
-  profileStatus.className = "form-status";
+  profileStatus.className = "form-status share-alert match-composer-alert";
   profileStatus.hidden = true;
   profileStatus.setAttribute("aria-live", "polite");
 
+  const profileEditorSection = document.createElement("section");
+  profileEditorSection.className = "profile-section profile-editor";
+  const profileEditorTitle = document.createElement("h4");
+  profileEditorTitle.className = "card-title profile-section__title profile-section__title--primary";
+  bindLocalizedText(profileEditorTitle, "profileSettingsTitle");
+  const profileEditorField = document.createElement("label");
+  profileEditorField.className = "form-field";
+  const profileEditorLabel = document.createElement("span");
+  profileEditorLabel.className = "field-label";
+  bindLocalizedText(profileEditorLabel, "profileDisplayNameLabel");
+  const profileDisplayNameInput = document.createElement("input");
+  profileDisplayNameInput.type = "text";
+  profileDisplayNameInput.className = "text-input";
+  profileDisplayNameInput.maxLength = 80;
+  profileDisplayNameInput.autocomplete = "name";
+  profileDisplayNameInput.dataset.testid = "profile-display-name";
+  bindLocalizedAttribute(profileDisplayNameInput, "placeholder", "profileDisplayNamePlaceholder");
+  profileEditorField.append(profileEditorLabel, profileDisplayNameInput);
+  const profileLocaleField = document.createElement("label");
+  profileLocaleField.className = "form-field";
+  const profileLocaleLabel = document.createElement("span");
+  profileLocaleLabel.className = "field-label";
+  bindLocalizedText(profileLocaleLabel, "profileLocaleLabel");
+  const profileLocaleSelect = document.createElement("select");
+  profileLocaleSelect.className = "text-input";
+  profileLocaleSelect.dataset.testid = "profile-locale";
+  for (const [code, option] of Object.entries(languageOptions)) {
+    const localeOption = document.createElement("option");
+    localeOption.value = code;
+    localeOption.textContent = `${option.flag} ${option.label}`;
+    profileLocaleSelect.append(localeOption);
+  }
+  profileLocaleField.append(profileLocaleLabel, profileLocaleSelect);
+  const profileSaveButton = document.createElement("button");
+  profileSaveButton.type = "button";
+  profileSaveButton.className = "primary-button";
+  profileSaveButton.dataset.testid = "profile-save";
+  bindLocalizedText(profileSaveButton, "profileSaveButton");
+  profileEditorSection.append(profileEditorTitle, profileEditorField, profileLocaleField, profileSaveButton, profileStatus);
+
   const profileBody = document.createElement("div");
   profileBody.className = "profile-screen__body";
+
+  const profileActivitySection = document.createElement("section");
+  profileActivitySection.className = "profile-section profile-activity";
+  const profileActivityTitle = document.createElement("h4");
+  profileActivityTitle.className = "card-title profile-section__title profile-section__title--primary";
+  bindLocalizedText(profileActivityTitle, "profileActivityTitle");
 
   const profileSeasonsSection = document.createElement("section");
   profileSeasonsSection.className = "profile-section";
@@ -239,13 +286,15 @@ export const createAppDom = (args: {
   profileAchievementsTitleBlock.append(profileAchievementsTitle, profileAchievementsSubtitle);
   profileAchievementsHeader.append(profileAchievementsTitleBlock, profileAchievementsToggle);
 
-  profileBody.append(
+  profileActivitySection.append(
+    profileActivityTitle,
     profileAchievementsSection,
     profileSeasonsSection,
     profileTournamentsSection,
     profileMatchesSection,
   );
-  profilePanel.append(profileTop, profileStatus, profileBody);
+  profileBody.append(profileEditorSection, profileActivitySection);
+  profilePanel.append(profileTop, profileBody);
   profileScreen.append(profilePanel);
 
   const { faqScreen, faqBackButton, privacyScreen, privacyBackButton } = buildHelpScreens();
@@ -775,6 +824,9 @@ export const createAppDom = (args: {
     profilePanel,
     closeProfileButton,
     profileStatus,
+    profileDisplayNameInput,
+    profileLocaleSelect,
+    profileSaveButton,
     profileAchievementsTitle,
     profileAchievementsSubtitle,
     profileAchievementsSummary,

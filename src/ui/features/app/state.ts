@@ -38,6 +38,8 @@ export const createDashboardState = (): DashboardState => ({
   profileMatchesCursor: null,
   profileLoading: false,
   profileMatchesLoading: false,
+  profileSubmitting: false,
+  profileFormMessage: "",
   profileAchievementsExpanded: false,
   profileSelectedAchievementKey: "",
   profileRecentlySeenAchievementKeys: [],

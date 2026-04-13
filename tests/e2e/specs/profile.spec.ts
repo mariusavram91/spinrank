@@ -20,7 +20,7 @@ test.describe("profile flow", () => {
 
     await openProfile(page);
 
-    const seasonsSection = page.locator(".profile-section", {
+    const seasonsSection = page.locator(".profile-activity > .profile-section", {
       has: page.locator(".profile-section__title", { hasText: "Seasons" }),
     });
     await expect(seasonsSection).toContainText(seeded.seasonName, { timeout: 30000 });
@@ -68,15 +68,32 @@ test.describe("profile flow", () => {
     await gotoDashboard(page);
     await openProfile(page);
 
-    const seasonsSection = page.locator(".profile-section", {
+    const seasonsSection = page.locator(".profile-activity > .profile-section", {
       has: page.locator(".profile-section__title", { hasText: "Seasons" }),
     });
-    const tournamentsSection = page.locator(".profile-section", {
+    const tournamentsSection = page.locator(".profile-activity > .profile-section", {
       has: page.locator(".profile-section__title", { hasText: "Tournaments" }),
     });
 
     await expect(seasonsSection).toContainText("Nothing to show here yet.");
     await expect(tournamentsSection).toContainText("Nothing to show here yet.");
     await expect(page.locator(".profile-match-list")).toContainText("No matches involving you yet.");
+  });
+
+  test("lets the user update the display name from the profile page", async ({ page, request }) => {
+    const token = createTestToken("profile-rename");
+    await signInAsPersona(page, request, "owner", token, {
+      displayName: "Profile Rename Owner",
+    });
+
+    await gotoDashboard(page);
+    await openProfile(page);
+
+    await expect(page.getByTestId("profile-display-name")).toHaveValue("Profile Rename Owner");
+    await page.getByTestId("profile-display-name").fill("Updated Profile Name");
+    await page.getByTestId("profile-save").click();
+
+    await expect(page.getByText("Display name updated.")).toBeVisible();
+    await expect(page.getByTestId("profile-display-name")).toHaveValue("Updated Profile Name");
   });
 });

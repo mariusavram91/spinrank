@@ -33,6 +33,7 @@ describe("match player search inputs", () => {
           displayName: "Alice",
           email: null,
           avatarUrl: null,
+          locale: "en",
         },
       },
     };
@@ -207,6 +208,7 @@ describe("match player search inputs", () => {
           displayName: "Alice",
           email: null,
           avatarUrl: null,
+          locale: "en",
         },
       },
     };
@@ -362,6 +364,7 @@ describe("match player search inputs", () => {
           displayName: "Alice",
           email: null,
           avatarUrl: null,
+          locale: "en",
         },
       },
     };
@@ -478,6 +481,7 @@ describe("match player search inputs", () => {
           displayName: "Alice",
           email: null,
           avatarUrl: null,
+          locale: "en",
         },
       },
     };

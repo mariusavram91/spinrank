@@ -15,7 +15,7 @@ test.describe("profile accessibility", () => {
 
     await page.getByRole("button", { name: /open profile/i }).focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Your activity" })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { name: "Profile", exact: true })).toBeVisible({ timeout: 30000 });
 
     await page.getByRole("button", { name: /^back$/i }).click();
     await expect(page.getByTestId("dashboard-screen")).toBeVisible({ timeout: 30000 });

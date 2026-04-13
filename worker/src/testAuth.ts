@@ -113,6 +113,7 @@ export async function handleTestBootstrapRequest(request: Request, env: Env): Pr
         displayName: user.display_name,
         email: user.email,
         avatarUrl: user.avatar_url,
+        locale: user.locale,
       },
     }),
     200,

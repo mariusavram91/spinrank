@@ -201,7 +201,7 @@ describe("worker bootstrapUser action", () => {
       expect(secondResponse.ok).toBe(true);
       expect(secondResponse.data?.user).toMatchObject({
         id: "user_uuid_1",
-        displayName: "Alice Updated",
+        displayName: "Alice",
         email: "alice.updated@example.com",
         avatarUrl: "https://example.com/alice-updated.png",
       });
@@ -225,7 +225,7 @@ describe("worker bootstrapUser action", () => {
         {
           id: "user_uuid_1",
           email: "alice.updated@example.com",
-          display_name: "Alice Updated",
+          display_name: "Alice",
           avatar_url: "https://example.com/alice-updated.png",
         },
       ]);

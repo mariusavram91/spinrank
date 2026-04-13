@@ -30,6 +30,7 @@ const buildSession = (expiresAt: string): AppSession => ({
     provider: "google",
     email: "ada@example.com",
     avatarUrl: null,
+    locale: "en",
   },
 });
 

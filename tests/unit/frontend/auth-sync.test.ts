@@ -12,6 +12,7 @@ const authState: ViewState = {
       displayName: "Ada",
       email: "ada@example.com",
       avatarUrl: "https://avatars.example.test/ada.png",
+      locale: "en",
     },
   },
 };
