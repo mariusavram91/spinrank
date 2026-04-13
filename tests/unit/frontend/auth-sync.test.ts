@@ -40,6 +40,7 @@ const createElements = () => ({
   createTournamentScreen: document.createElement("section"),
   createSeasonScreen: document.createElement("section"),
   profileScreen: document.createElement("section"),
+  sharedUserProfileScreen: document.createElement("section"),
   faqScreen: document.createElement("section"),
   privacyScreen: document.createElement("section"),
   loginView: document.createElement("section"),
@@ -109,6 +110,7 @@ describe("auth sync", () => {
     expect(elements.container.contains(elements.createMenuButton)).toBe(true);
     expect(elements.container.contains(elements.createMenu)).toBe(true);
     expect(elements.profileScreen.hidden).toBe(false);
+    expect(elements.sharedUserProfileScreen.hidden).toBe(true);
     expect(elements.dashboard.hidden).toBe(true);
     expect(elements.loginView.hidden).toBe(true);
     expect(elements.welcomeText.textContent).toBe("");

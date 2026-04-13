@@ -19,17 +19,17 @@ test.describe("profile flow", () => {
     await expect(page.getByTestId("matches-list")).toContainText(seeded.rivalDisplayName);
 
     await openProfile(page);
+    const activeProfileScreen = page.locator("section.dashboard:not([hidden]) .profile-screen").first();
+    const activeProfileActivity = activeProfileScreen.locator(".profile-activity").first();
 
-    const seasonsSection = page.locator(".profile-activity > .profile-section", {
-      has: page.locator(".profile-section__title", { hasText: "Seasons" }),
-    });
+    const seasonsSection = activeProfileActivity.getByRole("heading", { name: "Seasons" }).locator("..");
     await expect(seasonsSection).toContainText(seeded.seasonName, { timeout: 30000 });
     await expect(seasonsSection).toContainText("Participants 2", { timeout: 30000 });
-    await expect(page.locator(".profile-match-list")).toContainText(seeded.rivalDisplayName, {
+    await expect(activeProfileScreen.locator(".profile-match-list")).toContainText(seeded.rivalDisplayName, {
       timeout: 30000,
     });
 
-    await page.locator(".profile-segment-card").filter({ hasText: seeded.seasonName }).click();
+    await activeProfileScreen.locator(".profile-segment-card").filter({ hasText: seeded.seasonName }).click();
     await expect(page.getByTestId("season-name")).toHaveValue(seeded.seasonName, { timeout: 30000 });
   });
 
@@ -67,17 +67,15 @@ test.describe("profile flow", () => {
 
     await gotoDashboard(page);
     await openProfile(page);
+    const activeProfileScreen = page.locator("section.dashboard:not([hidden]) .profile-screen").first();
+    const activeProfileActivity = activeProfileScreen.locator(".profile-activity").first();
 
-    const seasonsSection = page.locator(".profile-activity > .profile-section", {
-      has: page.locator(".profile-section__title", { hasText: "Seasons" }),
-    });
-    const tournamentsSection = page.locator(".profile-activity > .profile-section", {
-      has: page.locator(".profile-section__title", { hasText: "Tournaments" }),
-    });
+    const seasonsSection = activeProfileActivity.getByRole("heading", { name: "Seasons" }).locator("..");
+    const tournamentsSection = activeProfileActivity.getByRole("heading", { name: "Tournaments" }).locator("..");
 
     await expect(seasonsSection).toContainText("Nothing to show here yet.");
     await expect(tournamentsSection).toContainText("Nothing to show here yet.");
-    await expect(page.locator(".profile-match-list")).toContainText("No matches involving you yet.");
+    await expect(activeProfileScreen.locator(".profile-match-list")).toContainText("No matches involving you yet.");
   });
 
   test("lets the user update the display name from the profile page", async ({ page, request }) => {

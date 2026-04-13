@@ -31,9 +31,10 @@ test.describe("achievements", () => {
 
     await openProfile(page);
 
-    const summary = page.locator(".profile-achievements__summary");
-    const unreadList = page.locator(".achievement-chip-list--profile-unread").last();
-    const expandedList = page.locator(".achievement-chip-list--profile:not(.achievement-chip-list--profile-unread)");
+    const activeProfileScreen = page.locator("section.dashboard:not([hidden]) .profile-screen").first();
+    const summary = activeProfileScreen.locator(".profile-achievements__summary").first();
+    const unreadList = activeProfileScreen.locator(".achievement-chip-list--profile-unread").last();
+    const expandedList = activeProfileScreen.locator(".achievement-chip-list--profile:not(.achievement-chip-list--profile-unread)");
 
     await expect(summary).toBeVisible();
     await expect(summary.getByLabel("First match")).toBeVisible();

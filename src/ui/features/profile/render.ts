@@ -19,7 +19,7 @@ const createEmptyState = (message: string): HTMLParagraphElement => {
   return empty;
 };
 
-const ACHIEVEMENT_ICONS: Record<AchievementSummaryItem["icon"], string> = {
+export const ACHIEVEMENT_ICONS: Record<AchievementSummaryItem["icon"], string> = {
   user_plus: "👤",
   ping_pong: "🏓",
   victory_badge: "✅",
@@ -98,7 +98,7 @@ const ACHIEVEMENT_ICONS: Record<AchievementSummaryItem["icon"], string> = {
   party_year: "🎉",
 };
 
-const buildAchievementChip = (
+export const buildAchievementChip = (
   item: AchievementSummaryItem,
   t: TranslationFn,
   options?: { shellClassName?: string },

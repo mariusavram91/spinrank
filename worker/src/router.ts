@@ -11,6 +11,7 @@ import { handleDeactivateTournament } from "./actions/deactivateTournament";
 import { handleGetDashboard } from "./actions/getDashboard";
 import { handleGetLeaderboard } from "./actions/getLeaderboard";
 import { handleGetMatches } from "./actions/getMatches";
+import { handleGetSharedUserProfile } from "./actions/getSharedUserProfile";
 import { handleSearchParticipants } from "./actions/searchParticipants";
 import { handleGetSeasons } from "./actions/getSeasons";
 import { handleGetSegmentLeaderboard } from "./actions/getSegmentLeaderboard";
@@ -30,6 +31,7 @@ import type {
   DeactivateEntityPayload,
   GetMatchesPayload,
   GetLeaderboardPayload,
+  GetSharedUserProfilePayload,
   SearchParticipantsPayload,
   GetSegmentLeaderboardPayload,
   GetTournamentBracketPayload,
@@ -103,6 +105,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
     case "getLeaderboard":
       return handleGetLeaderboard(
         apiRequest as ApiRequest<"getLeaderboard", GetLeaderboardPayload>,
+        sessionUser,
+        env,
+      );
+    case "getSharedUserProfile":
+      return handleGetSharedUserProfile(
+        apiRequest as ApiRequest<"getSharedUserProfile", GetSharedUserProfilePayload>,
         sessionUser,
         env,
       );

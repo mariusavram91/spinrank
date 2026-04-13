@@ -27,6 +27,7 @@ type AuthSyncArgs = {
   createTournamentScreen: HTMLElement;
   createSeasonScreen: HTMLElement;
   profileScreen: HTMLElement;
+  sharedUserProfileScreen: HTMLElement;
   faqScreen: HTMLElement;
   privacyScreen: HTMLElement;
   loginView: HTMLElement;
@@ -91,6 +92,7 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
       args.createTournamentScreen.hidden = screen !== "createTournament";
       args.createSeasonScreen.hidden = screen !== "createSeason";
       args.profileScreen.hidden = screen !== "profile";
+      args.sharedUserProfileScreen.hidden = screen !== "userProfile";
       args.faqScreen.hidden = screen !== "faq";
       args.privacyScreen.hidden = screen !== "privacy";
       args.loginView.hidden = true;
@@ -113,6 +115,7 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
     args.createTournamentScreen.hidden = true;
     args.createSeasonScreen.hidden = true;
     args.profileScreen.hidden = true;
+    args.sharedUserProfileScreen.hidden = true;
     args.faqScreen.hidden = args.dashboardState.screen !== "faq";
     args.privacyScreen.hidden = args.dashboardState.screen !== "privacy";
     args.loginView.hidden = args.dashboardState.screen === "faq" || args.dashboardState.screen === "privacy";

@@ -141,6 +141,10 @@ export const createAppDom = (args: {
   profileScreen.className = "dashboard";
   profileScreen.hidden = true;
 
+  const sharedUserProfileScreen = document.createElement("section");
+  sharedUserProfileScreen.className = "dashboard";
+  sharedUserProfileScreen.hidden = true;
+
   const profilePanel = document.createElement("section");
   profilePanel.className = "content-card profile-screen";
 
@@ -296,6 +300,134 @@ export const createAppDom = (args: {
   profileBody.append(profileEditorSection, profileActivitySection);
   profilePanel.append(profileTop, profileBody);
   profileScreen.append(profilePanel);
+
+  const sharedUserProfilePanel = document.createElement("section");
+  sharedUserProfilePanel.className = "content-card profile-screen";
+
+  const sharedUserProfileTop = document.createElement("div");
+  sharedUserProfileTop.className = "card-header";
+
+  const sharedUserProfileHeading = document.createElement("div");
+
+  const sharedUserProfileTitle = document.createElement("h3");
+  sharedUserProfileTitle.className = "card-title";
+  bindLocalizedText(sharedUserProfileTitle, "sharedProfileTitle");
+
+  const sharedUserProfileMeta = document.createElement("p");
+  sharedUserProfileMeta.className = "card-meta";
+  bindLocalizedText(sharedUserProfileMeta, "sharedProfileMeta");
+
+  const closeSharedUserProfileButton = document.createElement("button");
+  closeSharedUserProfileButton.type = "button";
+  closeSharedUserProfileButton.className = "secondary-button compact-header-button";
+  bindLocalizedText(closeSharedUserProfileButton, "back");
+
+  sharedUserProfileHeading.append(sharedUserProfileTitle, sharedUserProfileMeta);
+  sharedUserProfileTop.append(sharedUserProfileHeading, closeSharedUserProfileButton);
+
+  const sharedUserProfileBody = document.createElement("div");
+  sharedUserProfileBody.className = "profile-screen__body";
+
+  const sharedUserProfileSummary = document.createElement("section");
+  sharedUserProfileSummary.className = "profile-section profile-editor shared-profile-summary";
+
+  const sharedUserProfileHeader = document.createElement("div");
+  sharedUserProfileHeader.className = "shared-profile-summary__header";
+
+  const sharedUserProfileAvatar = document.createElement("img");
+  sharedUserProfileAvatar.className = "player-avatar shared-profile-summary__avatar";
+
+  const sharedUserProfileIdentity = document.createElement("div");
+  sharedUserProfileIdentity.className = "shared-profile-summary__identity";
+
+  const sharedUserProfileName = document.createElement("h4");
+  sharedUserProfileName.className = "card-title profile-section__title profile-section__title--primary";
+
+  const sharedUserProfileStats = document.createElement("div");
+  sharedUserProfileStats.className = "profile-segment-card__stats shared-profile-summary__stats";
+
+  const sharedUserProfileRank = document.createElement("span");
+  sharedUserProfileRank.className = "profile-stat-chip";
+
+  const sharedUserProfileElo = document.createElement("span");
+  sharedUserProfileElo.className = "profile-stat-chip";
+
+  sharedUserProfileStats.append(sharedUserProfileRank, sharedUserProfileElo);
+  sharedUserProfileIdentity.append(sharedUserProfileName, sharedUserProfileStats);
+  sharedUserProfileHeader.append(sharedUserProfileAvatar, sharedUserProfileIdentity);
+  sharedUserProfileSummary.append(sharedUserProfileHeader);
+
+  const sharedUserProfileActivity = document.createElement("section");
+  sharedUserProfileActivity.className = "profile-section profile-activity";
+  const sharedUserProfileActivityTitle = document.createElement("h4");
+  sharedUserProfileActivityTitle.className = "card-title profile-section__title profile-section__title--primary";
+  bindLocalizedText(sharedUserProfileActivityTitle, "sharedProfileActivityTitle");
+
+  const sharedUserProfileAchievementsSection = document.createElement("section");
+  sharedUserProfileAchievementsSection.className = "profile-section";
+  const sharedUserProfileAchievementsTitle = document.createElement("h4");
+  sharedUserProfileAchievementsTitle.className = "card-title profile-section__title";
+  bindLocalizedText(sharedUserProfileAchievementsTitle, "achievementsTitle");
+  const sharedUserProfileAchievementsSubtitle = document.createElement("p");
+  sharedUserProfileAchievementsSubtitle.className = "profile-section__subtitle";
+  const sharedUserProfileAchievementsSummary = document.createElement("div");
+  sharedUserProfileAchievementsSummary.className = "profile-achievements__summary";
+  const sharedUserProfileAchievementsPreview = document.createElement("div");
+  sharedUserProfileAchievementsPreview.className =
+    "achievement-chip-list achievement-chip-list--profile achievement-chip-list--profile-unread achievement-chip-list--profile-preview";
+  sharedUserProfileAchievementsPreview.hidden = true;
+  sharedUserProfileAchievementsSection.append(
+    sharedUserProfileAchievementsTitle,
+    sharedUserProfileAchievementsSubtitle,
+    sharedUserProfileAchievementsSummary,
+    sharedUserProfileAchievementsPreview,
+  );
+
+  const sharedUserProfileSeasonsSection = document.createElement("section");
+  sharedUserProfileSeasonsSection.className = "profile-section";
+  const sharedUserProfileSeasonsTitle = document.createElement("h4");
+  sharedUserProfileSeasonsTitle.className = "card-title profile-section__title";
+  bindLocalizedText(sharedUserProfileSeasonsTitle, "sharedProfileSeasonsTitle");
+  const sharedUserProfileSeasonsList = document.createElement("div");
+  sharedUserProfileSeasonsList.className = "profile-card-list";
+  sharedUserProfileSeasonsSection.append(sharedUserProfileSeasonsTitle, sharedUserProfileSeasonsList);
+
+  const sharedUserProfileTournamentsSection = document.createElement("section");
+  sharedUserProfileTournamentsSection.className = "profile-section";
+  const sharedUserProfileTournamentsTitle = document.createElement("h4");
+  sharedUserProfileTournamentsTitle.className = "card-title profile-section__title";
+  bindLocalizedText(sharedUserProfileTournamentsTitle, "sharedProfileTournamentsTitle");
+  const sharedUserProfileTournamentsList = document.createElement("div");
+  sharedUserProfileTournamentsList.className = "profile-card-list";
+  sharedUserProfileTournamentsSection.append(sharedUserProfileTournamentsTitle, sharedUserProfileTournamentsList);
+
+  const sharedUserProfileMatchesSection = document.createElement("section");
+  sharedUserProfileMatchesSection.className = "profile-section";
+  const sharedUserProfileMatchesTitle = document.createElement("h4");
+  sharedUserProfileMatchesTitle.className = "card-title profile-section__title";
+  bindLocalizedText(sharedUserProfileMatchesTitle, "sharedProfileMatchesTitle");
+  const sharedUserProfileMatchesList = document.createElement("div");
+  sharedUserProfileMatchesList.className = "profile-match-list";
+  const sharedUserProfileLoadMoreButton = document.createElement("button");
+  sharedUserProfileLoadMoreButton.type = "button";
+  sharedUserProfileLoadMoreButton.className = "secondary-button matches-load-more-button";
+  bindLocalizedText(sharedUserProfileLoadMoreButton, "loadMore");
+  sharedUserProfileMatchesSection.append(
+    sharedUserProfileMatchesTitle,
+    sharedUserProfileMatchesList,
+    sharedUserProfileLoadMoreButton,
+  );
+
+  sharedUserProfileActivity.append(
+    sharedUserProfileAchievementsSection,
+    sharedUserProfileActivityTitle,
+    sharedUserProfileSeasonsSection,
+    sharedUserProfileTournamentsSection,
+    sharedUserProfileMatchesSection,
+  );
+  sharedUserProfileBody.append(sharedUserProfileSummary, sharedUserProfileActivity);
+  sharedUserProfilePanel.append(sharedUserProfileTop, sharedUserProfileBody);
+  sharedUserProfileScreen.append(sharedUserProfilePanel);
 
   const { faqScreen, faqBackButton, privacyScreen, privacyBackButton } = buildHelpScreens();
   const { footer, faqButton: footerFaqButton, privacyButton: footerPrivacyButton } = buildFooter();
@@ -796,6 +928,7 @@ export const createAppDom = (args: {
     createTournamentScreen,
     createSeasonScreen,
     profileScreen,
+    sharedUserProfileScreen,
     faqScreen,
     privacyScreen,
     footer,
@@ -821,6 +954,7 @@ export const createAppDom = (args: {
     createTournamentScreen,
     createSeasonScreen,
     profileScreen,
+    sharedUserProfileScreen,
     profilePanel,
     closeProfileButton,
     profileStatus,
@@ -838,6 +972,19 @@ export const createAppDom = (args: {
     profileTournamentsList,
     profileMatchesList,
     profileLoadMoreButton,
+    closeSharedUserProfileButton,
+    sharedUserProfileMeta,
+    sharedUserProfileAvatar,
+    sharedUserProfileName,
+    sharedUserProfileRank,
+    sharedUserProfileElo,
+    sharedUserProfileAchievementsSubtitle,
+    sharedUserProfileAchievementsSummary,
+    sharedUserProfileAchievementsPreview,
+    sharedUserProfileSeasonsList,
+    sharedUserProfileTournamentsList,
+    sharedUserProfileMatchesList,
+    sharedUserProfileLoadMoreButton,
     faqScreen,
     faqBackButton,
     privacyScreen,

@@ -108,6 +108,7 @@ const createBracketPlayerNode = (args: {
   label: string;
   players: DashboardState["players"];
   currentUserId: string;
+  onOpenUserProfile: (userId: string) => void;
   avatarBaseUrl: string;
   state: "winner" | "loser" | "neutral";
   t: TranslationFn;
@@ -164,6 +165,22 @@ const createBracketPlayerNode = (args: {
     nameBlock.append(youChip);
   }
 
+  if (args.playerId && args.playerId !== args.currentUserId) {
+    row.classList.add("leaderboard-bracket__player--interactive");
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
+    row.addEventListener("click", () => {
+      args.onOpenUserProfile(args.playerId!);
+    });
+    row.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      args.onOpenUserProfile(args.playerId!);
+    });
+  }
+
   row.append(avatar, nameBlock);
   return row;
 };
@@ -177,6 +194,7 @@ export const createLeaderboardRenderer = (args: {
   dashboardState: DashboardState;
   leaderboardList: HTMLElement;
   getCurrentUserId: () => string;
+  onOpenUserProfile: (userId: string) => void;
   t: TranslationFn;
   avatarBaseUrl: string;
 }): LeaderboardRenderer => {
@@ -303,6 +321,7 @@ export const createLeaderboardRenderer = (args: {
                 label,
                 players: args.dashboardState.players,
                 currentUserId,
+                onOpenUserProfile: args.onOpenUserProfile,
                 avatarBaseUrl: args.avatarBaseUrl,
                 state: match.winnerPlayerId ? "winner" : "neutral",
                 t: args.t,
@@ -316,6 +335,7 @@ export const createLeaderboardRenderer = (args: {
                 label: leftPlayerName,
                 players: args.dashboardState.players,
                 currentUserId,
+                onOpenUserProfile: args.onOpenUserProfile,
                 avatarBaseUrl: args.avatarBaseUrl,
                 state: leftState,
                 t: args.t,
@@ -326,6 +346,7 @@ export const createLeaderboardRenderer = (args: {
                 label: rightPlayerName,
                 players: args.dashboardState.players,
                 currentUserId,
+                onOpenUserProfile: args.onOpenUserProfile,
                 avatarBaseUrl: args.avatarBaseUrl,
                 state: rightState,
                 t: args.t,
@@ -459,6 +480,21 @@ export const createLeaderboardRenderer = (args: {
 
       summary.append(identityLine, metaRow);
       row.append(summary);
+      if (entry.userId !== currentUserId) {
+        row.classList.add("leaderboard-row--interactive");
+        row.tabIndex = 0;
+        row.setAttribute("role", "button");
+        row.addEventListener("click", () => {
+          args.onOpenUserProfile(entry.userId);
+        });
+        row.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return;
+          }
+          event.preventDefault();
+          args.onOpenUserProfile(entry.userId);
+        });
+      }
       return row;
     });
 

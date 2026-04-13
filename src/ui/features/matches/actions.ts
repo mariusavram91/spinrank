@@ -13,7 +13,15 @@ export const createMatchActions = (args: {
     matchFormError: string;
     matchFormMessage: string;
     pendingCreateRequestId: string;
-    screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "profile" | "faq" | "privacy";
+    screen:
+      | "dashboard"
+      | "createMatch"
+      | "createTournament"
+      | "createSeason"
+      | "profile"
+      | "userProfile"
+      | "faq"
+      | "privacy";
     error: string;
     seasons: SeasonRecord[];
     tournaments: TournamentRecord[];

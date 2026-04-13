@@ -9,6 +9,7 @@ export const apiActionNames = [
   "searchParticipants",
   "getMatches",
   "getSeasons",
+  "getSharedUserProfile",
   "getSegmentLeaderboard",
   "getTournamentBracket",
   "getTournaments",
@@ -224,6 +225,53 @@ export interface GetUserProgressData {
   wins: number;
   losses: number;
   points: UserProgressPoint[];
+}
+
+export interface GetSharedUserProfilePayload {
+  userId: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface SharedUserSegmentSummary {
+  segmentType: SegmentType;
+  segmentId: string;
+  wins: number;
+  losses: number;
+  rank: number | null;
+  participantCount: number;
+  seasonScore?: number;
+  placementLabelKey?: LeaderboardEntry["placementLabelKey"];
+  placementLabelCount?: number | null;
+}
+
+export interface SharedUserOverview {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  currentRank: number | null;
+  currentElo: number;
+}
+
+export interface SharedUserSeasonRecord {
+  season: SeasonRecord;
+  summary: SharedUserSegmentSummary;
+}
+
+export interface SharedUserTournamentRecord {
+  tournament: TournamentRecord;
+  summary: SharedUserSegmentSummary;
+}
+
+export interface GetSharedUserProfileData {
+  user: SharedUserOverview;
+  achievements: AchievementSummaryItem[];
+  seasons: SharedUserSeasonRecord[];
+  tournaments: SharedUserTournamentRecord[];
+  matches: MatchRecord[];
+  nextCursor: string | null;
+  players: LeaderboardEntry[];
+  matchBracketContextByMatchId: Record<string, MatchBracketContext>;
 }
 
 export interface AchievementSummaryItem {

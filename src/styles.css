@@ -861,6 +861,21 @@ select.text-input {
   color: #362b1f;
 }
 
+.leaderboard-row--interactive {
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.leaderboard-row--interactive:hover,
+.leaderboard-row--interactive:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(82, 61, 36, 0.18);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
 .leaderboard-matches {
   margin-top: 16px;
   display: flex;
@@ -1150,6 +1165,37 @@ select.text-input {
 .profile-editor .primary-button {
   justify-self: center;
   margin-top: 1.5rem;
+}
+
+.shared-profile-summary {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(20, 31, 51, 0.12);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+  background:
+    radial-gradient(circle at top left, rgba(29, 78, 216, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(243, 246, 251, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.shared-profile-summary__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.shared-profile-summary__avatar {
+  width: 84px;
+  height: 84px;
+  flex: 0 0 auto;
+}
+
+.shared-profile-summary__identity {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.shared-profile-summary__stats {
+  gap: 0.6rem;
 }
 
 .profile-activity {
@@ -1499,6 +1545,13 @@ select.text-input {
 .profile-match-card__players,
 .profile-match-card__score {
   font-weight: 600;
+}
+
+.profile-match-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .matches-list {
@@ -2353,6 +2406,21 @@ select.text-input {
   background: rgba(20, 31, 51, 0.04);
   color: #26201a;
   border: 1px solid rgba(82, 61, 36, 0.08);
+}
+
+.leaderboard-bracket__player--interactive {
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.leaderboard-bracket__player--interactive:hover,
+.leaderboard-bracket__player--interactive:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(82, 61, 36, 0.18);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
 .leaderboard-bracket__player--winner {

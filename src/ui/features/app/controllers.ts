@@ -28,7 +28,15 @@ export const createTopLevelUiHandlers = (args: {
   applyFairMatchSuggestion: () => void | Promise<void>;
   suggestTournamentBracket: () => void;
   dashboardState: {
-    screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "profile" | "faq" | "privacy";
+    screen:
+      | "dashboard"
+      | "createMatch"
+      | "createTournament"
+      | "createSeason"
+      | "profile"
+      | "userProfile"
+      | "faq"
+      | "privacy";
     seasonFormError: string;
     seasonFormMessage: string;
     tournamentFormMessage: string;

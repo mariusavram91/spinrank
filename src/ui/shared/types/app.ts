@@ -1,5 +1,6 @@
 import type {
   AchievementOverview,
+  GetSharedUserProfileData,
   AppSession,
   GetTournamentBracketData,
   GetUserProgressData,
@@ -36,7 +37,15 @@ export interface ProfileSegmentSummary {
 }
 
 export interface DashboardState {
-  screen: "dashboard" | "createMatch" | "createTournament" | "createSeason" | "profile" | "faq" | "privacy";
+  screen:
+    | "dashboard"
+    | "createMatch"
+    | "createTournament"
+    | "createSeason"
+    | "profile"
+    | "userProfile"
+    | "faq"
+    | "privacy";
   loading: boolean;
   error: string;
   leaderboard: LeaderboardEntry[];
@@ -67,6 +76,11 @@ export interface DashboardState {
   profileRecentlySeenAchievementKeys: string[];
   profileSegmentSummaries: Record<string, ProfileSegmentSummary>;
   profileSegmentSummaryLoadingKeys: string[];
+  sharedUserProfile: GetSharedUserProfileData | null;
+  sharedUserProfileSelectedAchievementKey: string;
+  sharedUserProfileUserId: string;
+  sharedUserProfileLoading: boolean;
+  sharedUserProfileMatchesLoading: boolean;
   matchBracketContextByMatchId: Record<string, { roundTitle: string; isFinal: boolean }>;
   matchSubmitting: boolean;
   matchFormError: string;
