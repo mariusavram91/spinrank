@@ -52,6 +52,11 @@ export const buildLanguageSwitch = (): LanguageSwitchElements => {
     setLanguage(language);
     refreshLanguageTriggerFlag();
     refreshLanguageButtonStates();
+    languageSwitch.dispatchEvent(
+      new CustomEvent<{ language: LanguageCode }>("spinrank:language-select", {
+        detail: { language },
+      }),
+    );
   };
 
   onLanguageChange(() => {

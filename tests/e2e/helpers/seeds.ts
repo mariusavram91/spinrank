@@ -38,6 +38,11 @@ interface SeedResponseEnvelope {
   error: { message: string } | null;
 }
 
+const TRANSIENT_WORKER_RESTART_MESSAGE = "Your worker restarted mid-request.";
+
+const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 async function parseSeedResponse(
   response: APIResponse,
   endpoint: string,
@@ -53,6 +58,38 @@ async function parseSeedResponse(
   }
 }
 
+async function postSeedWithRetry(
+  request: APIRequestContext,
+  endpoint: string,
+  payload: unknown,
+  failureMessage: string,
+): Promise<SeedResponseEnvelope | null> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await request.post(endpoint, {
+      headers: {
+        "content-type": "application/json",
+        "x-test-auth-secret": TEST_AUTH_SECRET,
+      },
+      data: payload,
+    });
+
+    const body = await parseSeedResponse(response, endpoint, failureMessage);
+    const shouldRetry =
+      response.status() >= 500 ||
+      body?.error?.message?.includes(TRANSIENT_WORKER_RESTART_MESSAGE) ||
+      false;
+
+    if (shouldRetry && attempt < 2) {
+      await wait(250 * (attempt + 1));
+      continue;
+    }
+
+    return body;
+  }
+
+  return null;
+}
+
 export async function seedDashboardState(
   request: APIRequestContext,
   payload: {
@@ -62,19 +99,7 @@ export async function seedDashboardState(
   },
 ): Promise<SeedDashboardResponse> {
   const endpoint = `${WORKER_BASE_URL.replace(/\/$/, "")}/test/seed-dashboard`;
-  const response = await request.post(endpoint, {
-    headers: {
-      "content-type": "application/json",
-      "x-test-auth-secret": TEST_AUTH_SECRET,
-    },
-    data: payload,
-  });
-
-  const body = await parseSeedResponse(
-    response,
-    endpoint,
-    `Failed to seed dashboard state for ${payload.scenario}.`,
-  );
+  const body = await postSeedWithRetry(request, endpoint, payload, `Failed to seed dashboard state for ${payload.scenario}.`);
   if (!body || !body.ok || !body.data) {
     throw new Error(body?.error?.message || `Failed to seed dashboard state for ${payload.scenario}.`);
   }
@@ -90,15 +115,7 @@ export async function seedProfileState(
   },
 ): Promise<SeedProfileResponse> {
   const endpoint = `${WORKER_BASE_URL.replace(/\/$/, "")}/test/seed-profile`;
-  const response = await request.post(endpoint, {
-    headers: {
-      "content-type": "application/json",
-      "x-test-auth-secret": TEST_AUTH_SECRET,
-    },
-    data: payload,
-  });
-
-  const body = await parseSeedResponse(response, endpoint, "Failed to seed profile state.");
+  const body = await postSeedWithRetry(request, endpoint, payload, "Failed to seed profile state.");
   if (!body || !body.ok || !body.data) {
     throw new Error(body?.error?.message || "Failed to seed profile state.");
   }
@@ -114,15 +131,7 @@ export async function seedAchievementsState(
   },
 ): Promise<void> {
   const endpoint = `${WORKER_BASE_URL.replace(/\/$/, "")}/test/seed-achievements`;
-  const response = await request.post(endpoint, {
-    headers: {
-      "content-type": "application/json",
-      "x-test-auth-secret": TEST_AUTH_SECRET,
-    },
-    data: payload,
-  });
-
-  const body = await parseSeedResponse(response, endpoint, "Failed to seed achievements state.");
+  const body = await postSeedWithRetry(request, endpoint, payload, "Failed to seed achievements state.");
   if (!body || !body.ok) {
     throw new Error(body?.error?.message || "Failed to seed achievements state.");
   }
@@ -137,19 +146,7 @@ export async function seedMatchLockState(
   },
 ): Promise<SeedMatchLocksResponse> {
   const endpoint = `${WORKER_BASE_URL.replace(/\/$/, "")}/test/seed-match-locks`;
-  const response = await request.post(endpoint, {
-    headers: {
-      "content-type": "application/json",
-      "x-test-auth-secret": TEST_AUTH_SECRET,
-    },
-    data: payload,
-  });
-
-  const body = await parseSeedResponse(
-    response,
-    endpoint,
-    `Failed to seed match lock state for ${payload.scenario}.`,
-  );
+  const body = await postSeedWithRetry(request, endpoint, payload, `Failed to seed match lock state for ${payload.scenario}.`);
   if (!body || !body.ok || !body.data) {
     throw new Error(body?.error?.message || `Failed to seed match lock state for ${payload.scenario}.`);
   }

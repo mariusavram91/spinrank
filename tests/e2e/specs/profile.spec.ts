@@ -90,10 +90,44 @@ test.describe("profile flow", () => {
     await openProfile(page);
 
     await expect(page.getByTestId("profile-display-name")).toHaveValue("Profile Rename Owner");
+    await expect(page.getByTestId("profile-save")).toBeDisabled();
+
     await page.getByTestId("profile-display-name").fill("Updated Profile Name");
+    await expect(page.getByTestId("profile-save")).toBeEnabled();
     await page.getByTestId("profile-save").click();
 
     await expect(page.getByText("Display name updated.")).toBeVisible();
     await expect(page.getByTestId("profile-display-name")).toHaveValue("Updated Profile Name");
+    await expect(page.getByTestId("profile-save")).toBeDisabled();
+  });
+
+  test("only enables save settings when profile name or language changed", async ({ page, request }) => {
+    const token = createTestToken("profile-settings-dirty");
+    await signInAsPersona(page, request, "owner", token, {
+      displayName: "Profile Settings Owner",
+    });
+
+    await gotoDashboard(page);
+    await openProfile(page);
+
+    const nameInput = page.getByTestId("profile-display-name");
+    const localeSelect = page.getByTestId("profile-locale");
+    const saveButton = page.getByTestId("profile-save");
+
+    await expect(nameInput).toHaveValue("Profile Settings Owner");
+    await expect(localeSelect).toHaveValue("en");
+    await expect(saveButton).toBeDisabled();
+
+    await nameInput.fill("Profile Settings Rename");
+    await expect(saveButton).toBeEnabled();
+
+    await nameInput.fill("Profile Settings Owner");
+    await expect(saveButton).toBeDisabled();
+
+    await localeSelect.selectOption("de");
+    await expect(saveButton).toBeEnabled();
+
+    await localeSelect.selectOption("en");
+    await expect(saveButton).toBeDisabled();
   });
 });

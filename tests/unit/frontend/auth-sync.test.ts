@@ -102,6 +102,10 @@ describe("auth sync", () => {
     expect(elements.createMenuButton.getAttribute("aria-expanded")).toBe("false");
     expect(elements.providerStack.children).toHaveLength(2);
     expect(elements.providerStack.firstElementChild).toBe(elements.languageSwitch);
+    expect(elements.authActions.children).toHaveLength(3);
+    expect(elements.authActions.children[0]).toBe(elements.authMenuButton);
+    expect(elements.authActions.children[1]).toBe(elements.authAvatarButton);
+    expect(elements.authActions.children[2]).toBe(elements.authMenu);
     expect(elements.container.contains(elements.createMenuButton)).toBe(true);
     expect(elements.container.contains(elements.createMenu)).toBe(true);
     expect(elements.profileScreen.hidden).toBe(false);

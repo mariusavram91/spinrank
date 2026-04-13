@@ -78,7 +78,7 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
         args.dashboardState.hasNewAchievements ? "Open profile, new achievements available" : "Open profile",
       );
 
-      args.authActions.replaceChildren(args.authAvatarButton, args.authMenuButton, args.authMenu);
+      args.authActions.replaceChildren(args.authMenuButton, args.authAvatarButton, args.authMenu);
       args.providerStack.replaceChildren(args.languageSwitch, args.authActions);
 
       if (args.createMenuButton.parentElement !== args.container) {

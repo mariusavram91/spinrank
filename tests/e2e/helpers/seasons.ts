@@ -34,4 +34,7 @@ export async function createSeason(page: Page, options: CreateSeasonOptions): Pr
     options.successMessage ?? "Season created and added to the dashboard.",
     { timeout: 30000 },
   );
+  const loadSelect = page.getByTestId("season-load-select");
+  await expect(loadSelect.locator("option")).toHaveCount(2, { timeout: 30000 });
+  await expect(loadSelect.locator("option:checked")).toContainText(options.name, { timeout: 30000 });
 }

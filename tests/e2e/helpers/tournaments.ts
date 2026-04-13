@@ -33,4 +33,7 @@ export async function createTournament(page: Page, options: CreateTournamentOpti
     options.successMessage ?? "Tournament created",
     { timeout: 30000 },
   );
+  const loadSelect = page.getByTestId("tournament-load-select");
+  await expect(loadSelect.locator("option")).toHaveCount(2, { timeout: 30000 });
+  await expect(loadSelect.locator("option:checked")).toContainText(options.name, { timeout: 30000 });
 }

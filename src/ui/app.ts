@@ -358,6 +358,8 @@ export const buildApp = (): HTMLElement => {
   });
 
   const state: { current: ViewState } = createViewState();
+  let profileDisplayNameDirty = false;
+  let profileLocaleDirty = false;
   if (isAuthedState(state.current) && getCurrentLanguage() !== state.current.session.user.locale) {
     setLanguage(state.current.session.user.locale);
   }
@@ -1229,15 +1231,15 @@ export const buildApp = (): HTMLElement => {
       });
       scheduleFormStatusHide("profile", Boolean(dashboardState.profileFormMessage));
 
-      if (document.activeElement !== profileDisplayNameInput) {
+      if (!profileDisplayNameDirty && document.activeElement !== profileDisplayNameInput) {
         profileDisplayNameInput.value = state.current.session.user.displayName;
       }
-      if (document.activeElement !== profileLocaleSelect) {
+      if (!profileLocaleDirty && document.activeElement !== profileLocaleSelect) {
         profileLocaleSelect.value = state.current.session.user.locale;
       }
       profileDisplayNameInput.disabled = dashboardState.profileSubmitting;
       profileLocaleSelect.disabled = dashboardState.profileSubmitting;
-      profileSaveButton.disabled = dashboardState.profileSubmitting;
+      profileSaveButton.disabled = dashboardState.profileSubmitting || !hasPendingProfileChanges();
 
       const renderSegmentInsights = (
         target: HTMLElement,
@@ -1706,7 +1708,49 @@ export const buildApp = (): HTMLElement => {
     dashboardState.leaderboard = dashboardState.leaderboard.map((player) =>
       player.userId === nextSession.user.id ? { ...player, displayName } : player,
     );
+    if (!profileDisplayNameDirty || profileDisplayNameInput.value.trim() === displayName) {
+      profileDisplayNameInput.value = displayName;
+    }
+    profileDisplayNameDirty = profileDisplayNameInput.value.trim() !== displayName;
+    profileLocaleSelect.value = locale;
+    profileLocaleDirty = false;
     setLanguage(locale);
+  };
+
+  const persistCurrentUserLocale = async (locale: AppSession["user"]["locale"]): Promise<void> => {
+    if (!isAuthedState(state.current) || dashboardState.profileSubmitting || state.current.session.user.locale === locale) {
+      return;
+    }
+
+    const previousLocale = state.current.session.user.locale;
+    dashboardState.profileSubmitting = true;
+    syncDashboardState();
+
+    try {
+      const response = await runAuthedAction("updateProfile", {
+        displayName: state.current.session.user.displayName,
+        locale,
+      });
+      applyUpdatedCurrentUser(response.user.displayName, response.user.locale);
+      syncAuthState();
+      syncDashboardState();
+    } catch {
+      setLanguage(previousLocale);
+      syncDashboardState();
+    } finally {
+      dashboardState.profileSubmitting = false;
+      syncDashboardState();
+    }
+  };
+
+  const hasPendingProfileChanges = (): boolean => {
+    if (!isAuthedState(state.current)) {
+      return false;
+    }
+
+    const displayName = profileDisplayNameInput.value.trim();
+    const locale = isSupportedLanguage(profileLocaleSelect.value) ? profileLocaleSelect.value : getCurrentLanguage();
+    return displayName !== state.current.session.user.displayName || locale !== state.current.session.user.locale;
   };
 
   const submitProfile = async (): Promise<void> => {
@@ -1720,6 +1764,11 @@ export const buildApp = (): HTMLElement => {
 
     if (!displayName) {
       dashboardState.profileFormMessage = t("profileNameRequired");
+      syncDashboardState();
+      return;
+    }
+
+    if (!hasPendingProfileChanges()) {
       syncDashboardState();
       return;
     }
@@ -1752,10 +1801,26 @@ export const buildApp = (): HTMLElement => {
     event.preventDefault();
     void submitProfile();
   });
+  profileDisplayNameInput.addEventListener("input", () => {
+    if (isAuthedState(state.current)) {
+      profileDisplayNameDirty = profileDisplayNameInput.value.trim() !== state.current.session.user.displayName;
+    }
+    syncDashboardState();
+  });
   profileLocaleSelect.addEventListener("change", () => {
+    if (isAuthedState(state.current)) {
+      profileLocaleDirty = profileLocaleSelect.value !== state.current.session.user.locale;
+    }
     if (isSupportedLanguage(profileLocaleSelect.value)) {
       setLanguage(profileLocaleSelect.value);
     }
+    syncDashboardState();
+  });
+  languageSwitch.addEventListener("spinrank:language-select", (event) => {
+    if (!(event instanceof CustomEvent) || !isSupportedLanguage(event.detail?.language)) {
+      return;
+    }
+    void persistCurrentUserLocale(event.detail.language);
   });
 
   profileAchievementsSummary.addEventListener("click", (event) => {
