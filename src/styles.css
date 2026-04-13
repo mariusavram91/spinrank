@@ -290,6 +290,12 @@ h1 {
   gap: 4px;
 }
 
+.auth-menu-separator {
+  height: 1px;
+  margin: 8px 4px;
+  background: rgba(45, 38, 29, 0.12);
+}
+
 .create-menu {
   position: fixed;
   bottom: 92px;
@@ -469,9 +475,17 @@ h1 {
   margin: 0;
   font-size: 0.95rem;
   color: var(--text-muted);
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+  line-height: 1.55;
+}
+
+.faq-card__text strong {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.faq-card__text em {
+  color: #6c4b1f;
+  font-style: italic;
 }
 
 .faq-card__text--en,

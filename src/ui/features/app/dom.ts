@@ -452,6 +452,10 @@ export const createAppDom = (args: {
   bindLocalizedText(faqMenuButton, "faqMenuLabel");
   faqMenuButton.dataset.testid = "auth-menu-faq";
 
+  const authMenuSeparator = document.createElement("div");
+  authMenuSeparator.className = "auth-menu-separator";
+  authMenuSeparator.setAttribute("aria-hidden", "true");
+
   const refreshButton = document.createElement("button");
   refreshButton.type = "button";
   refreshButton.className = "icon-button";
@@ -998,6 +1002,7 @@ export const createAppDom = (args: {
     welcomeText,
     logoutButton,
     faqMenuButton,
+    authMenuSeparator,
     refreshButton,
     openCreateMatchButton,
     openCreateTournamentButton,

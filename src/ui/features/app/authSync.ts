@@ -21,6 +21,7 @@ type AuthSyncArgs = {
   openCreateSeasonButton: HTMLButtonElement;
   openScoreCardButton: HTMLButtonElement;
   faqMenuButton: HTMLButtonElement;
+  authMenuSeparator: HTMLElement;
   logoutButton: HTMLButtonElement;
   dashboard: HTMLElement;
   createMatchScreen: HTMLElement;
@@ -56,7 +57,7 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
       );
 
       if (args.authMenu.children.length === 0) {
-        args.authMenu.replaceChildren(args.faqMenuButton, args.logoutButton);
+        args.authMenu.replaceChildren(args.faqMenuButton, args.authMenuSeparator, args.logoutButton);
       }
       if (args.createMenu.children.length === 0) {
         args.createMenu.replaceChildren(

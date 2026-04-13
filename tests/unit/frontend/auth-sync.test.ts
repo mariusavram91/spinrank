@@ -34,6 +34,7 @@ const createElements = () => ({
   openCreateSeasonButton: document.createElement("button"),
   openScoreCardButton: document.createElement("button"),
   faqMenuButton: document.createElement("button"),
+  authMenuSeparator: document.createElement("div"),
   logoutButton: document.createElement("button"),
   dashboard: document.createElement("section"),
   createMatchScreen: document.createElement("section"),

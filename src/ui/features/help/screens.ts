@@ -8,6 +8,41 @@ export interface HelpScreenElements {
   privacyBackButton: HTMLButtonElement;
 }
 
+function renderInlineFaqText(text: string): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(pattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+
+    if (index > lastIndex) {
+      fragment.append(document.createTextNode(text.slice(lastIndex, index)));
+    }
+
+    if (token.startsWith("**") && token.endsWith("**")) {
+      const strong = document.createElement("strong");
+      strong.textContent = token.slice(2, -2);
+      fragment.append(strong);
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      const emphasis = document.createElement("em");
+      emphasis.textContent = token.slice(1, -1);
+      fragment.append(emphasis);
+    } else {
+      fragment.append(document.createTextNode(token));
+    }
+
+    lastIndex = index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    fragment.append(document.createTextNode(text.slice(lastIndex)));
+  }
+
+  return fragment;
+}
+
 export const buildHelpScreens = (): HelpScreenElements => {
   const faqScreen = document.createElement("section");
   faqScreen.className = "dashboard faq-screen";
@@ -71,6 +106,8 @@ export const buildHelpScreens = (): HelpScreenElements => {
     createSummaryCard(),
     createSummaryCard(),
     createSummaryCard(),
+    createSummaryCard(),
+    createSummaryCard(),
   ];
 
   faqSummaryGrid.append(...summaryCards.map((entry) => entry.card));
@@ -100,7 +137,7 @@ export const buildHelpScreens = (): HelpScreenElements => {
 
         const paragraph = document.createElement("p");
         paragraph.className = "faq-card__text";
-        paragraph.textContent = getLocalizedText(detail);
+        paragraph.append(renderInlineFaqText(getLocalizedText(detail)));
 
         detailBlock.append(paragraph);
         cardBody.append(detailBlock);
@@ -114,14 +151,16 @@ export const buildHelpScreens = (): HelpScreenElements => {
 
   const renderFaqSummary = (): void => {
     const summaryKeys = [
+      ["faqSummaryCompareLabel", "faqSummaryCompareValue", "faqSummaryCompareDetail"],
       ["faqSummaryEloLabel", "faqSummaryEloValue", "faqSummaryEloDetail"],
+      ["faqSummarySeasonLabel", "faqSummarySeasonValue", "faqSummarySeasonDetail"],
+      ["faqSummaryTournamentLabel", "faqSummaryTournamentValue", "faqSummaryTournamentDetail"],
       ["faqSummarySinglesLabel", "faqSummarySinglesValue", "faqSummarySinglesDetail"],
       ["faqSummaryPaceLabel", "faqSummaryPaceValue", "faqSummaryPaceDetail"],
-      ["faqSummarySeasonLabel", "faqSummarySeasonValue", "faqSummarySeasonDetail"],
-      ["faqSummarySeasonOnlyLabel", "faqSummarySeasonOnlyValue", "faqSummarySeasonOnlyDetail"],
-      ["faqSummaryCarryLabel", "faqSummaryCarryValue", "faqSummaryCarryDetail"],
       ["faqSummaryAttendanceLabel", "faqSummaryAttendanceValue", "faqSummaryAttendanceDetail"],
-      ["faqSummaryTournamentLabel", "faqSummaryTournamentValue", "faqSummaryTournamentDetail"],
+      ["faqSummaryCarryLabel", "faqSummaryCarryValue", "faqSummaryCarryDetail"],
+      ["faqSummarySeasonOnlyLabel", "faqSummarySeasonOnlyValue", "faqSummarySeasonOnlyDetail"],
+      ["faqSummaryAchievementsLabel", "faqSummaryAchievementsValue", "faqSummaryAchievementsDetail"],
     ] as const;
 
     summaryCards.forEach((card, index) => {
