@@ -25,6 +25,15 @@ const createProfile = (achievements: AchievementSummaryItem[]): GetSharedUserPro
     bestWinStreak: 6,
   },
   achievements,
+  activityHeatmap: {
+    startDate: "2025-04-07",
+    endDate: "2026-04-15",
+    totalMatches: 2,
+    totalWins: 1,
+    totalLosses: 1,
+    activeDays: 1,
+    days: [{ date: "2026-04-05", matches: 2, wins: 1, losses: 1 }],
+  },
   seasons: [],
   tournaments: [],
   matches: [],
@@ -48,6 +57,7 @@ describe("shared profile render", () => {
       achievementsSubtitle: document.createElement("p"),
       achievementsSummary: document.createElement("div"),
       achievementsPreview: document.createElement("div"),
+      activityHeatmap: document.createElement("div"),
       selectedAchievementKey: "",
       seasonsList: document.createElement("div"),
       tournamentsList: document.createElement("div"),
@@ -62,6 +72,7 @@ describe("shared profile render", () => {
       formatDateTime: (value) => value,
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
+      locale: "en",
     });
 
     const chips = [...elo.querySelectorAll(".profile-stat-chip")].map((chip) => chip.textContent);
@@ -91,6 +102,7 @@ describe("shared profile render", () => {
       achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
+      activityHeatmap: document.createElement("div"),
       selectedAchievementKey: "",
       seasonsList,
       tournamentsList,
@@ -105,6 +117,7 @@ describe("shared profile render", () => {
       formatDateTime: (value) => value,
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
+      locale: "en",
     });
 
     const icons = [...achievementsSummary.querySelectorAll<HTMLElement>("[data-achievement-key]")];
@@ -137,6 +150,7 @@ describe("shared profile render", () => {
       achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
+      activityHeatmap: document.createElement("div"),
       selectedAchievementKey: "first_match",
       seasonsList,
       tournamentsList,
@@ -151,6 +165,7 @@ describe("shared profile render", () => {
       formatDateTime: (value) => value,
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
+      locale: "en",
     });
 
     expect(achievementsPreview.hidden).toBe(false);
@@ -234,6 +249,7 @@ describe("shared profile render", () => {
       achievementsSubtitle,
       achievementsSummary,
       achievementsPreview,
+      activityHeatmap: document.createElement("div"),
       selectedAchievementKey: "",
       seasonsList,
       tournamentsList,
@@ -248,6 +264,7 @@ describe("shared profile render", () => {
       formatDateTime: (value) => value,
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
+      locale: "en",
     });
 
     const completedSeason = seasonsList.querySelector<HTMLButtonElement>(".profile-segment-card");

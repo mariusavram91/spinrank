@@ -1217,6 +1217,161 @@ select.text-input {
   gap: 1rem;
 }
 
+.activity-heatmap-shell {
+  display: grid;
+  min-width: 0;
+}
+
+.activity-heatmap {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(245, 247, 250, 0.98));
+}
+
+.activity-heatmap__summary {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.activity-heatmap__months {
+  display: grid;
+  grid-template-columns: repeat(var(--activity-heatmap-weeks), 13px);
+  gap: 0.25rem;
+  color: rgba(15, 23, 42, 0.54);
+  font-size: 0.72rem;
+  line-height: 13px;
+  min-height: 13px;
+  width: max-content;
+}
+
+.activity-heatmap__month {
+  min-width: 0;
+}
+
+.activity-heatmap__body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.activity-heatmap__viewport {
+  max-width: 100%;
+}
+
+.activity-heatmap__weekday-rail {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.activity-heatmap__weekday-spacer {
+  display: block;
+  height: 13px;
+}
+
+.activity-heatmap__body-viewport {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding-bottom: 0.4rem;
+  padding-right: 0.4rem;
+}
+
+.activity-heatmap__body-viewport {
+  align-content: start;
+}
+
+.activity-heatmap__weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, 13px);
+  gap: 0.25rem;
+  color: rgba(15, 23, 42, 0.54);
+  font-size: 0.72rem;
+}
+
+.activity-heatmap__weekday {
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 13px;
+  white-space: nowrap;
+}
+
+.activity-heatmap__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 13px);
+  grid-template-columns: repeat(var(--activity-heatmap-weeks), 13px);
+  gap: 0.25rem;
+  min-width: 0;
+  padding-bottom: 0.15rem;
+}
+
+.activity-heatmap__cell {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+  cursor: pointer;
+}
+
+.activity-heatmap__cell--level-0 {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.activity-heatmap__cell--level-1 {
+  background: rgba(134, 239, 172, 0.55);
+}
+
+.activity-heatmap__cell--level-2 {
+  background: rgba(74, 222, 128, 0.68);
+}
+
+.activity-heatmap__cell--level-3 {
+  background: rgba(34, 197, 94, 0.8);
+}
+
+.activity-heatmap__cell--level-4 {
+  background: rgba(21, 128, 61, 0.92);
+}
+
+.activity-heatmap__cell[aria-pressed="true"] {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.72),
+    0 0 0 2px rgba(15, 23, 42, 0.22);
+}
+
+.activity-heatmap__cell:focus-visible {
+  outline: 2px solid rgba(29, 78, 216, 0.5);
+  outline-offset: 1px;
+}
+
+.activity-heatmap__legend {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(15, 23, 42, 0.62);
+  font-size: 0.78rem;
+}
+
+.activity-heatmap__legend-scale {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
 .profile-achievements__header {
   display: flex;
   align-items: center;
@@ -1572,6 +1727,43 @@ select.text-input {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .activity-heatmap__months {
+    grid-template-columns: repeat(var(--activity-heatmap-weeks), 11px);
+    line-height: 11px;
+    min-height: 11px;
+  }
+
+  .activity-heatmap__body {
+    gap: 0.35rem;
+  }
+
+  .activity-heatmap__weekday-spacer {
+    height: 11px;
+  }
+
+  .activity-heatmap__weekdays {
+    grid-template-rows: repeat(7, 11px);
+  }
+
+  .activity-heatmap__weekday {
+    height: 11px;
+    line-height: 11px;
+    font-size: 0.68rem;
+  }
+
+  .activity-heatmap__grid {
+    grid-template-rows: repeat(7, 11px);
+    grid-template-columns: repeat(var(--activity-heatmap-weeks), 11px);
+  }
+
+  .activity-heatmap__cell {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+  }
 }
 
 .matches-list {

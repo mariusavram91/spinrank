@@ -210,6 +210,7 @@ export const buildApp = (): HTMLElement => {
     profileAchievementsUnread,
     profileAchievementsToggle,
     profileAchievementsList,
+    profileActivityHeatmap,
     profileSeasonsList,
     profileTournamentsList,
     profileMatchesList,
@@ -223,6 +224,7 @@ export const buildApp = (): HTMLElement => {
     sharedUserProfileAchievementsSubtitle,
     sharedUserProfileAchievementsSummary,
     sharedUserProfileAchievementsPreview,
+    sharedUserProfileActivityHeatmap,
     sharedUserProfileSeasonsList,
     sharedUserProfileTournamentsList,
     sharedUserProfileMatchesList,
@@ -1262,6 +1264,7 @@ export const buildApp = (): HTMLElement => {
         achievementsUnread: profileAchievementsUnread,
         achievementsToggle: profileAchievementsToggle,
         achievementsList: profileAchievementsList,
+        activityHeatmap: profileActivityHeatmap,
         currentUserId,
         seasonsList: profileSeasonsList,
         tournamentsList: profileTournamentsList,
@@ -1279,6 +1282,7 @@ export const buildApp = (): HTMLElement => {
         onLoadMoreMatches: () => {
           void loadProfileMatches(false);
         },
+        locale: getCurrentLanguage(),
       });
       renderSharedUserProfileScreen({
         sharedUserProfile: dashboardState.sharedUserProfile,
@@ -1291,6 +1295,7 @@ export const buildApp = (): HTMLElement => {
         achievementsSubtitle: sharedUserProfileAchievementsSubtitle,
         achievementsSummary: sharedUserProfileAchievementsSummary,
         achievementsPreview: sharedUserProfileAchievementsPreview,
+        activityHeatmap: sharedUserProfileActivityHeatmap,
         selectedAchievementKey: dashboardState.sharedUserProfileSelectedAchievementKey,
         seasonsList: sharedUserProfileSeasonsList,
         tournamentsList: sharedUserProfileTournamentsList,
@@ -1306,6 +1311,7 @@ export const buildApp = (): HTMLElement => {
         formatDateTime,
         onOpenSeason: openSeasonEditor,
         onOpenTournament: openTournamentEditor,
+        locale: getCurrentLanguage(),
       });
       scheduleFormStatusHide("profile", Boolean(dashboardState.profileFormMessage));
 
@@ -1818,6 +1824,9 @@ export const buildApp = (): HTMLElement => {
 
     try {
       await Promise.all([
+        runAuthedAction("getUserProgress", { mode: "summary", includeActivityHeatmap: true }).then((data) => {
+          dashboardState.userProgress = data as GetUserProgressData;
+        }),
         loadProfileMatches(true),
         ...visibleSeasons.map((season) => ensureProfileSegmentSummary("season", season.id)),
         ...visibleTournaments.map((tournament) => ensureProfileSegmentSummary("tournament", tournament.id)),

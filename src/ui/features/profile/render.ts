@@ -9,6 +9,7 @@ import type {
 import type { DashboardState, ProfileSegmentSummary } from "../../shared/types/app";
 import type { TextKey } from "../../shared/i18n/translations";
 import { isLockedSeason, isLockedTournament } from "../app/helpers";
+import { renderActivityHeatmap } from "./activityHeatmap";
 
 type TranslationFn = (key: TextKey) => string;
 
@@ -356,6 +357,7 @@ export const renderProfileScreen = (args: {
   achievementsUnread: HTMLElement;
   achievementsToggle: HTMLButtonElement;
   achievementsList: HTMLElement;
+  activityHeatmap: HTMLElement;
   currentUserId: string;
   seasonsList: HTMLElement;
   tournamentsList: HTMLElement;
@@ -376,6 +378,7 @@ export const renderProfileScreen = (args: {
   onOpenSeason: (seasonId: string) => void;
   onOpenTournament: (tournamentId: string) => void;
   onLoadMoreMatches: () => void;
+  locale: string;
 }): void => {
   const profileFormMessage = args.dashboardState.profileFormMessage ?? "";
   args.status.textContent = profileFormMessage;
@@ -459,6 +462,13 @@ export const renderProfileScreen = (args: {
   args.achievementsList.replaceChildren(
     ...(achievementNodes.length > 0 ? achievementNodes : [createEmptyState(args.t("achievementsEmpty"))]),
   );
+
+  renderActivityHeatmap({
+    target: args.activityHeatmap,
+    data: args.dashboardState.userProgress?.activityHeatmap ?? null,
+    locale: args.locale,
+    t: args.t,
+  });
 
   const seasons = args.dashboardState.seasons
     .filter((season) => season.status !== "deleted" && season.participantIds.includes(args.currentUserId))

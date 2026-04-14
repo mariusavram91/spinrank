@@ -3,6 +3,7 @@ import { errorResponse, successResponse } from "../responses";
 import { getAchievementOverview } from "../services/achievements";
 import { getBracketRounds } from "../services/brackets";
 import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { getProfileActivityHeatmap } from "../services/profileActivity";
 import { buildVisibleSeasonsSql, buildVisibleTournamentsSql, getRecentCompletionCutoffDate } from "../services/visibility";
 import type {
   ApiRequest,
@@ -474,7 +475,7 @@ export async function handleGetSharedUserProfile(
   }
 
   const cutoff = getRecentCompletionCutoffDate(env.runtime);
-  const [rankRow, achievementOverview, seasonRows, tournamentRows, matchRows] = await Promise.all([
+  const [rankRow, achievementOverview, activityHeatmap, seasonRows, tournamentRows, matchRows] = await Promise.all([
     env.DB.prepare(
       `
         SELECT rank
@@ -501,6 +502,7 @@ export async function handleGetSharedUserProfile(
       .bind(targetUserId)
       .first<{ rank: number }>(),
     getAchievementOverview(env, targetUserId),
+    getProfileActivityHeatmap(env, sessionUser.id, targetUserId),
     env.DB.prepare(
       `
         WITH visible AS (
@@ -685,6 +687,7 @@ export async function handleGetSharedUserProfile(
       bestWinStreak: Number(targetUser.best_win_streak ?? 0),
     },
     achievements: achievementOverview.items.filter((item) => item.unlockedAt),
+    activityHeatmap,
     seasons: seasonSummaries,
     tournaments: tournamentSummaries,
     matches: page.map(mapMatchRow),

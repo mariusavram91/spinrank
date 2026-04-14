@@ -290,8 +290,15 @@ export const createAppDom = (args: {
   profileAchievementsTitleBlock.append(profileAchievementsTitle, profileAchievementsSubtitle);
   profileAchievementsHeader.append(profileAchievementsTitleBlock, profileAchievementsToggle);
 
+  const profileActivityHeatmapSection = document.createElement("section");
+  profileActivityHeatmapSection.className = "profile-section";
+  const profileActivityHeatmap = document.createElement("div");
+  profileActivityHeatmap.className = "activity-heatmap-shell";
+  profileActivityHeatmapSection.append(profileActivityHeatmap);
+
   profileActivitySection.append(
     profileActivityTitle,
+    profileActivityHeatmapSection,
     profileAchievementsSection,
     profileSeasonsSection,
     profileTournamentsSection,
@@ -383,6 +390,12 @@ export const createAppDom = (args: {
     sharedUserProfileAchievementsPreview,
   );
 
+  const sharedUserProfileActivityHeatmapSection = document.createElement("section");
+  sharedUserProfileActivityHeatmapSection.className = "profile-section";
+  const sharedUserProfileActivityHeatmap = document.createElement("div");
+  sharedUserProfileActivityHeatmap.className = "activity-heatmap-shell";
+  sharedUserProfileActivityHeatmapSection.append(sharedUserProfileActivityHeatmap);
+
   const sharedUserProfileSeasonsSection = document.createElement("section");
   sharedUserProfileSeasonsSection.className = "profile-section";
   const sharedUserProfileSeasonsTitle = document.createElement("h4");
@@ -419,8 +432,9 @@ export const createAppDom = (args: {
   );
 
   sharedUserProfileActivity.append(
-    sharedUserProfileAchievementsSection,
+    sharedUserProfileActivityHeatmapSection,
     sharedUserProfileActivityTitle,
+    sharedUserProfileAchievementsSection,
     sharedUserProfileSeasonsSection,
     sharedUserProfileTournamentsSection,
     sharedUserProfileMatchesSection,
@@ -972,6 +986,7 @@ export const createAppDom = (args: {
     profileAchievementsUnread,
     profileAchievementsToggle,
     profileAchievementsList,
+    profileActivityHeatmap,
     profileSeasonsList,
     profileTournamentsList,
     profileMatchesList,
@@ -985,6 +1000,7 @@ export const createAppDom = (args: {
     sharedUserProfileAchievementsSubtitle,
     sharedUserProfileAchievementsSummary,
     sharedUserProfileAchievementsPreview,
+    sharedUserProfileActivityHeatmap,
     sharedUserProfileSeasonsList,
     sharedUserProfileTournamentsList,
     sharedUserProfileMatchesList,

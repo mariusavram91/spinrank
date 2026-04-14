@@ -160,4 +160,73 @@ describe("worker getUserProgress action", () => {
       ],
     });
   });
+
+  it("optionally returns a bounded activity heatmap summary", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1210,
+      wins: 2,
+      losses: 1,
+      streak: 1,
+      best_win_streak: 2,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-15T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("ROW_NUMBER() OVER")) {
+              return { rank: 7 };
+            }
+            if (statementSql.includes("GROUP BY activity_date")) {
+              return {
+                results: [
+                  {
+                    activity_date: "2026-04-14",
+                    matches: 2,
+                    wins: 1,
+                    losses: 1,
+                  },
+                ],
+              };
+            }
+            return {
+              results: [],
+            };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-15T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetUserProgress(
+      {
+        action: "getUserProgress",
+        requestId: "req_progress_heatmap_unit",
+        payload: { mode: "summary", includeActivityHeatmap: true },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.activityHeatmap).toEqual({
+      startDate: "2025-04-14",
+      endDate: "2026-04-15",
+      totalMatches: 2,
+      totalWins: 1,
+      totalLosses: 1,
+      activeDays: 1,
+      days: [{ date: "2026-04-14", matches: 2, wins: 1, losses: 1 }],
+    });
+  });
 });

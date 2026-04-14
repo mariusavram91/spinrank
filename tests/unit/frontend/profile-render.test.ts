@@ -42,6 +42,7 @@ describe("profile render", () => {
     const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
+    const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
     const matchesList = document.createElement("div");
@@ -86,6 +87,7 @@ describe("profile render", () => {
       achievementsUnread,
       achievementsToggle,
       achievementsList,
+      activityHeatmap,
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
@@ -100,6 +102,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      locale: "en",
     });
 
     const titles = [...achievementsList.querySelectorAll(".profile-segment-card__title")].map((node) => node.textContent);
@@ -118,6 +121,7 @@ describe("profile render", () => {
     const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
+    const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
     const matchesList = document.createElement("div");
@@ -164,6 +168,7 @@ describe("profile render", () => {
       achievementsUnread,
       achievementsToggle,
       achievementsList,
+      activityHeatmap,
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
@@ -178,6 +183,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      locale: "en",
     });
 
     const summaryTitles = [...achievementsSummary.querySelectorAll(".achievement-card__icon")].map((node) => node.getAttribute("aria-label"));
@@ -198,6 +204,7 @@ describe("profile render", () => {
     const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
+    const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
     const matchesList = document.createElement("div");
@@ -242,6 +249,7 @@ describe("profile render", () => {
       achievementsUnread,
       achievementsToggle,
       achievementsList,
+      activityHeatmap,
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
@@ -256,6 +264,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      locale: "en",
     });
 
     expect(achievementsPreview.hidden).toBe(false);
@@ -275,6 +284,7 @@ describe("profile render", () => {
     const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
+    const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
     const matchesList = document.createElement("div");
@@ -308,6 +318,7 @@ describe("profile render", () => {
       achievementsUnread,
       achievementsToggle,
       achievementsList,
+      activityHeatmap,
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
@@ -322,6 +333,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      locale: "en",
     });
 
     expect(matchesList.querySelectorAll(".profile-match-card")).toHaveLength(8);
@@ -340,6 +352,7 @@ describe("profile render", () => {
     const achievementsUnread = document.createElement("div");
     const achievementsToggle = document.createElement("button");
     const achievementsList = document.createElement("div");
+    const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
     const matchesList = document.createElement("div");
@@ -373,6 +386,7 @@ describe("profile render", () => {
       achievementsUnread,
       achievementsToggle,
       achievementsList,
+      activityHeatmap,
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
@@ -387,6 +401,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      locale: "en",
     });
 
     expect(matchesList.querySelectorAll(".profile-match-card")).toHaveLength(14);

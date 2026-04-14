@@ -12,6 +12,7 @@ import type {
 import type { TextKey } from "../../shared/i18n/translations";
 import { setAvatarImage } from "../../shared/utils/avatar";
 import { isLockedSeason, isLockedTournament } from "../app/helpers";
+import { renderActivityHeatmap } from "./activityHeatmap";
 import { ACHIEVEMENT_ICONS, buildAchievementChip } from "./render";
 
 type TranslationFn = (key: TextKey) => string;
@@ -174,6 +175,7 @@ export const renderSharedUserProfileScreen = (args: {
   achievementsSubtitle: HTMLElement;
   achievementsSummary: HTMLElement;
   achievementsPreview: HTMLElement;
+  activityHeatmap: HTMLElement;
   selectedAchievementKey: string;
   seasonsList: HTMLElement;
   tournamentsList: HTMLElement;
@@ -194,6 +196,7 @@ export const renderSharedUserProfileScreen = (args: {
   formatDateTime: (value: string) => string;
   onOpenSeason: (seasonId: string) => void;
   onOpenTournament: (tournamentId: string) => void;
+  locale: string;
 }): void => {
   const profile = args.sharedUserProfile;
   if (!profile) {
@@ -205,6 +208,7 @@ export const renderSharedUserProfileScreen = (args: {
     args.achievementsSummary.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
     args.achievementsPreview.hidden = true;
     args.achievementsPreview.replaceChildren();
+    args.activityHeatmap.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
     args.seasonsList.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
     args.tournamentsList.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
     args.matchesList.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
@@ -232,6 +236,12 @@ export const renderSharedUserProfileScreen = (args: {
     (total, item) => total + item.points,
     0,
   )}`;
+  renderActivityHeatmap({
+    target: args.activityHeatmap,
+    data: profile.activityHeatmap,
+    locale: args.locale,
+    t: args.t,
+  });
 
   const selectedAchievement =
     profile.achievements.find((item) => item.key === args.selectedAchievementKey && item.unlockedAt) ?? null;

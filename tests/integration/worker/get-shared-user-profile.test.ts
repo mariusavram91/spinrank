@@ -200,6 +200,20 @@ describe("worker integration: getSharedUserProfile", () => {
       });
       expect(firstPage.data?.achievements.length).toBeGreaterThan(0);
       expect(firstPage.data?.achievements.every((achievement) => Boolean(achievement.unlockedAt))).toBe(true);
+      expect(firstPage.data?.activityHeatmap).toMatchObject({
+        totalMatches: 2,
+        totalWins: 0,
+        totalLosses: 2,
+        activeDays: 1,
+      });
+      expect(firstPage.data?.activityHeatmap.days).toEqual([
+        {
+          date: "2026-04-05",
+          matches: 2,
+          wins: 0,
+          losses: 2,
+        },
+      ]);
       expect(firstPage.data?.seasons.map((entry) => entry.season.name)).toEqual(["Shared Season"]);
       expect(firstPage.data?.tournaments.map((entry) => entry.tournament.name)).toEqual(["Shared Cup"]);
       expect(firstPage.data?.matches).toHaveLength(1);

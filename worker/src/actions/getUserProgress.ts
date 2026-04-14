@@ -1,4 +1,5 @@
 import { MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { getProfileActivityHeatmap } from "../services/profileActivity";
 import { isoNow, parseJsonObject } from "../db";
 import { successResponse } from "../responses";
 import type { ApiRequest, Env, MatchRecord, UserProgressPoint, UserRow } from "../types";
@@ -13,6 +14,8 @@ export async function handleGetUserProgress(
   env: Env,
 ) {
   const mode = normalizeProgressMode((request.payload as { mode?: unknown } | undefined)?.mode);
+  const includeActivityHeatmap =
+    (request.payload as { includeActivityHeatmap?: unknown } | undefined)?.includeActivityHeatmap === true;
   const rankRow = await env.DB.prepare(
     `
       SELECT rank
@@ -142,6 +145,9 @@ export async function handleGetUserProgress(
     });
   });
   const nowIso = isoNow(env.runtime);
+  const activityHeatmap = includeActivityHeatmap
+    ? await getProfileActivityHeatmap(env, sessionUser.id, sessionUser.id)
+    : null;
   const finalPoints =
     progressPoints.length > 0
       ? progressPoints
@@ -165,5 +171,6 @@ export async function handleGetUserProgress(
     wins: Number(sessionUser.wins || 0),
     losses: Number(sessionUser.losses || 0),
     points: finalPoints,
+    activityHeatmap,
   });
 }

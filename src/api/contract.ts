@@ -206,6 +206,7 @@ export interface SearchParticipantsData {
 
 export interface GetUserProgressPayload {
   mode?: "summary" | "full";
+  includeActivityHeatmap?: boolean;
 }
 
 export interface UserProgressPoint {
@@ -214,6 +215,23 @@ export interface UserProgressPoint {
   delta: number;
   label: string;
   rank: number | null;
+}
+
+export interface ActivityHeatmapDay {
+  date: string;
+  matches: number;
+  wins: number;
+  losses: number;
+}
+
+export interface ActivityHeatmapData {
+  startDate: string;
+  endDate: string;
+  totalMatches: number;
+  totalWins: number;
+  totalLosses: number;
+  activeDays: number;
+  days: ActivityHeatmapDay[];
 }
 
 export interface GetUserProgressData {
@@ -226,6 +244,7 @@ export interface GetUserProgressData {
   wins: number;
   losses: number;
   points: UserProgressPoint[];
+  activityHeatmap: ActivityHeatmapData | null;
 }
 
 export interface GetSharedUserProfilePayload {
@@ -268,6 +287,7 @@ export interface SharedUserTournamentRecord {
 export interface GetSharedUserProfileData {
   user: SharedUserOverview;
   achievements: AchievementSummaryItem[];
+  activityHeatmap: ActivityHeatmapData;
   seasons: SharedUserSeasonRecord[];
   tournaments: SharedUserTournamentRecord[];
   matches: MatchRecord[];

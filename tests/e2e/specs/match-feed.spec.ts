@@ -66,6 +66,7 @@ const emptyProgress: GetUserProgressData = {
   wins: 0,
   losses: 0,
   points: [],
+  activityHeatmap: null,
 };
 
 const emptyAchievements: AchievementOverview = {
