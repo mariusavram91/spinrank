@@ -33,6 +33,9 @@ export interface DashboardOverviewElements {
   leaderboardStatMostWins: HTMLDivElement;
   leaderboardStatMostWinsPlayer: HTMLSpanElement;
   leaderboardStatMostWinsMeta: HTMLSpanElement;
+  leaderboardStatBestWinRate: HTMLDivElement;
+  leaderboardStatBestWinRatePlayer: HTMLSpanElement;
+  leaderboardStatBestWinRateMeta: HTMLSpanElement;
   leaderboardList: HTMLDivElement;
   leaderboardAvatarFallback: string;
 }
@@ -237,11 +240,36 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   leaderboardStatMostWinsDetails.append(leaderboardStatMostWinsLabel, leaderboardStatMostWinsName);
   leaderboardStatMostWins.append(leaderboardStatMostWinsDetails);
 
+  const leaderboardStatBestWinRate = document.createElement("div");
+  leaderboardStatBestWinRate.className = "leaderboard-stat";
+  leaderboardStatBestWinRate.hidden = true;
+
+  const leaderboardStatBestWinRateDetails = document.createElement("div");
+  leaderboardStatBestWinRateDetails.className = "leaderboard-stat__details";
+
+  const leaderboardStatBestWinRateLabel = document.createElement("span");
+  leaderboardStatBestWinRateLabel.className = "leaderboard-stat__label";
+  bindLocalizedText(leaderboardStatBestWinRateLabel, "leaderboardBestWinRateLabel");
+
+  const leaderboardStatBestWinRateName = document.createElement("p");
+  leaderboardStatBestWinRateName.className = "leaderboard-stat__name";
+
+  const leaderboardStatBestWinRatePlayer = document.createElement("span");
+  leaderboardStatBestWinRatePlayer.className = "leaderboard-stat__player";
+
+  const leaderboardStatBestWinRateMeta = document.createElement("span");
+  leaderboardStatBestWinRateMeta.className = "leaderboard-stat__meta";
+
+  leaderboardStatBestWinRateName.append(leaderboardStatBestWinRatePlayer, leaderboardStatBestWinRateMeta);
+  leaderboardStatBestWinRateDetails.append(leaderboardStatBestWinRateLabel, leaderboardStatBestWinRateName);
+  leaderboardStatBestWinRate.append(leaderboardStatBestWinRateDetails);
+
   leaderboardStatsGroup.append(
     leaderboardMatchesSummary,
     leaderboardStatMostActive,
     leaderboardStatMostWins,
     leaderboardStatLongestStreak,
+    leaderboardStatBestWinRate,
   );
 
   const leaderboardList = document.createElement("div");
@@ -285,6 +313,9 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatMostWins,
     leaderboardStatMostWinsPlayer,
     leaderboardStatMostWinsMeta,
+    leaderboardStatBestWinRate,
+    leaderboardStatBestWinRatePlayer,
+    leaderboardStatBestWinRateMeta,
     leaderboardList,
     leaderboardAvatarFallback: `${baseUrl}assets/logo.png`,
   };

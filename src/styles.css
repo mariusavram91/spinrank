@@ -1520,6 +1520,12 @@ select.text-input {
   color: #1d4ed8;
 }
 
+.shared-profile-summary__stat-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .profile-visibility-icon {
   display: inline-flex;
   align-items: center;

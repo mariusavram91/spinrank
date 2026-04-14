@@ -32,6 +32,7 @@ describe("worker getLeaderboard action", () => {
       wins: 3,
       losses: 1,
       streak: 2,
+      best_win_streak: 2,
       created_at: "2026-04-01T00:00:00.000Z",
       updated_at: "2026-04-06T00:00:00.000Z",
     } as UserRow;
@@ -54,6 +55,7 @@ describe("worker getLeaderboard action", () => {
                   wins: 20,
                   losses: 2,
                   streak: 7,
+                  best_win_streak: 12,
                   updated_at: "2026-04-06T12:00:00.000Z",
                   rank: 1,
                 },
@@ -65,6 +67,7 @@ describe("worker getLeaderboard action", () => {
                   wins: 3,
                   losses: 1,
                   streak: 2,
+                  best_win_streak: 5,
                   updated_at: "2026-04-06T12:00:00.000Z",
                   rank: 18,
                 },
@@ -91,8 +94,8 @@ describe("worker getLeaderboard action", () => {
     expect(response.ok).toBe(true);
     expect(response.data).toEqual({
       leaderboard: [
-        expect.objectContaining({ userId: "user_1", rank: 1 }),
-        expect.objectContaining({ userId: "user_42", rank: 18 }),
+        expect.objectContaining({ userId: "user_1", rank: 1, bestWinStreak: 12 }),
+        expect.objectContaining({ userId: "user_42", rank: 18, bestWinStreak: 5 }),
       ],
       updatedAt: "2026-04-06T12:00:00.000Z",
     });
@@ -110,6 +113,7 @@ describe("worker getLeaderboard action", () => {
       wins: 3,
       losses: 1,
       streak: 2,
+      best_win_streak: 2,
       created_at: "2026-04-01T00:00:00.000Z",
       updated_at: "2026-04-06T00:00:00.000Z",
     } as UserRow;
@@ -127,6 +131,7 @@ describe("worker getLeaderboard action", () => {
                 wins: 4,
                 losses: 0,
                 streak: 4,
+                best_win_streak: 9,
                 updated_at: "2026-04-06T12:00:00.000Z",
               },
               {
@@ -137,6 +142,7 @@ describe("worker getLeaderboard action", () => {
                 wins: 5,
                 losses: 0,
                 streak: 1,
+                best_win_streak: 5,
                 updated_at: "2026-04-06T12:00:00.000Z",
               },
               {
@@ -147,6 +153,7 @@ describe("worker getLeaderboard action", () => {
                 wins: 3,
                 losses: 1,
                 streak: 0,
+                best_win_streak: 3,
                 updated_at: "2026-04-06T12:00:00.000Z",
               },
             ],

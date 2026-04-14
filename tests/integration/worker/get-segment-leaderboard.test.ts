@@ -144,6 +144,7 @@ describe("worker integration: getSegmentLeaderboard", () => {
         wins: 1,
         losses: 0,
         streak: 1,
+        bestWinStreak: 1,
       });
       expect(response.data?.leaderboard.find((entry) => entry.userId === "user_b")).toMatchObject({
         wins: 0,
@@ -152,6 +153,85 @@ describe("worker integration: getSegmentLeaderboard", () => {
       expect(response.data?.leaderboard.find((entry) => entry.userId === "user_c")).toMatchObject({
         wins: 0,
         losses: 1,
+      });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("returns longest-ever win streaks separately from current streaks for season leaderboards", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner missing");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_segment_best_streak_setup",
+          payload: {
+            name: "Season Best Streak",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const seasonId = seasonResponse.data?.season.id!;
+
+      const playedAtByIndex = [
+        "2026-04-05T09:00:00.000Z",
+        "2026-04-05T10:00:00.000Z",
+        "2026-04-05T11:00:00.000Z",
+      ] as const;
+
+      for (const [index, winnerTeam] of (["A", "A", "B"] as const).entries()) {
+        await handleCreateMatch(
+          {
+            action: "createMatch",
+            requestId: `req_segment_best_streak_${index}`,
+            payload: {
+              matchType: "singles",
+              formatType: "single_game",
+              pointsToWin: 11,
+              teamAPlayerIds: ["user_a"],
+              teamBPlayerIds: ["user_b"],
+              score: winnerTeam === "A" ? [{ teamA: 11, teamB: 8 }] : [{ teamA: 8, teamB: 11 }],
+              winnerTeam,
+              playedAt: playedAtByIndex[index]!,
+              seasonId,
+            },
+          },
+          owner,
+          context.env,
+        );
+      }
+
+      const response = await handleGetSegmentLeaderboard(
+        {
+          action: "getSegmentLeaderboard",
+          requestId: "req_segment_best_streak_result",
+          payload: { segmentType: "season", segmentId: seasonId },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(response.ok).toBe(true);
+      expect(response.data?.leaderboard.find((entry) => entry.userId === "user_a")).toMatchObject({
+        streak: -1,
+        bestWinStreak: 2,
       });
     } finally {
       await context.cleanup();

@@ -127,6 +127,7 @@ export interface LeaderboardEntry {
   wins: number;
   losses: number;
   streak: number;
+  bestWinStreak?: number;
   rank: number;
   seasonScore?: number;
   seasonGlickoRating?: number;
@@ -251,6 +252,7 @@ export interface SharedUserOverview {
   avatarUrl: string | null;
   currentRank: number | null;
   currentElo: number;
+  bestWinStreak: number;
 }
 
 export interface SharedUserSeasonRecord {
@@ -600,6 +602,7 @@ export interface UserRow {
   wins: number;
   losses: number;
   streak: number;
+  best_win_streak?: number;
   created_at: string;
   updated_at: string;
 }

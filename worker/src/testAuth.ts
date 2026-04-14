@@ -69,9 +69,9 @@ export async function handleTestBootstrapRequest(request: Request, env: Env): Pr
     `
       INSERT INTO users (
         id, provider, provider_user_id, email, display_name, avatar_url,
-        global_elo, wins, losses, streak, created_at, updated_at
+        global_elo, wins, losses, streak, best_win_streak, created_at, updated_at
       )
-      VALUES (?1, 'google', ?2, ?3, ?4, ?5, 1200, 0, 0, 0, ?6, ?6)
+      VALUES (?1, 'google', ?2, ?3, ?4, ?5, 1200, 0, 0, 0, 0, ?6, ?6)
       ON CONFLICT(id) DO UPDATE SET
         email = excluded.email,
         display_name = excluded.display_name,

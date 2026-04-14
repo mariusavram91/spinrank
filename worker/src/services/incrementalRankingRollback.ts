@@ -127,6 +127,7 @@ function replayGlobalUserState(userId: string, rows: PlayerMatchHistoryRow[], no
     wins: 0,
     losses: 0,
     streak: 0,
+    bestWinStreak: 0,
     updatedAt: nowIso,
   };
 
@@ -137,6 +138,7 @@ function replayGlobalUserState(userId: string, rows: PlayerMatchHistoryRow[], no
     if (didWin) {
       nextState.wins += 1;
       nextState.streak = nextState.streak >= 0 ? nextState.streak + 1 : 1;
+      nextState.bestWinStreak = Math.max(nextState.bestWinStreak, nextState.streak);
     } else {
       nextState.losses += 1;
       nextState.streak = nextState.streak <= 0 ? nextState.streak - 1 : -1;
@@ -182,10 +184,11 @@ export async function applyIncrementalGlobalRollbackForDeletedMatches(
               wins = ?3,
               losses = ?4,
               streak = ?5,
-              updated_at = ?6
+              best_win_streak = ?6,
+              updated_at = ?7
           WHERE id = ?1
         `,
-      ).bind(userId, state.elo, state.wins, state.losses, state.streak, state.updatedAt);
+      ).bind(userId, state.elo, state.wins, state.losses, state.streak, state.bestWinStreak, state.updatedAt);
     }),
   );
 

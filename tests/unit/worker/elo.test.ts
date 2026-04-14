@@ -106,6 +106,7 @@ describe("elo helpers", () => {
       wins: 0,
       losses: 0,
       streak: 0,
+      bestWinStreak: 0,
       matchesPlayed: 0,
       matchEquivalentPlayed: 0,
       lastMatchAt: "",

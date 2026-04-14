@@ -349,8 +349,8 @@ export const createAppDom = (args: {
   const sharedUserProfileRank = document.createElement("span");
   sharedUserProfileRank.className = "profile-stat-chip";
 
-  const sharedUserProfileElo = document.createElement("span");
-  sharedUserProfileElo.className = "profile-stat-chip";
+  const sharedUserProfileElo = document.createElement("div");
+  sharedUserProfileElo.className = "shared-profile-summary__stat-group";
 
   sharedUserProfileStats.append(sharedUserProfileRank, sharedUserProfileElo);
   sharedUserProfileIdentity.append(sharedUserProfileName, sharedUserProfileStats);

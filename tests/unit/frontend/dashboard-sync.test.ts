@@ -59,6 +59,7 @@ const createLeaderboardEntry = (overrides?: Record<string, unknown>) => ({
   wins: 7,
   losses: 1,
   streak: 4,
+  bestWinStreak: 4,
   rank: 1,
   ...overrides,
 });
@@ -153,6 +154,9 @@ const createDom = () => ({
   leaderboardStatMostWins: makeDiv(),
   leaderboardStatMostWinsPlayer: makeDiv(),
   leaderboardStatMostWinsMeta: makeDiv(),
+  leaderboardStatBestWinRate: makeDiv(),
+  leaderboardStatBestWinRatePlayer: makeDiv(),
+  leaderboardStatBestWinRateMeta: makeDiv(),
 });
 
 const setSelectValue = (select: HTMLSelectElement, value: string) => {
@@ -217,8 +221,8 @@ const createDashboardState = (overrides?: Partial<DashboardState>) =>
         userId: "user_2",
         displayName: "Bob",
         elo: 1180,
-        wins: 3,
-        losses: 4,
+        wins: 12,
+        losses: 8,
         streak: 2,
         rank: 2,
       }),
@@ -331,6 +335,9 @@ describe("dashboard sync", () => {
     expect(dom.leaderboardStatMostActive.hidden).toBe(false);
     expect(dom.leaderboardStatMostWins.hidden).toBe(false);
     expect(dom.leaderboardStatLongestStreak.hidden).toBe(false);
+    expect(dom.leaderboardStatBestWinRate.hidden).toBe(false);
+    expect(dom.leaderboardStatBestWinRatePlayer.textContent).toBe("Bob");
+    expect(dom.leaderboardStatBestWinRateMeta.textContent).toContain("60.0%");
     expect(renderers.leaderboard.render).toHaveBeenCalled();
     expect(renderers.matches.render).toHaveBeenCalled();
     expect(renderers.progress.render).toHaveBeenCalled();
@@ -423,5 +430,71 @@ describe("dashboard sync", () => {
     expect(dom.deleteTournamentButton.hidden).toBe(true);
     expect(dom.leaderboardStatMostActive.hidden).toBe(true);
     expect(dom.leaderboardStatMostWins.hidden).toBe(true);
+    expect(dom.leaderboardStatBestWinRate.hidden).toBe(true);
+  });
+
+  it("uses the season threshold for best win rate", () => {
+    const dom = createDom();
+
+    createDashboardSync({
+      dashboardState: createDashboardState({
+        segmentMode: "season",
+        leaderboard: [
+          createLeaderboardEntry({
+            userId: "user_1",
+            displayName: "Ada",
+            wins: 9,
+            losses: 0,
+            rank: 1,
+          }),
+          createLeaderboardEntry({
+            userId: "user_2",
+            displayName: "Bob",
+            wins: 8,
+            losses: 2,
+            rank: 2,
+          }),
+        ],
+      }),
+      tournamentPlannerState: createTournamentPlannerState(),
+      dom,
+      sharePanels: {
+        season: createSharePanelElements(),
+        tournament: createSharePanelElements(),
+        getSeasonShareTargetId: () => "season_1",
+        getTournamentShareTargetId: () => "tournament_1",
+        getSeasonSharePanelRenderedUrl: () => "",
+        setSeasonSharePanelRenderedUrl: vi.fn(),
+        getTournamentSharePanelRenderedUrl: () => "",
+        setTournamentSharePanelRenderedUrl: vi.fn(),
+        updateSharePanelElements: vi.fn(),
+        updateSeasonSharePanelVisibility: vi.fn(),
+        updateTournamentSharePanelVisibility: vi.fn(),
+      },
+      renderers: {
+        leaderboard: { render: vi.fn() },
+        matches: { render: vi.fn() },
+        progress: { render: vi.fn() },
+      },
+      helpers: {
+        renderSeasonDraftSummary: vi.fn(),
+        renderTournamentDraftSummary: vi.fn(),
+        renderMatchDraftSummary: vi.fn(),
+        syncMatchFormLockState: vi.fn(),
+        scheduleFormStatusHide: vi.fn(),
+        getEditingSeason: () => createSeasonRecord(),
+        getEditingTournament: () => createTournamentRecord(),
+        hasTournamentProgress: () => false,
+        isLockedSeason: () => false,
+        isLockedTournament: () => false,
+        canSoftDelete: () => true,
+        getCurrentUserId: () => "user_1",
+      },
+      t: (key) => key,
+    }).syncDashboardState();
+
+    expect(dom.leaderboardStatBestWinRate.hidden).toBe(false);
+    expect(dom.leaderboardStatBestWinRatePlayer.textContent).toBe("Bob");
+    expect(dom.leaderboardStatBestWinRateMeta.textContent).toContain("80.0%");
   });
 });

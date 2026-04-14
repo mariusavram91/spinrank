@@ -45,6 +45,7 @@ function replayGlobalUserState(userId: string, rows: PlayerMatchHistoryRow[], no
     wins: 0,
     losses: 0,
     streak: 0,
+    bestWinStreak: 0,
     updatedAt: nowIso,
   };
 
@@ -55,6 +56,7 @@ function replayGlobalUserState(userId: string, rows: PlayerMatchHistoryRow[], no
     if (didWin) {
       nextState.wins += 1;
       nextState.streak = nextState.streak >= 0 ? nextState.streak + 1 : 1;
+      nextState.bestWinStreak = Math.max(nextState.bestWinStreak, nextState.streak);
     } else {
       nextState.losses += 1;
       nextState.streak = nextState.streak <= 0 ? nextState.streak - 1 : -1;
@@ -85,6 +87,7 @@ function replayTournamentSegmentState(
     if (didWin) {
       nextState.wins += 1;
       nextState.streak = nextState.streak >= 0 ? nextState.streak + 1 : 1;
+      nextState.bestWinStreak = Math.max(nextState.bestWinStreak, nextState.streak);
     } else {
       nextState.losses += 1;
       nextState.streak = nextState.streak <= 0 ? nextState.streak - 1 : -1;
@@ -215,10 +218,11 @@ async function applyIncrementalMatchDeletion(
             wins = ?3,
             losses = ?4,
             streak = ?5,
-            updated_at = ?6
+            best_win_streak = ?6,
+            updated_at = ?7
         WHERE id = ?1
       `,
-    ).bind(userId, state.elo, state.wins, state.losses, state.streak, state.updatedAt);
+    ).bind(userId, state.elo, state.wins, state.losses, state.streak, state.bestWinStreak, state.updatedAt);
   });
 
   if (match.tournament_id) {
@@ -234,8 +238,9 @@ async function applyIncrementalMatchDeletion(
                 wins = ?6,
                 losses = ?7,
                 streak = ?8,
-                last_match_at = ?9,
-                updated_at = ?10
+                best_win_streak = ?9,
+                last_match_at = ?10,
+                updated_at = ?11
             WHERE segment_type = 'tournament'
               AND segment_id = ?1
               AND user_id = ?2
@@ -249,6 +254,7 @@ async function applyIncrementalMatchDeletion(
           state.wins,
           state.losses,
           state.streak,
+          state.bestWinStreak,
           state.lastMatchAt,
           state.updatedAt,
         ),

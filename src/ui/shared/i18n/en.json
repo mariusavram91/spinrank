@@ -117,6 +117,7 @@
   "leaderboardMatchesLabel": "Matches played",
   "leaderboardMostGamesLabel": "Most games this season",
   "leaderboardMostWinsLabel": "Most wins this season",
+  "leaderboardBestWinRateLabel": "Best win rate",
   "leaderboardLongestStreakLabel": "Longest win streak",
   "leaderboardWinner": "Winner",
   "leaderboardChampion": "Champion",

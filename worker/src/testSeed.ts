@@ -173,6 +173,7 @@ async function upsertUser(
     wins?: number;
     losses?: number;
     streak?: number;
+    bestWinStreak?: number;
     nowIso: string;
   },
 ): Promise<void> {
@@ -180,9 +181,9 @@ async function upsertUser(
     `
       INSERT INTO users (
         id, provider, provider_user_id, email, display_name, avatar_url,
-        global_elo, wins, losses, streak, created_at, updated_at
+        global_elo, wins, losses, streak, best_win_streak, created_at, updated_at
       )
-      VALUES (?1, 'google', ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?9)
+      VALUES (?1, 'google', ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?10)
       ON CONFLICT(id) DO UPDATE SET
         email = excluded.email,
         display_name = excluded.display_name,
@@ -190,6 +191,7 @@ async function upsertUser(
         wins = excluded.wins,
         losses = excluded.losses,
         streak = excluded.streak,
+        best_win_streak = excluded.best_win_streak,
         updated_at = excluded.updated_at
     `,
   )
@@ -202,6 +204,7 @@ async function upsertUser(
       args.wins ?? 0,
       args.losses ?? 0,
       args.streak ?? 0,
+      args.bestWinStreak ?? Math.max(args.streak ?? 0, 0),
       args.nowIso,
     )
     .run();
@@ -211,7 +214,7 @@ async function seedInactiveDashboard(env: Env, ownerId: string, nowIso: string):
   await env.DB.prepare(
     `
       UPDATE users
-      SET global_elo = 1200, wins = 0, losses = 0, streak = 0, updated_at = ?2
+      SET global_elo = 1200, wins = 0, losses = 0, streak = 0, best_win_streak = 0, updated_at = ?2
       WHERE id = ?1
     `,
   )
@@ -309,16 +312,16 @@ async function seedLowVolumeDashboard(
   await env.DB.batch([
     env.DB.prepare(
       `
-        UPDATE users
-        SET global_elo = 1240, wins = 4, losses = 0, streak = 4, updated_at = ?2
-        WHERE id = ?1
+      UPDATE users
+      SET global_elo = 1240, wins = 4, losses = 0, streak = 4, best_win_streak = 4, updated_at = ?2
+      WHERE id = ?1
       `,
     ).bind(owner.id, nowIso),
     env.DB.prepare(
       `
-        UPDATE users
-        SET global_elo = 1160, wins = 0, losses = 4, streak = -4, updated_at = ?2
-        WHERE id = ?1
+      UPDATE users
+      SET global_elo = 1160, wins = 0, losses = 4, streak = -4, best_win_streak = 0, updated_at = ?2
+      WHERE id = ?1
       `,
     ).bind(rivalId, nowIso),
   ]);
@@ -363,7 +366,7 @@ async function seedGlobalRankGt11Dashboard(
   await env.DB.prepare(
     `
       UPDATE users
-      SET global_elo = 1210, wins = 5, losses = 0, streak = 3, updated_at = ?2
+      SET global_elo = 1210, wins = 5, losses = 0, streak = 3, best_win_streak = 3, updated_at = ?2
       WHERE id = ?1
     `,
   )
@@ -827,6 +830,7 @@ async function upsertSeasonSegment(
     wins: number;
     losses: number;
     streak: number;
+    bestWinStreak?: number;
     matchesPlayedEquivalent: number;
     seasonGlickoRating: number;
     seasonGlickoRd: number;
@@ -841,17 +845,18 @@ async function upsertSeasonSegment(
   await env.DB.prepare(
     `
       INSERT INTO elo_segments (
-        id, segment_type, segment_id, user_id, elo, matches_played, wins, losses, streak, updated_at,
+        id, segment_type, segment_id, user_id, elo, matches_played, wins, losses, streak, best_win_streak, updated_at,
         matches_played_equivalent, last_match_at, season_glicko_rating, season_glicko_rd,
         season_conservative_rating, season_attended_weeks, season_total_weeks, season_attendance_penalty
       )
-      VALUES (?1, 'season', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+      VALUES (?1, 'season', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
       ON CONFLICT(segment_type, segment_id, user_id) DO UPDATE SET
         elo = excluded.elo,
         matches_played = excluded.matches_played,
         wins = excluded.wins,
         losses = excluded.losses,
         streak = excluded.streak,
+        best_win_streak = excluded.best_win_streak,
         updated_at = excluded.updated_at,
         matches_played_equivalent = excluded.matches_played_equivalent,
         last_match_at = excluded.last_match_at,
@@ -872,6 +877,7 @@ async function upsertSeasonSegment(
       args.wins,
       args.losses,
       args.streak,
+      args.bestWinStreak ?? Math.max(args.streak, 0),
       args.nowIso,
       args.matchesPlayedEquivalent,
       args.lastMatchAt,
@@ -955,16 +961,16 @@ async function seedProfileScenario(
   await env.DB.batch([
     env.DB.prepare(
       `
-        UPDATE users
-        SET global_elo = 1220, wins = 1, losses = 0, streak = 1, updated_at = ?2
-        WHERE id = ?1
+      UPDATE users
+      SET global_elo = 1220, wins = 1, losses = 0, streak = 1, best_win_streak = 1, updated_at = ?2
+      WHERE id = ?1
       `,
     ).bind(owner.id, nowIso),
     env.DB.prepare(
       `
-        UPDATE users
-        SET global_elo = 1180, wins = 0, losses = 1, streak = -1, updated_at = ?2
-        WHERE id = ?1
+      UPDATE users
+      SET global_elo = 1180, wins = 0, losses = 1, streak = -1, best_win_streak = 0, updated_at = ?2
+      WHERE id = ?1
       `,
     ).bind(rivalId, nowIso),
   ]);

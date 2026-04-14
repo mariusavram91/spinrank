@@ -117,6 +117,7 @@
   "leaderboardMatchesLabel": "Ausgetragene Matches",
   "leaderboardMostGamesLabel": "Die meisten Matches",
   "leaderboardMostWinsLabel": "Die meisten Siege",
+  "leaderboardBestWinRateLabel": "Beste Siegquote",
   "leaderboardLongestStreakLabel": "Längste Siegesserie",
   "leaderboardWinner": "Sieger",
   "leaderboardChampion": "Champion",

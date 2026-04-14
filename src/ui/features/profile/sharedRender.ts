@@ -23,6 +23,13 @@ const createEmptyState = (message: string): HTMLParagraphElement => {
   return empty;
 };
 
+const createStatChip = (text: string): HTMLSpanElement => {
+  const chip = document.createElement("span");
+  chip.className = "profile-stat-chip";
+  chip.textContent = text;
+  return chip;
+};
+
 const resolvePlacementLabel = (
   summary: SharedUserSeasonRecord["summary"] | SharedUserTournamentRecord["summary"],
   t: TranslationFn,
@@ -217,7 +224,10 @@ export const renderSharedUserProfileScreen = (args: {
   args.rank.textContent = profile.user.currentRank
     ? `${args.t("sharedProfileRankLabel")} #${profile.user.currentRank}`
     : `${args.t("sharedProfileRankLabel")} ${args.t("sharedProfileUnranked")}`;
-  args.elo.textContent = `Elo ${profile.user.currentElo}`;
+  args.elo.replaceChildren(
+    createStatChip(`Elo ${profile.user.currentElo}`),
+    createStatChip(`${args.t("progressBestStreak")} ${profile.user.bestWinStreak}`),
+  );
   args.achievementsSubtitle.textContent = `${args.t("achievementsTotalPointsLabel")} ${profile.achievements.reduce(
     (total, item) => total + item.points,
     0,

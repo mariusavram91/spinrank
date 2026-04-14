@@ -79,6 +79,9 @@ type DashboardSyncDom = {
   leaderboardStatMostWins: HTMLElement;
   leaderboardStatMostWinsPlayer: HTMLElement;
   leaderboardStatMostWinsMeta: HTMLElement;
+  leaderboardStatBestWinRate: HTMLElement;
+  leaderboardStatBestWinRatePlayer: HTMLElement;
+  leaderboardStatBestWinRateMeta: HTMLElement;
 };
 
 type SharePanelSyncData = {
@@ -131,9 +134,40 @@ export const createDashboardSync = (args: {
   helpers: DashboardSyncHelpers;
   t: TranslationFn;
 }) => {
+  const getBestWinRatePlayer = (): { entry: LeaderboardEntry; rate: number; matches: number } | null => {
+    const minimumMatches = args.dashboardState.segmentMode === "season" ? 10 : 20;
+    return args.dashboardState.leaderboard.reduce<{ entry: LeaderboardEntry; rate: number; matches: number } | null>(
+      (best, entry) => {
+        const matches = entry.wins + entry.losses;
+        if (matches < minimumMatches) {
+          return best;
+        }
+
+        const rate = matches > 0 ? entry.wins / matches : 0;
+        if (!best) {
+          return { entry, rate, matches };
+        }
+
+        if (rate !== best.rate) {
+          return rate > best.rate ? { entry, rate, matches } : best;
+        }
+        if (matches !== best.matches) {
+          return matches > best.matches ? { entry, rate, matches } : best;
+        }
+        if (entry.wins !== best.entry.wins) {
+          return entry.wins > best.entry.wins ? { entry, rate, matches } : best;
+        }
+
+        return entry.displayName.localeCompare(best.entry.displayName) < 0 ? { entry, rate, matches } : best;
+      },
+      null,
+    );
+  };
+
   const getLongestStreakPlayer = (): LeaderboardEntry | null =>
     args.dashboardState.leaderboard.reduce<LeaderboardEntry | null>((best, entry) => {
-      if (entry.streak > 0 && (!best || entry.streak > best.streak)) {
+      const bestWinStreak = entry.bestWinStreak ?? 0;
+      if (bestWinStreak > 0 && (!best || bestWinStreak > (best.bestWinStreak ?? 0))) {
         return entry;
       }
       return best;
@@ -327,12 +361,14 @@ export const createDashboardSync = (args: {
       const isTournamentMode = args.dashboardState.segmentMode === "tournament";
       const busiestPlayer = !isTournamentMode ? leaderboardStats?.mostMatchesPlayer ?? null : null;
       const mostWinsPlayer = !isTournamentMode ? leaderboardStats?.mostWinsPlayer ?? null : null;
+      const bestWinRatePlayer = !isTournamentMode ? getBestWinRatePlayer() : null;
       const longestStreakPlayer = !isTournamentMode ? getLongestStreakPlayer() : null;
 
       const showStats =
         Boolean(leaderboardStats?.totalMatches) ||
         Boolean(busiestPlayer) ||
         Boolean(mostWinsPlayer) ||
+        Boolean(bestWinRatePlayer) ||
         Boolean(longestStreakPlayer);
       args.dom.leaderboardStatsGroup.hidden = !showStats;
 
@@ -356,7 +392,7 @@ export const createDashboardSync = (args: {
       if (longestStreakPlayer) {
         args.dom.leaderboardStatLongestStreakLabel.textContent = args.t("leaderboardLongestStreakLabel");
         args.dom.leaderboardStatLongestStreakPlayer.textContent = longestStreakPlayer.displayName;
-        args.dom.leaderboardStatLongestStreakMeta.textContent = ` • 🏆 ${longestStreakPlayer.streak} ${args.t(
+        args.dom.leaderboardStatLongestStreakMeta.textContent = ` • 🏆 ${longestStreakPlayer.bestWinStreak ?? 0} ${args.t(
           "leaderboardWins",
         )} streak`;
         args.dom.leaderboardStatLongestStreak.hidden = false;
@@ -372,6 +408,16 @@ export const createDashboardSync = (args: {
         args.dom.leaderboardStatMostWins.hidden = false;
       } else {
         args.dom.leaderboardStatMostWins.hidden = true;
+      }
+
+      if (bestWinRatePlayer) {
+        args.dom.leaderboardStatBestWinRatePlayer.textContent = bestWinRatePlayer.entry.displayName;
+        args.dom.leaderboardStatBestWinRateMeta.textContent = ` • 🎯 ${(bestWinRatePlayer.rate * 100).toFixed(1)}% • ${formatCount(
+          bestWinRatePlayer.matches,
+        )} ${args.t("progressMatchesLabel")}`;
+        args.dom.leaderboardStatBestWinRate.hidden = false;
+      } else {
+        args.dom.leaderboardStatBestWinRate.hidden = true;
       }
 
       args.renderers.matches.render();

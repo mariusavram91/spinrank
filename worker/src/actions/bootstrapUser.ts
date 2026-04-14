@@ -37,9 +37,9 @@ export async function handleBootstrapUser(
       `
         INSERT INTO users (
           id, provider, provider_user_id, email, display_name, avatar_url, locale,
-          global_elo, wins, losses, streak, created_at, updated_at
+          global_elo, wins, losses, streak, best_win_streak, created_at, updated_at
         )
-        VALUES (?1, 'google', ?2, ?3, ?4, ?5, ?6, 1200, 0, 0, 0, ?7, ?7)
+        VALUES (?1, 'google', ?2, ?3, ?4, ?5, ?6, 1200, 0, 0, 0, 0, ?7, ?7)
         ON CONFLICT(provider, provider_user_id) DO UPDATE SET
           email = excluded.email,
           avatar_url = excluded.avatar_url,

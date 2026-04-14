@@ -283,6 +283,9 @@ export const buildApp = (): HTMLElement => {
     leaderboardStatMostWins,
     leaderboardStatMostWinsPlayer,
     leaderboardStatMostWinsMeta,
+    leaderboardStatBestWinRate,
+    leaderboardStatBestWinRatePlayer,
+    leaderboardStatBestWinRateMeta,
     leaderboardStatLongestStreak,
     leaderboardStatLongestStreakLabel,
     leaderboardStatLongestStreakPlayer,
@@ -1191,6 +1194,9 @@ export const buildApp = (): HTMLElement => {
       leaderboardStatMostWins,
       leaderboardStatMostWinsPlayer,
       leaderboardStatMostWinsMeta,
+      leaderboardStatBestWinRate,
+      leaderboardStatBestWinRatePlayer,
+      leaderboardStatBestWinRateMeta,
     },
     sharePanels: {
       get season() {

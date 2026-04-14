@@ -35,6 +35,7 @@ describe("worker getUserProgress action", () => {
       wins: 3,
       losses: 1,
       streak: 2,
+      best_win_streak: 7,
       created_at: "2026-04-01T00:00:00.000Z",
       updated_at: "2026-04-06T00:00:00.000Z",
     } as UserRow;
@@ -87,6 +88,7 @@ describe("worker getUserProgress action", () => {
     expect(response.data).toMatchObject({
       currentRank: 4,
       currentElo: 1230,
+      bestStreak: 7,
       wins: 3,
       losses: 1,
       points: [
@@ -108,6 +110,7 @@ describe("worker getUserProgress action", () => {
       wins: 8,
       losses: 14,
       streak: 1,
+      best_win_streak: 5,
       created_at: "2026-04-01T00:00:00.000Z",
       updated_at: "2026-04-06T00:00:00.000Z",
     } as UserRow;
@@ -148,6 +151,7 @@ describe("worker getUserProgress action", () => {
       currentRank: 13,
       bestRank: 13,
       currentElo: 1141,
+      bestStreak: 5,
       points: [
         {
           elo: 1141,

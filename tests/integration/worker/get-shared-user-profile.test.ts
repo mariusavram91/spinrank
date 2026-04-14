@@ -196,6 +196,7 @@ describe("worker integration: getSharedUserProfile", () => {
       expect(firstPage.data?.user).toMatchObject({
         userId: "user_friend",
         displayName: "Friend",
+        bestWinStreak: 0,
       });
       expect(firstPage.data?.achievements.length).toBeGreaterThan(0);
       expect(firstPage.data?.achievements.every((achievement) => Boolean(achievement.unlockedAt))).toBe(true);
@@ -225,6 +226,95 @@ describe("worker integration: getSharedUserProfile", () => {
       expect(secondPage.data?.matches).toHaveLength(1);
       expect(secondPage.data?.matches[0].playedAt).toBe("2026-04-05T09:00:00.000Z");
       expect(secondPage.data?.nextCursor).toBeNull();
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("returns the persisted longest global win streak in the shared profile header", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_shared_profile_streak_1",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_friend"],
+            teamBPlayerIds: ["user_owner"],
+            score: [{ teamA: 11, teamB: 8 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T09:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_shared_profile_streak_2",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_friend"],
+            teamBPlayerIds: ["user_owner"],
+            score: [{ teamA: 11, teamB: 9 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_shared_profile_streak_3",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_owner"],
+            teamBPlayerIds: ["user_friend"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T11:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const response = await handleGetSharedUserProfile(
+        {
+          action: "getSharedUserProfile",
+          requestId: "req_shared_profile_streak_result",
+          payload: {
+            userId: "user_friend",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(response.ok).toBe(true);
+      expect(response.data?.user).toMatchObject({
+        userId: "user_friend",
+        currentElo: expect.any(Number),
+        bestWinStreak: 2,
+      });
     } finally {
       await context.cleanup();
     }

@@ -115,7 +115,7 @@ export async function handleGetUserProgress(
       ? Number(sessionUser.global_elo) - deltas.reduce((sum, entry) => sum + entry.delta, 0)
       : 1200;
   let bestElo = Number(sessionUser.global_elo);
-  let bestStreak = 0;
+  let bestStreak = Number(sessionUser.best_win_streak ?? 0);
   let streakRunning = 0;
   const progressPoints: UserProgressPoint[] = [];
 
@@ -141,9 +141,6 @@ export async function handleGetUserProgress(
       rank: null,
     });
   });
-
-  bestStreak = Math.max(bestStreak, Number(sessionUser.streak || 0));
-
   const nowIso = isoNow(env.runtime);
   const finalPoints =
     progressPoints.length > 0

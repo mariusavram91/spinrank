@@ -22,6 +22,7 @@ const createProfile = (achievements: AchievementSummaryItem[]): GetSharedUserPro
     avatarUrl: null,
     currentRank: 2,
     currentElo: 1234,
+    bestWinStreak: 6,
   },
   achievements,
   seasons: [],
@@ -33,6 +34,40 @@ const createProfile = (achievements: AchievementSummaryItem[]): GetSharedUserPro
 });
 
 describe("shared profile render", () => {
+  it("renders the shared profile best streak alongside elo", () => {
+    const elo = document.createElement("span");
+
+    renderSharedUserProfileScreen({
+      sharedUserProfile: createProfile([]),
+      currentUserId: "user_1",
+      meta: document.createElement("p"),
+      avatar: document.createElement("img"),
+      name: document.createElement("h4"),
+      rank: document.createElement("span"),
+      elo,
+      achievementsSubtitle: document.createElement("p"),
+      achievementsSummary: document.createElement("div"),
+      achievementsPreview: document.createElement("div"),
+      selectedAchievementKey: "",
+      seasonsList: document.createElement("div"),
+      tournamentsList: document.createElement("div"),
+      matchesList: document.createElement("div"),
+      loadMoreButton: document.createElement("button"),
+      matchesLoading: false,
+      avatarBaseUrl: "/",
+      t: (key) => key,
+      renderMatchScore: () => "",
+      renderPlayerNames: () => "",
+      renderMatchContext: () => "",
+      formatDateTime: (value) => value,
+      onOpenSeason: () => undefined,
+      onOpenTournament: () => undefined,
+    });
+
+    const chips = [...elo.querySelectorAll(".profile-stat-chip")].map((chip) => chip.textContent);
+    expect(chips).toEqual(["Elo 1234", "progressBestStreak 6"]);
+  });
+
   it("renders unlocked shared-profile achievements as icon buttons with no expanded list", () => {
     const achievementsSubtitle = document.createElement("p");
     const achievementsSummary = document.createElement("div");

@@ -100,6 +100,7 @@ async function loadTournamentRatings(
   const result = await env.DB.prepare(
     `
       SELECT user_id, elo, wins, losses, streak, matches_played, matches_played_equivalent, last_match_at, updated_at
+           , best_win_streak
       FROM elo_segments
       WHERE segment_type = 'tournament'
         AND segment_id = ?1
@@ -113,6 +114,7 @@ async function loadTournamentRatings(
       wins: number;
       losses: number;
       streak: number;
+      best_win_streak: number;
       matches_played: number;
       matches_played_equivalent: number;
       last_match_at: string | null;
@@ -127,6 +129,7 @@ async function loadTournamentRatings(
         wins: Number(row.wins),
         losses: Number(row.losses),
         streak: Number(row.streak),
+        bestWinStreak: Number(row.best_win_streak ?? 0),
         matchesPlayed: Number(row.matches_played),
         matchEquivalentPlayed: Number(row.matches_played_equivalent),
         lastMatchAt: row.last_match_at || "",
