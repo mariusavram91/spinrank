@@ -4094,7 +4094,8 @@ body.app-busy * {
     gap: 6px;
   }
 }
-.share-alert {
+.share-alert,
+.disputed-alert {
   padding: 6px 10px;
   border-radius: 12px;
   background: rgba(82, 210, 117, 0.1);
@@ -4109,7 +4110,8 @@ body.app-busy * {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.share-alert--visible {
+.share-alert--visible,
+.disputed-alert--visible {
   opacity: 1;
   transform: translateY(0);
 }

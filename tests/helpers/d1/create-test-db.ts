@@ -78,11 +78,22 @@ export class TestD1PreparedStatement implements D1PreparedStatement {
 }
 
 const runSql = async (dbPath: string, sql: string): Promise<void> => {
-  await execFileAsync("sqlite3", [dbPath, `PRAGMA foreign_keys = ON;\n${sql}`]);
+  await execFileAsync("sqlite3", [
+    "-cmd",
+    ".timeout 5000",
+    dbPath,
+    `PRAGMA foreign_keys = ON;\n${sql}`,
+  ]);
 };
 
 const runSqlJson = async <T>(dbPath: string, sql: string): Promise<T[]> => {
-  const { stdout } = await execFileAsync("sqlite3", ["-json", dbPath, `PRAGMA foreign_keys = ON;\n${sql}`]);
+  const { stdout } = await execFileAsync("sqlite3", [
+    "-json",
+    "-cmd",
+    ".timeout 5000",
+    dbPath,
+    `PRAGMA foreign_keys = ON;\n${sql}`,
+  ]);
   const trimmed = stdout.trim();
   if (!trimmed) {
     return [];

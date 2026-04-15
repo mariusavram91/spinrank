@@ -216,6 +216,7 @@ export const createDashboardSync = (args: {
 
   return {
     syncDashboardState: (): void => {
+      const disputedMatches = args.dashboardState.disputedMatches ?? [];
       const statusMessage = args.dashboardState.error
         ? args.dashboardState.error
         : args.dashboardState.shareNotice || "";
@@ -224,14 +225,14 @@ export const createDashboardSync = (args: {
       args.dom.shareAlert.textContent = args.dashboardState.shareAlertMessage;
       args.dom.shareAlert.hidden = !Boolean(args.dashboardState.shareAlertMessage);
       args.dom.shareAlert.classList.toggle("share-alert--visible", Boolean(args.dashboardState.shareAlertMessage));
-      const disputedMessage = args.dashboardState.disputedMatches.length > 0
-        ? args.dashboardState.disputedMatches
+      const disputedMessage = disputedMatches.length > 0
+        ? disputedMatches
           .map((alert) => `${alert.disputedByDisplayName} disputed ${new Date(alert.playedAt).toLocaleString()}`)
           .join(" | ")
         : "";
       if (args.dom.disputedAlert) {
         args.dom.disputedAlert.replaceChildren(
-          ...args.dashboardState.disputedMatches.map((alert) => {
+          ...disputedMatches.map((alert) => {
             const button = document.createElement("button");
             button.type = "button";
             button.className = "dashboard-alert-button";

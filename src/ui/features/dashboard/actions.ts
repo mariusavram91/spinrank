@@ -254,36 +254,18 @@ export const createDashboardActions = (args: {
   }
 
   const ensureVisibleMatches = async (matchIds: string[], filter: MatchFeedFilter): Promise<void> => {
-    const missingMatchIds = matchIds.filter((matchId) => !args.dashboardState.matches.some((match) => match.id === matchId));
+    const isVisible = (matchId: string): boolean =>
+      args.dashboardState.matches.some((match) => match.id === matchId);
+
+    let missingMatchIds = matchIds.filter((matchId) => !isVisible(matchId));
+    while (missingMatchIds.length > 0 && args.dashboardState.matchesCursor) {
+      await loadMatches({ reset: false, filter });
+      missingMatchIds = matchIds.filter((matchId) => !isVisible(matchId));
+    }
+
     if (missingMatchIds.length === 0) {
       return;
     }
-
-    const data: GetMatchesData = await args.runAuthedAction("getMatches", {
-      filter,
-      limit: missingMatchIds.length,
-      targetMatchIds: missingMatchIds,
-    });
-    if (data.matches.length === 0) {
-      return;
-    }
-
-    const fetchedMatchIds = new Set(data.matches.map((match) => match.id));
-    args.dashboardState.matches = [
-      ...data.matches,
-      ...args.dashboardState.matches.filter((match) => !fetchedMatchIds.has(match.id)),
-    ];
-    args.dashboardState.players = mergePlayers(args.dashboardState.players, data.players ?? []);
-    const bracketContext = Object.fromEntries(
-      data.matches
-        .filter((match) => Boolean(match.bracketContext))
-        .map((match) => [match.id, match.bracketContext as MatchBracketContext]),
-    );
-    args.dashboardState.matchBracketContextByMatchId = {
-      ...bracketContext,
-      ...args.dashboardState.matchBracketContextByMatchId,
-    };
-    args.syncDashboardState();
   };
 
   const applyMatchFilter = async (

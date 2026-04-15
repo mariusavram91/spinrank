@@ -1251,13 +1251,14 @@ export const buildApp = (): HTMLElement => {
       progress: progressRenderer,
     },
     onDisputedMatchAlertClick: (matchId) => {
+      const forceReload = dashboardState.matchesFilter !== "mine" || dashboardState.matches.length === 0;
       dashboardState.screen = "dashboard";
       dashboardState.highlightedMatchId = matchId;
       dashboardState.highlightedMatchIds = [matchId];
       dashboardState.pendingHighlightedMatchIds = [matchId];
       syncDashboardState();
       void applyMatchFilter("mine", {
-        force: true,
+        force: forceReload,
         ensureMatchIds: [matchId],
       }).then(() => {
         syncDashboardState();
@@ -1418,7 +1419,9 @@ export const buildApp = (): HTMLElement => {
     syncSegmentedToggle(seasonBaseEloToggle, seasonBaseEloSelect.value || "carry_over");
     syncSegmentedToggle(seasonStateToggle, seasonIsActiveInput.checked ? "active" : "inactive");
     syncSegmentedToggle(seasonVisibilityToggle, seasonIsPublicInput.checked ? "public" : "private");
-    resetScrollForScreenChange();
+    if (dashboardState.pendingHighlightedMatchIds.length === 0) {
+      resetScrollForScreenChange();
+    }
   };
 
   const setShareAlertVisible = (visible: boolean): void => {
@@ -1532,7 +1535,6 @@ export const buildApp = (): HTMLElement => {
       await loadTournamentBracket();
     },
     collectMatchPayload,
-    captureMatchDraft,
     resetScoreInputs,
     clearActiveTournamentBracketMatchId: () => {
       activeTournamentBracketMatchId = null;

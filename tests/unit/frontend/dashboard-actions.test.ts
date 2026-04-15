@@ -372,6 +372,45 @@ describe("dashboard actions", () => {
     expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(4, false);
   });
 
+  it("loads additional match pages until a target match becomes visible", async () => {
+    const dashboardState = createDashboardState({
+      matchesFilter: "mine",
+      matches: [matchRecord({ id: "existing_match" })],
+      matchesCursor: "cursor_1",
+    });
+    const pageOne: GetMatchesData = {
+      matches: [matchRecord({ id: "match_2" })],
+      players: [leaderboardEntry({ userId: "user_3", displayName: "Cory", rank: 3 })],
+      nextCursor: "cursor_2",
+    };
+    const pageTwo: GetMatchesData = {
+      matches: [matchRecord({ id: "match_3" })],
+      players: [leaderboardEntry({ userId: "user_4", displayName: "Dana", rank: 4 })],
+      nextCursor: null,
+    };
+    const runAuthedAction = vi
+      .fn()
+      .mockResolvedValueOnce(pageOne)
+      .mockResolvedValueOnce(pageTwo);
+    const harness = createHarness(dashboardState, runAuthedAction);
+
+    await harness.actions.applyMatchFilter("mine", { ensureMatchIds: ["match_3"] });
+
+    expect(runAuthedAction).toHaveBeenNthCalledWith(1, "getMatches", {
+      filter: "mine",
+      limit: 20,
+      cursor: "cursor_1",
+    });
+    expect(runAuthedAction).toHaveBeenNthCalledWith(2, "getMatches", {
+      filter: "mine",
+      limit: 20,
+      cursor: "cursor_2",
+    });
+    expect(dashboardState.matches.map((match) => match.id)).toEqual(["existing_match", "match_2", "match_3"]);
+    expect(dashboardState.matchesCursor).toBeNull();
+    expect(harness.setGlobalLoading).toHaveBeenCalledTimes(4);
+  });
+
   it("merges tournament leaderboard players with bracket participants when switching segment mode", async () => {
     const dashboardState = createDashboardState({
       segmentMode: "global",

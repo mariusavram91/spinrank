@@ -55,7 +55,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   shareAlert.hidden = true;
 
   const disputedAlert = document.createElement("div");
-  disputedAlert.className = "share-alert";
+  disputedAlert.className = "disputed-alert";
   disputedAlert.setAttribute("aria-live", "polite");
   disputedAlert.hidden = true;
 

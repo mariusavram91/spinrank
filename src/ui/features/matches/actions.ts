@@ -45,7 +45,6 @@ export const createMatchActions = (args: {
   loadDashboard: () => Promise<void>;
   loadTournamentBracket: () => Promise<void>;
   collectMatchPayload: () => CreateMatchPayload;
-  captureMatchDraft: () => MatchDraft;
   resetScoreInputs: () => void;
   clearActiveTournamentBracketMatchId: () => void;
   setTournamentPlannerTournamentId: (tournamentId: string) => void;
@@ -60,7 +59,7 @@ export const createMatchActions = (args: {
     context: string;
     playedAt: string;
     createdBy: string;
-  }>) => Promise<"cancel" | "review" | "confirm">;
+  }>) => Promise<"cancel" | "confirm">;
   promptMatchDisputeReason: (request: { title: string; detail?: string; initialComment?: string }) => Promise<string | null>;
   applyMatchFilter: (
     filter: "recent" | "mine" | "all",
@@ -111,23 +110,6 @@ export const createMatchActions = (args: {
           }),
         );
         if (decision === "cancel") {
-          return;
-        }
-        if (decision === "review") {
-          args.dashboardState.matchDraft = args.captureMatchDraft();
-          const highlightedMatchIds = duplicateMatches.matches.map((match) => match.id);
-          args.dashboardState.highlightedMatchIds = highlightedMatchIds;
-          args.dashboardState.highlightedMatchId = highlightedMatchIds[0] || "";
-          args.dashboardState.pendingHighlightedMatchIds = highlightedMatchIds;
-          args.dashboardState.screen = "dashboard";
-          args.dashboardState.matchFormMessage = "Unsaved draft kept while you review the possible duplicate.";
-          args.syncDashboardState();
-          void args.applyMatchFilter("mine", {
-            force: true,
-            ensureMatchIds: highlightedMatchIds,
-          }).then(() => {
-            args.syncDashboardState();
-          });
           return;
         }
         payload = {

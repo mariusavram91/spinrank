@@ -6,7 +6,7 @@ export type MatchDuplicateWarningItem = {
   createdBy: string;
 };
 
-export type MatchDuplicateWarningResult = "cancel" | "review" | "confirm";
+export type MatchDuplicateWarningResult = "cancel" | "confirm";
 
 export interface MatchDuplicateWarningElements {
   overlay: HTMLDivElement;
@@ -30,7 +30,7 @@ export const buildMatchDuplicateWarning = (): MatchDuplicateWarningElements => {
 
   const description = document.createElement("p");
   description.className = "delete-warning__description";
-  description.textContent = "A similar match was recorded within the last 10 minutes. Review it before creating another one.";
+  description.textContent = "A similar match was recorded within the last 10 minutes. Check the details before creating another one.";
 
   const list = document.createElement("div");
   list.className = "profile-card-list";
@@ -43,17 +43,12 @@ export const buildMatchDuplicateWarning = (): MatchDuplicateWarningElements => {
   cancelButton.className = "secondary-button";
   cancelButton.textContent = "Cancel";
 
-  const reviewButton = document.createElement("button");
-  reviewButton.type = "button";
-  reviewButton.className = "secondary-button";
-  reviewButton.textContent = "Review matches";
-
   const confirmButton = document.createElement("button");
   confirmButton.type = "button";
   confirmButton.className = "primary-button";
   confirmButton.textContent = "Create anyway";
 
-  actions.append(reviewButton, cancelButton, confirmButton);
+  actions.append(cancelButton, confirmButton);
   modal.append(title, description, list, actions);
   overlay.append(modal);
 
@@ -109,14 +104,13 @@ export const buildMatchDuplicateWarning = (): MatchDuplicateWarningElements => {
     );
 
     overlay.hidden = false;
-    reviewButton.focus();
+    cancelButton.focus();
     return new Promise((resolve) => {
       resolver = resolve;
     });
   };
 
   cancelButton.addEventListener("click", () => close("cancel"));
-  reviewButton.addEventListener("click", () => close("review"));
   confirmButton.addEventListener("click", () => close("confirm"));
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {

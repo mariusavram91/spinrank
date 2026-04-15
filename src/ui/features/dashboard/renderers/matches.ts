@@ -201,10 +201,20 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
       Boolean(args.matchesList.querySelector<HTMLElement>(`#match-row-${matchId}`)),
     );
     if (scrollTargetId) {
-      const highlightedNode = args.matchesList.querySelector<HTMLElement>(`#match-row-${scrollTargetId}`);
-      if (highlightedNode) {
-        highlightedNode.scrollIntoView({ block: "center", behavior: "smooth" });
+      const scrollIntoView = (): void => {
+        const highlightedNode = args.matchesList.querySelector<HTMLElement>(`#match-row-${scrollTargetId}`);
+        if (!highlightedNode) {
+          return;
+        }
+        highlightedNode.scrollIntoView({ block: "center", behavior: "auto" });
         args.dashboardState.pendingHighlightedMatchIds = [];
+      };
+      if (typeof window !== "undefined" && "requestAnimationFrame" in window) {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(scrollIntoView);
+        });
+      } else {
+        scrollIntoView();
       }
     }
   },

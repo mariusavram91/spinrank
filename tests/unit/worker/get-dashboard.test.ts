@@ -160,6 +160,7 @@ describe("worker getDashboard action", () => {
         featured: [],
         nextUp: null,
       },
+      disputedMatches: [],
       matches: [
         { id: "match_1", bracketContext: { roundTitle: "Final", isFinal: true } },
         { id: "match_2", bracketContext: null },
