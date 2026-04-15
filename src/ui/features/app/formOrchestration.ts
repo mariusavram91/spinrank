@@ -1,6 +1,6 @@
 import type { CreateMatchPayload, CreateSeasonPayload } from "../../../api/contract";
 import type { TextKey } from "../../shared/i18n/translations";
-import type { DashboardState, TournamentPlannerState, ViewState } from "../../shared/types/app";
+import type { DashboardState, MatchDraft, TournamentPlannerState, ViewState } from "../../shared/types/app";
 import {
   shouldShowSeasonInDropdown,
   shouldShowTournamentInDropdown,
@@ -40,6 +40,7 @@ export const createFormOrchestration = (args: {
   getCurrentUserId: () => string;
   isAuthedState: (state: ViewState) => state is Extract<ViewState, { status: "authenticated" }>;
   getActiveTournamentBracketMatchId: () => string | null;
+  setActiveTournamentBracketMatchId?: (value: string | null) => void;
   loadSeasonSelect: HTMLSelectElement;
   loadTournamentSelect: HTMLSelectElement;
   seasonSelect: HTMLSelectElement;
@@ -697,6 +698,58 @@ export const createFormOrchestration = (args: {
     args.setTournamentSharePanelTargetId("");
   };
 
+  const captureMatchDraft = (): MatchDraft => ({
+    contextMode: resolveMatchContextMode(args.getMatchScreenRefs().contextToggle),
+    matchType: args.matchTypeSelect.value as MatchDraft["matchType"],
+    formatType: args.formatTypeSelect.value as MatchDraft["formatType"],
+    pointsToWin: Number(args.pointsToWinSelect.value) as MatchDraft["pointsToWin"],
+    teamAPlayerIds: [args.teamA1Select.value, args.teamA2Select.value].filter(Boolean),
+    teamBPlayerIds: [args.teamB1Select.value, args.teamB2Select.value].filter(Boolean),
+    score: args.scoreInputs
+      .filter((game) => game.teamA.value !== "" && game.teamB.value !== "")
+      .map((game) => ({
+        teamA: Number(game.teamA.value),
+        teamB: Number(game.teamB.value),
+      })),
+    seasonId: args.formSeasonSelect.value,
+    tournamentId: args.formTournamentSelect.value,
+    tournamentBracketMatchId: args.getActiveTournamentBracketMatchId() || "",
+  });
+
+  const restoreMatchDraft = (draft: MatchDraft | null): void => {
+    if (!draft) {
+      return;
+    }
+
+    const teamAIds = [...draft.teamAPlayerIds, ""];
+    const teamBIds = [...draft.teamBPlayerIds, ""];
+    args.matchTypeSelect.value = draft.matchType;
+    args.formatTypeSelect.value = draft.formatType;
+    args.pointsToWinSelect.value = String(draft.pointsToWin);
+    args.formSeasonSelect.value = draft.seasonId;
+    args.formTournamentSelect.value = draft.tournamentId;
+    args.teamA1Select.dataset.pendingValue = teamAIds[0] || "";
+    args.teamA2Select.dataset.pendingValue = teamAIds[1] || "";
+    args.teamB1Select.dataset.pendingValue = teamBIds[0] || "";
+    args.teamB2Select.dataset.pendingValue = teamBIds[1] || "";
+    args.teamA1Select.value = teamAIds[0] || "";
+    args.teamA2Select.value = teamAIds[1] || "";
+    args.teamB1Select.value = teamBIds[0] || "";
+    args.teamB2Select.value = teamBIds[1] || "";
+    args.setActiveTournamentBracketMatchId?.(draft.tournamentBracketMatchId || null);
+    args.matchBracketSelect.value = draft.tournamentBracketMatchId || "";
+    args.scoreInputs.forEach((game, index) => {
+      const score = draft.score[index];
+      game.teamA.value = score ? String(score.teamA) : "";
+      game.teamB.value = score ? String(score.teamB) : "";
+    });
+    const screenRefs = args.getMatchScreenRefs();
+    if (screenRefs.contextToggle) {
+      screenRefs.contextToggle.dataset.mode = draft.contextMode;
+    }
+    populateMatchFormOptions();
+  };
+
   return {
     replaceOptions,
     syncLoadControlsVisibility,
@@ -707,6 +760,8 @@ export const createFormOrchestration = (args: {
     populateMatchFormOptions,
     collectMatchPayload,
     collectSeasonPayload,
+    captureMatchDraft,
+    restoreMatchDraft,
     resetSeasonForm,
     resetTournamentForm,
   };

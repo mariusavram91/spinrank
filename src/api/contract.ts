@@ -9,10 +9,13 @@ export const apiActions = [
   "getSharedUserProfile",
   "getSegmentLeaderboard",
   "getMatches",
+  "checkMatchDuplicate",
   "createMatch",
+  "createMatchDispute",
   "createSeason",
   "createTournament",
   "deactivateMatch",
+  "removeMatchDispute",
   "deactivateTournament",
   "deactivateSeason",
   "getSeasons",
@@ -419,12 +422,23 @@ export interface GetMatchesPayload {
   cursor?: string;
   limit?: number;
   filter?: MatchFeedFilter;
+  targetMatchIds?: string[];
   mode?: "default" | "dashboard_preview";
 }
 
 export interface MatchScoreGame {
   teamA: number;
   teamB: number;
+}
+
+export interface MatchDisputeRecord {
+  id: string;
+  matchId: string;
+  createdByUserId: string;
+  comment: string;
+  status: "active" | "withdrawn";
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MatchRecord {
@@ -442,12 +456,26 @@ export interface MatchRecord {
   createdByUserId: string;
   status: MatchStatus;
   createdAt: string;
+  deleteLockedAt?: string | null;
+  hasActiveDispute?: boolean;
+  currentUserDispute?: MatchDisputeRecord | null;
   bracketContext?: MatchBracketContext | null;
+}
+
+export interface DuplicateMatchCandidate extends MatchRecord {
+  createdByDisplayName: string;
 }
 
 export interface GetMatchesData {
   matches: MatchRecord[];
   nextCursor: string | null;
+  players?: LeaderboardEntry[];
+}
+
+export interface CheckMatchDuplicatePayload extends CreateMatchPayload {}
+
+export interface CheckMatchDuplicateData {
+  matches: DuplicateMatchCandidate[];
   players?: LeaderboardEntry[];
 }
 
@@ -463,10 +491,21 @@ export interface CreateMatchPayload {
   seasonId?: string | null;
   tournamentId?: string | null;
   tournamentBracketMatchId?: string | null;
+  ignoreDuplicateWarning?: boolean;
 }
 
 export interface CreateMatchData {
   match: MatchRecord;
+}
+
+export interface CreateMatchDisputePayload {
+  matchId: string;
+  comment: string;
+}
+
+export interface CreateMatchDisputeData {
+  matchId: string;
+  dispute: MatchDisputeRecord;
 }
 
 export interface DeactivateEntityPayload {
@@ -478,6 +517,26 @@ export interface DeactivateEntityData {
   id: string;
   status: "deleted";
   deletedAt: string;
+}
+
+export interface RemoveMatchDisputePayload {
+  matchId: string;
+}
+
+export interface RemoveMatchDisputeData {
+  matchId: string;
+  removed: boolean;
+}
+
+export interface DisputedMatchAlert {
+  matchId: string;
+  playedAt: string;
+  createdByUserId: string;
+  createdByDisplayName: string;
+  disputedByUserId: string;
+  disputedByDisplayName: string;
+  comment: string;
+  updatedAt: string;
 }
 
 export interface SeasonRecord {
@@ -595,6 +654,7 @@ export interface GetDashboardData {
   matches: MatchRecord[];
   nextCursor: string | null;
   matchBracketContextByMatchId: Record<string, MatchBracketContext>;
+  disputedMatches?: DisputedMatchAlert[];
 }
 
 export interface CreateSegmentShareLinkPayload {
@@ -661,9 +721,17 @@ export interface ApiActionMap {
     payload: GetMatchesPayload;
     data: GetMatchesData;
   };
+  checkMatchDuplicate: {
+    payload: CheckMatchDuplicatePayload;
+    data: CheckMatchDuplicateData;
+  };
   createMatch: {
     payload: CreateMatchPayload;
     data: CreateMatchData;
+  };
+  createMatchDispute: {
+    payload: CreateMatchDisputePayload;
+    data: CreateMatchDisputeData;
   };
   createSeason: {
     payload: CreateSeasonPayload;
@@ -676,6 +744,10 @@ export interface ApiActionMap {
   deactivateMatch: {
     payload: DeactivateEntityPayload;
     data: DeactivateEntityData;
+  };
+  removeMatchDispute: {
+    payload: RemoveMatchDisputePayload;
+    data: RemoveMatchDisputeData;
   };
   deactivateTournament: {
     payload: DeactivateEntityPayload;

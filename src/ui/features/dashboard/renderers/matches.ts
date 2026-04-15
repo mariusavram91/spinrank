@@ -25,8 +25,10 @@ export type MatchesRendererArgs = {
   ) => string;
   formatDateTime: (value: string) => string;
   getCurrentUserId: () => string;
-  canSoftDelete: (resource: { createdByUserId?: string | null }, sessionUserId: string) => boolean;
+  canDeleteMatch: (match: MatchRecord, sessionUserId: string) => boolean;
   onDeleteMatch: (match: MatchRecord) => void;
+  onDisputeMatch: (match: MatchRecord) => void;
+  onRemoveMatchDispute: (match: MatchRecord) => void;
 };
 
 const getMatchFilterEmptyText = (filter: MatchFeedFilter, t: TranslationFn): string => {
@@ -63,6 +65,13 @@ const createTeamBlock = (
   return block;
 };
 
+const DISPUTE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const canCreateDispute = (match: MatchRecord, sessionUserId: string): boolean =>
+  match.createdByUserId !== sessionUserId &&
+  [...match.teamAPlayerIds, ...match.teamBPlayerIds].includes(sessionUserId) &&
+  Date.now() <= new Date(match.createdAt).getTime() + DISPUTE_WINDOW_MS;
+
 export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () => void } => ({
   render: () => {
     args.matchesMeta.textContent = "";
@@ -76,6 +85,10 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
     const matchCards = args.dashboardState.matches.map((match) => {
       const cardNode = document.createElement("article");
       cardNode.className = "match-row";
+      if (args.dashboardState.highlightedMatchId === match.id || args.dashboardState.highlightedMatchIds.includes(match.id)) {
+        cardNode.classList.add("match-row--highlighted");
+      }
+      cardNode.id = `match-row-${match.id}`;
 
       const meta = document.createElement("div");
       meta.className = "match-meta";
@@ -134,6 +147,13 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
         detailLine.append(roundTag);
       }
 
+      if (match.hasActiveDispute) {
+        const disputeTag = document.createElement("span");
+        disputeTag.className = "match-round";
+        disputeTag.textContent = "Disputed";
+        detailLine.append(disputeTag);
+      }
+
       meta.append(header, detailLine);
 
       const footer = document.createElement("div");
@@ -142,7 +162,23 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
       footerText.textContent = args.formatDateTime(match.playedAt);
       footer.append(footerText);
 
-      if (args.canSoftDelete(match, args.getCurrentUserId())) {
+      const currentUserId = args.getCurrentUserId();
+      if (match.currentUserDispute || canCreateDispute(match, currentUserId)) {
+        const disputeButton = document.createElement("button");
+        disputeButton.type = "button";
+        disputeButton.className = "match-row__action-button";
+        disputeButton.textContent = match.currentUserDispute ? "Remove dispute" : "Dispute";
+        disputeButton.addEventListener("click", () => {
+          if (match.currentUserDispute) {
+            void args.onRemoveMatchDispute(match);
+            return;
+          }
+          void args.onDisputeMatch(match);
+        });
+        footer.append(disputeButton);
+      }
+
+      if (args.canDeleteMatch(match, currentUserId)) {
         const deleteMatchButton = document.createElement("button");
         deleteMatchButton.type = "button";
         deleteMatchButton.className = "icon-button match-delete-button";
@@ -161,5 +197,15 @@ export const createMatchesRenderer = (args: MatchesRendererArgs): { render: () =
     });
 
     args.matchesList.replaceChildren(...matchCards);
+    const scrollTargetId = args.dashboardState.pendingHighlightedMatchIds.find((matchId) =>
+      Boolean(args.matchesList.querySelector<HTMLElement>(`#match-row-${matchId}`)),
+    );
+    if (scrollTargetId) {
+      const highlightedNode = args.matchesList.querySelector<HTMLElement>(`#match-row-${scrollTargetId}`);
+      if (highlightedNode) {
+        highlightedNode.scrollIntoView({ block: "center", behavior: "smooth" });
+        args.dashboardState.pendingHighlightedMatchIds = [];
+      }
+    }
   },
 });

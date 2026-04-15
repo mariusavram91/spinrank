@@ -1,7 +1,9 @@
 import { requireSessionUser } from "./auth";
+import { handleCheckMatchDuplicate } from "./actions/checkMatchDuplicate";
 import { handleBootstrapUser } from "./actions/bootstrapUser";
 import { handleUpdateProfile } from "./actions/updateProfile";
 import { handleCreateMatch } from "./actions/createMatch";
+import { handleCreateMatchDispute } from "./actions/createMatchDispute";
 import { handleCreateSeason } from "./actions/createSeason";
 import { handleCreateSegmentShareLink } from "./actions/createSegmentShareLink";
 import { handleCreateTournament } from "./actions/createTournament";
@@ -18,13 +20,16 @@ import { handleGetSegmentLeaderboard } from "./actions/getSegmentLeaderboard";
 import { handleGetTournamentBracket } from "./actions/getTournamentBracket";
 import { handleGetTournaments } from "./actions/getTournaments";
 import { handleGetUserProgress } from "./actions/getUserProgress";
+import { handleRemoveMatchDispute } from "./actions/removeMatchDispute";
 import { errorResponse } from "./responses";
 import { ApiRequestSchema } from "./schemas/api";
 import type {
   ApiAction,
   ApiRequest,
   BootstrapUserPayload,
+  CheckMatchDuplicatePayload,
   CreateMatchPayload,
+  CreateMatchDisputePayload,
   CreateSeasonPayload,
   CreateSegmentShareLinkPayload,
   CreateTournamentPayload,
@@ -37,6 +42,7 @@ import type {
   GetTournamentBracketPayload,
   GetTournamentsPayload,
   MatchFeedFilter,
+  RemoveMatchDisputePayload,
   RedeemSegmentShareLinkPayload,
   UpdateProfilePayload,
   Env,
@@ -122,6 +128,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
       );
     case "getMatches":
       return handleGetMatches(apiRequest as ApiRequest<"getMatches", GetMatchesPayload>, sessionUser, env);
+    case "checkMatchDuplicate":
+      return handleCheckMatchDuplicate(
+        apiRequest as ApiRequest<"checkMatchDuplicate", CheckMatchDuplicatePayload>,
+        sessionUser,
+        env,
+      );
     case "getSeasons":
       return handleGetSeasons(apiRequest as ApiRequest<"getSeasons">, sessionUser, env);
     case "getSegmentLeaderboard":
@@ -146,6 +158,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
       return handleGetUserProgress(apiRequest as ApiRequest<"getUserProgress">, sessionUser, env);
     case "createMatch":
       return handleCreateMatch(apiRequest as ApiRequest<"createMatch", CreateMatchPayload>, sessionUser, env);
+    case "createMatchDispute":
+      return handleCreateMatchDispute(
+        apiRequest as ApiRequest<"createMatchDispute", CreateMatchDisputePayload>,
+        sessionUser,
+        env,
+      );
     case "createSeason":
       return handleCreateSeason(apiRequest as ApiRequest<"createSeason", CreateSeasonPayload>, sessionUser, env);
     case "createSegmentShareLink":
@@ -169,6 +187,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
     case "deactivateMatch":
       return handleDeactivateMatch(
         apiRequest as ApiRequest<"deactivateMatch", DeactivateEntityPayload>,
+        sessionUser,
+        env,
+      );
+    case "removeMatchDispute":
+      return handleRemoveMatchDispute(
+        apiRequest as ApiRequest<"removeMatchDispute", RemoveMatchDisputePayload>,
         sessionUser,
         env,
       );

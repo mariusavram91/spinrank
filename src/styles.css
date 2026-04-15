@@ -1866,6 +1866,26 @@ select.text-input {
   justify-content: flex-end;
 }
 
+.match-row__action-button {
+  border: 1px solid rgba(98, 84, 61, 0.22);
+  background: rgba(246, 239, 227, 0.9);
+  color: #4f4332;
+  font-size: 0.76rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.match-row__action-button:hover:enabled {
+  color: #2f261c;
+  background: rgba(237, 225, 205, 0.98);
+}
+
+.match-row--highlighted {
+  outline: 2px solid rgba(205, 116, 36, 0.55);
+  background: rgba(255, 238, 217, 0.92);
+}
+
 .match-type,
 .match-context,
 .match-round {
@@ -4092,6 +4112,28 @@ body.app-busy * {
 .share-alert--visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.dashboard-alert-button {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.dashboard-alert-button + .dashboard-alert-button {
+  border-top: 1px solid rgba(31, 77, 34, 0.14);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.dashboard-alert-button:hover {
+  text-decoration: underline;
 }
 
 .match-composer-alert {

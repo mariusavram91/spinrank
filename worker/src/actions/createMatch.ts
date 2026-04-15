@@ -3,6 +3,7 @@ import { errorResponse, successResponse } from "../responses";
 import { createEnqueueAchievementTriggerStatement } from "../services/achievements";
 import { applyBracketResult, getBracketRounds, isTournamentBracketCompleted, saveTournamentBracket } from "../services/brackets";
 import { computeEloDeltaForTeams, createBlankRatingState, recomputeAllRankings } from "../services/elo";
+import { buildMatchupKey, computeDeleteLockedAt, findDuplicateMatches } from "../services/matchGuards";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
 import type {
   ApiRequest,
@@ -166,6 +167,7 @@ export async function handleCreateMatch(
     const playedAt = String(payload.playedAt || "");
     const requestedSeasonId = payload.seasonId || null;
     const tournamentId = payload.tournamentId || null;
+    const ignoreDuplicateWarning = Boolean(payload.ignoreDuplicateWarning);
 
     if (matchType !== "singles" && matchType !== "doubles") {
       return errorResponse(request.requestId, "VALIDATION_ERROR", "createMatch requires a valid match type.");
@@ -198,6 +200,21 @@ export async function handleCreateMatch(
     }
 
     validateMatchScore(formatType, pointsToWin, score, winnerTeam);
+
+    if (!ignoreDuplicateWarning) {
+      const duplicateMatches = await findDuplicateMatches(env, {
+        teamAPlayerIds,
+        teamBPlayerIds,
+        playedAt,
+      });
+      if (duplicateMatches.length > 0) {
+        return errorResponse(
+          request.requestId,
+          "CONFLICT",
+          "Possible duplicate match found. Review recent matches or confirm creation explicitly.",
+        );
+      }
+    }
 
     const tournament = tournamentId ? await getTournamentById(env, tournamentId) : null;
     if (tournament && !(await canAccessTournament(env, tournament, sessionUser.id))) {
@@ -279,6 +296,8 @@ export async function handleCreateMatch(
     }
 
     const matchId = randomId("match", env.runtime);
+    const matchupKey = buildMatchupKey(teamAPlayerIds, teamBPlayerIds);
+    const deleteLockedAt = computeDeleteLockedAt(nowIso);
     await env.DB.batch([
       env.DB.prepare(
         `
@@ -286,8 +305,8 @@ export async function handleCreateMatch(
             id, match_type, format_type, points_to_win, team_a_player_ids_json, team_b_player_ids_json,
             score_json, winner_team, global_elo_delta_json, segment_elo_delta_json, played_at, season_id,
             tournament_id, created_by_user_id, status, deactivated_at, deactivated_by_user_id,
-            deactivation_reason, created_at
-          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'active', NULL, NULL, NULL, ?15)
+            deactivation_reason, created_at, matchup_key, delete_locked_at, has_active_dispute
+          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'active', NULL, NULL, NULL, ?15, ?16, ?17, 0)
         `,
       ).bind(
         matchId,
@@ -305,6 +324,8 @@ export async function handleCreateMatch(
         tournamentId,
         sessionUser.id,
         nowIso,
+        matchupKey,
+        deleteLockedAt,
       ),
       ...teamAPlayerIds.map((playerId) =>
         env.DB.prepare(
@@ -401,6 +422,9 @@ export async function handleCreateMatch(
         createdByUserId: sessionUser.id,
         status: "active",
         createdAt: nowIso,
+        deleteLockedAt,
+        hasActiveDispute: false,
+        currentUserDispute: null,
       },
     });
   } catch (error) {

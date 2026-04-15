@@ -104,6 +104,7 @@ import {
 } from "./features/app/state";
 import {
   buildSessionFromBootstrap,
+  canDeleteMatch,
   canSoftDelete,
   getCurrentUserId,
   getMatchFeedContextLabel,
@@ -257,8 +258,11 @@ export const buildApp = (): HTMLElement => {
     exitAppOverlay,
     exitAppStayButton,
     promptDeleteWarning,
+    promptMatchDuplicateWarning,
+    promptMatchDisputeReason,
     dashboardStatus,
     shareAlert,
+    disputedAlert,
     viewGrid,
     progressPanel,
     progressSubtitle,
@@ -684,9 +688,15 @@ export const buildApp = (): HTMLElement => {
       renderMatchContext(match, seasons, tournaments, bracketContext, t, options),
     formatDateTime,
     getCurrentUserId: () => getCurrentUserId(state.current),
-    canSoftDelete,
+    canDeleteMatch,
     onDeleteMatch: (match) => {
       void deleteMatch(match);
+    },
+    onDisputeMatch: (match) => {
+      void disputeMatch(match);
+    },
+    onRemoveMatchDispute: (match) => {
+      void removeMatchDispute(match);
     },
   });
 
@@ -801,6 +811,8 @@ export const buildApp = (): HTMLElement => {
     populateMatchFormOptions,
     collectMatchPayload,
     collectSeasonPayload,
+    captureMatchDraft,
+    restoreMatchDraft,
     resetSeasonForm,
     resetTournamentForm,
   } = createFormOrchestration({
@@ -810,6 +822,9 @@ export const buildApp = (): HTMLElement => {
     getCurrentUserId: () => getCurrentUserId(state.current),
     isAuthedState,
     getActiveTournamentBracketMatchId: () => activeTournamentBracketMatchId,
+    setActiveTournamentBracketMatchId: (value) => {
+      activeTournamentBracketMatchId = value;
+    },
     loadSeasonSelect,
     loadTournamentSelect,
     seasonSelect,
@@ -1139,6 +1154,7 @@ export const buildApp = (): HTMLElement => {
     dom: {
       dashboardStatus,
       shareAlert,
+      disputedAlert,
       globalButton,
       seasonButton,
       tournamentButton,
@@ -1233,6 +1249,19 @@ export const buildApp = (): HTMLElement => {
       leaderboard: leaderboardRenderer,
       matches: matchesRenderer,
       progress: progressRenderer,
+    },
+    onDisputedMatchAlertClick: (matchId) => {
+      dashboardState.screen = "dashboard";
+      dashboardState.highlightedMatchId = matchId;
+      dashboardState.highlightedMatchIds = [matchId];
+      dashboardState.pendingHighlightedMatchIds = [matchId];
+      syncDashboardState();
+      void applyMatchFilter("mine", {
+        force: true,
+        ensureMatchIds: [matchId],
+      }).then(() => {
+        syncDashboardState();
+      });
     },
     helpers: {
       renderSeasonDraftSummary,
@@ -1491,7 +1520,7 @@ export const buildApp = (): HTMLElement => {
     getMatchLimitForFilter,
   });
 
-  const { submitMatch, deleteMatch } = createMatchActions({
+  const { submitMatch, deleteMatch, disputeMatch, removeMatchDispute } = createMatchActions({
     dashboardState,
     tournamentPlannerState,
     runAuthedAction,
@@ -1503,6 +1532,7 @@ export const buildApp = (): HTMLElement => {
       await loadTournamentBracket();
     },
     collectMatchPayload,
+    captureMatchDraft,
     resetScoreInputs,
     clearActiveTournamentBracketMatchId: () => {
       activeTournamentBracketMatchId = null;
@@ -1514,9 +1544,13 @@ export const buildApp = (): HTMLElement => {
       loadTournamentSelect.value = value;
     },
     promptDeleteWarning: async (request) => promptDeleteWarning(request),
+    promptMatchDuplicateWarning: async (items) => promptMatchDuplicateWarning(items),
+    promptMatchDisputeReason: async (request) => promptMatchDisputeReason(request),
+    applyMatchFilter,
     renderMatchContext: (match, seasons, tournaments, bracketContext, options) =>
       renderMatchContext(match, seasons, tournaments, bracketContext, t, options),
     renderMatchScore,
+    renderPlayerNames,
     formatDateTime,
   });
 
@@ -2077,7 +2111,8 @@ export const buildApp = (): HTMLElement => {
     syncDashboardState,
     loadDashboard,
     openProfileScreen,
-    resetScoreInputs,
+    captureMatchDraft,
+    restoreMatchDraft,
     showScoreCard,
     hideScoreCard,
     populateTournamentPlannerLoadOptions,
@@ -2306,6 +2341,7 @@ export const buildApp = (): HTMLElement => {
     refreshButton,
     welcomeText,
     dashboard,
+    disputedAlert,
     progressPanel,
     dashboardStatus,
     viewGrid,

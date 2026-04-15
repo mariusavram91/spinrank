@@ -23,6 +23,23 @@ export const isAuthedState = (
 export const canSoftDelete = (resource: { createdByUserId?: string | null }, sessionUserId: string): boolean =>
   resource.createdByUserId === sessionUserId;
 
+export const canDeleteMatch = (
+  match: Pick<MatchRecord, "createdByUserId" | "deleteLockedAt" | "hasActiveDispute">,
+  sessionUserId: string,
+  nowIso = new Date().toISOString(),
+): boolean => {
+  if (match.createdByUserId !== sessionUserId) {
+    return false;
+  }
+  if (match.hasActiveDispute) {
+    return true;
+  }
+  if (!match.deleteLockedAt) {
+    return false;
+  }
+  return new Date(nowIso).getTime() <= new Date(match.deleteLockedAt).getTime();
+};
+
 export const getMatchFeedContextLabel = (
   season: SeasonRecord | undefined,
   tournament: TournamentRecord | undefined,

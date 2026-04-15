@@ -1,5 +1,6 @@
 import { decodeCursor, encodeCursor, parseJsonArray, parseJsonObject } from "../db";
 import { successResponse } from "../responses";
+import { mapMatchRecordRow } from "../services/matchGuards";
 import type { ApiRequest, Env, GetMatchesPayload, LeaderboardEntry, MatchRecord, UserRow } from "../types";
 
 type MatchRow = {
@@ -17,6 +18,14 @@ type MatchRow = {
   created_by_user_id: string;
   status: MatchRecord["status"];
   created_at: string;
+  delete_locked_at: string | null;
+  has_active_dispute: number;
+  dispute_id: string | null;
+  dispute_created_by_user_id: string | null;
+  dispute_comment: string | null;
+  dispute_status: string | null;
+  dispute_created_at: string | null;
+  dispute_updated_at: string | null;
   round_title: string | null;
   is_final: number | null;
 };
@@ -43,6 +52,14 @@ function buildSelectColumns(): string {
     m.created_by_user_id,
     m.status,
     m.created_at,
+    m.delete_locked_at,
+    m.has_active_dispute,
+    viewer_dispute.id AS dispute_id,
+    viewer_dispute.created_by_user_id AS dispute_created_by_user_id,
+    viewer_dispute.comment AS dispute_comment,
+    viewer_dispute.status AS dispute_status,
+    viewer_dispute.created_at AS dispute_created_at,
+    viewer_dispute.updated_at AS dispute_updated_at,
     tbm.round_title,
     tbm.is_final
   `;
@@ -60,6 +77,10 @@ function buildVisibilityJoins(userBinding: string): string {
       ON tp.tournament_id = m.tournament_id AND tp.user_id = ${userBinding}
     LEFT JOIN tournament_bracket_matches tbm
       ON tbm.created_match_id = m.id
+    LEFT JOIN match_disputes viewer_dispute
+      ON viewer_dispute.match_id = m.id
+     AND viewer_dispute.created_by_user_id = ${userBinding}
+     AND viewer_dispute.status = 'active'
   `;
 }
 
@@ -95,22 +116,41 @@ function buildInClausePlaceholders(count: number): string {
   return Array.from({ length: count }, (_, index) => `?${index + 1}`).join(", ");
 }
 
+async function loadTargetMatches(
+  env: Env,
+  sessionUserId: string,
+  filter: GetMatchesPayload["filter"],
+  targetMatchIds: string[],
+): Promise<MatchRow[]> {
+  if (targetMatchIds.length === 0) {
+    return [];
+  }
+
+  const viewerJoin =
+    filter === "mine" ? "INNER JOIN match_players viewer_mp ON viewer_mp.match_id = m.id AND viewer_mp.user_id = ?1" : "";
+  const placeholders = buildInClausePlaceholders(targetMatchIds.length);
+  const result = await env.DB.prepare(
+    `
+      SELECT
+        ${buildSelectColumns()}
+      FROM matches m
+      ${viewerJoin}
+      ${buildVisibilityJoins("?1")}
+      WHERE ${buildVisibilityPredicate("?1")}
+        AND m.id IN (${placeholders})
+    `,
+  )
+    .bind(sessionUserId, ...targetMatchIds)
+    .all<MatchRow>();
+
+  const byId = new Map(result.results.map((row) => [row.id, row]));
+  return targetMatchIds.map((matchId) => byId.get(matchId)).filter((row): row is MatchRow => Boolean(row));
+}
+
 function mapMatchRow(row: MatchRow): MatchRecord {
+  const match = mapMatchRecordRow(row);
   return {
-    id: row.id,
-    matchType: row.match_type,
-    formatType: row.format_type,
-    pointsToWin: row.points_to_win as 11 | 21,
-    teamAPlayerIds: parseJsonArray<string>(row.team_a_player_ids_json),
-    teamBPlayerIds: parseJsonArray<string>(row.team_b_player_ids_json),
-    score: parseJsonObject(row.score_json, []),
-    winnerTeam: row.winner_team,
-    playedAt: row.played_at,
-    seasonId: row.season_id,
-    tournamentId: row.tournament_id,
-    createdByUserId: row.created_by_user_id,
-    status: row.status,
-    createdAt: row.created_at,
+    ...match,
     bracketContext: row.round_title
       ? {
           roundTitle: row.round_title,
@@ -272,7 +312,13 @@ export async function handleGetMatches(
   const filter = normalizeMatchFilter(request.payload?.filter);
   const limit = Math.min(Math.max(request.payload?.limit ?? (filter === "recent" ? 4 : 20), 1), 50);
   const cursor = decodeCursor(request.payload?.cursor);
+  const targetMatchIds = [...new Set((request.payload?.targetMatchIds ?? []).filter((value): value is string => Boolean(value)))].slice(0, 10);
   const dashboardPreview = isDashboardPreviewMode(request.payload) && !cursor;
+
+  if (targetMatchIds.length > 0) {
+    const rows = await loadTargetMatches(env, sessionUser.id, filter, targetMatchIds);
+    return buildMatchPageResponse(request.requestId, env, rows, rows.length);
+  }
 
   if (dashboardPreview) {
     const rows = await loadDashboardPreviewMatches(env, sessionUser.id, filter, limit);

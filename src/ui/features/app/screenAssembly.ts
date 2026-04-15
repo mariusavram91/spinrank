@@ -21,6 +21,7 @@ export const assembleAppScreens = (args: {
   refreshButton: HTMLButtonElement;
   welcomeText: HTMLParagraphElement;
   dashboard: HTMLElement;
+  disputedAlert?: HTMLElement;
   progressPanel: HTMLElement;
   dashboardStatus: HTMLElement;
   viewGrid: HTMLElement;
@@ -116,6 +117,7 @@ export const assembleAppScreens = (args: {
   attachDashboardLayout({
     dashboard: args.dashboard,
     dashboardHeader,
+    disputedAlert: args.disputedAlert ?? document.createElement("div"),
     progressPanel: args.progressPanel,
     dashboardStatus: args.dashboardStatus,
     viewGrid: args.viewGrid,

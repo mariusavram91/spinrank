@@ -2,11 +2,13 @@ import type {
   AchievementOverview,
   GetSharedUserProfileData,
   AppSession,
+  DisputedMatchAlert,
   GetTournamentBracketData,
   GetUserProgressData,
   LeaderboardEntry,
   MatchFeedFilter,
   MatchRecord,
+  MatchScoreGame,
   ParticipantSearchEntry,
   SeasonRecord,
   SegmentLeaderboardStats,
@@ -63,6 +65,10 @@ export interface DashboardState {
   tournaments: TournamentRecord[];
   matchesFilter: MatchFeedFilter;
   matches: MatchRecord[];
+  disputedMatches: DisputedMatchAlert[];
+  highlightedMatchId: string;
+  highlightedMatchIds: string[];
+  pendingHighlightedMatchIds: string[];
   matchesCursor: string | null;
   matchesLoading: boolean;
   profileMatches: MatchRecord[];
@@ -98,6 +104,7 @@ export interface DashboardState {
   editingSeasonParticipantIds: string[];
   seasonDraftMode: SeasonDraftMode;
   pendingCreateRequestId: string;
+  matchDraft: MatchDraft | null;
   shareCache: Record<string, SegmentShareInfo>;
   shareErrors: Record<string, string>;
   shareLoadingSegmentKey: string;
@@ -133,6 +140,19 @@ export interface FairPlayerProfile {
   displayName: string;
   elo: number;
   winRate: number;
+}
+
+export interface MatchDraft {
+  contextMode: "open" | "season" | "tournament";
+  matchType: "singles" | "doubles";
+  formatType: "single_game" | "best_of_3";
+  pointsToWin: 11 | 21;
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
+  score: MatchScoreGame[];
+  seasonId: string;
+  tournamentId: string;
+  tournamentBracketMatchId: string;
 }
 
 export interface SuggestedMatchup {

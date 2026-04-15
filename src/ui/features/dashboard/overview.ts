@@ -3,6 +3,7 @@ import { bindLocalizedText } from "../../shared/i18n/runtime";
 export interface DashboardOverviewElements {
   dashboardStatus: HTMLParagraphElement;
   shareAlert: HTMLDivElement;
+  disputedAlert: HTMLDivElement;
   viewGrid: HTMLDivElement;
   progressPanel: HTMLElement;
   progressSubtitle: HTMLParagraphElement;
@@ -52,6 +53,11 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   shareAlert.className = "share-alert";
   shareAlert.setAttribute("aria-live", "polite");
   shareAlert.hidden = true;
+
+  const disputedAlert = document.createElement("div");
+  disputedAlert.className = "share-alert";
+  disputedAlert.setAttribute("aria-live", "polite");
+  disputedAlert.hidden = true;
 
   const viewGrid = document.createElement("div");
   viewGrid.className = "view-grid";
@@ -311,6 +317,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   return {
     dashboardStatus,
     shareAlert,
+    disputedAlert,
     viewGrid,
     progressPanel,
     progressSubtitle,

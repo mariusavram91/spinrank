@@ -1,5 +1,5 @@
 import type { SegmentType } from "../../../api/contract";
-import type { SharePanelElements } from "../../shared/types/app";
+import type { MatchDraft, SharePanelElements } from "../../shared/types/app";
 
 export const createTopLevelUiHandlers = (args: {
   authActions: HTMLElement;
@@ -14,7 +14,8 @@ export const createTopLevelUiHandlers = (args: {
   syncDashboardState: () => void;
   loadDashboard: () => Promise<void>;
   openProfileScreen: () => Promise<void>;
-  resetScoreInputs: () => void;
+  captureMatchDraft?: () => MatchDraft;
+  restoreMatchDraft?: (draft: MatchDraft | null) => void;
   showScoreCard: () => void;
   hideScoreCard: () => void;
   populateTournamentPlannerLoadOptions: () => void;
@@ -40,6 +41,8 @@ export const createTopLevelUiHandlers = (args: {
     seasonFormError: string;
     seasonFormMessage: string;
     tournamentFormMessage: string;
+    matchFormMessage?: string;
+    matchDraft?: MatchDraft | null;
   };
   tournamentPlannerState: {
     error: string;
@@ -126,8 +129,11 @@ export const createTopLevelUiHandlers = (args: {
   },
   onOpenCreateMatch: () => {
     args.menuState.createMenuOpen = false;
-    args.resetScoreInputs();
     args.dashboardState.screen = "createMatch";
+    if (args.dashboardState.matchDraft) {
+      args.restoreMatchDraft?.(args.dashboardState.matchDraft);
+      args.dashboardState.matchFormMessage = "Restored unsaved match draft.";
+    }
     args.syncAuthState();
     args.syncDashboardState();
   },
@@ -160,6 +166,7 @@ export const createTopLevelUiHandlers = (args: {
     args.syncDashboardState();
   },
   onCloseCreateMatch: () => {
+    args.dashboardState.matchDraft = args.captureMatchDraft ? args.captureMatchDraft() : args.dashboardState.matchDraft;
     args.dashboardState.screen = "dashboard";
     args.syncAuthState();
     args.syncDashboardState();

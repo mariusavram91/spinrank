@@ -18,6 +18,7 @@ type TranslationFn = (key: TextKey) => string;
 type DashboardSyncDom = {
   dashboardStatus: HTMLElement;
   shareAlert: HTMLElement;
+  disputedAlert?: HTMLElement;
   globalButton: HTMLButtonElement;
   seasonButton: HTMLButtonElement;
   tournamentButton: HTMLButtonElement;
@@ -136,6 +137,7 @@ export const createDashboardSync = (args: {
   sharePanels: SharePanelSyncData;
   renderers: RendererSet;
   helpers: DashboardSyncHelpers;
+  onDisputedMatchAlertClick?: (matchId: string) => void;
   t: TranslationFn;
 }) => {
   const getBestWinRatePlayer = (): { entry: LeaderboardEntry; rate: number; matches: number } | null => {
@@ -221,6 +223,28 @@ export const createDashboardSync = (args: {
       args.dom.dashboardStatus.dataset.status = args.dashboardState.error ? "error" : "ready";
       args.dom.shareAlert.textContent = args.dashboardState.shareAlertMessage;
       args.dom.shareAlert.hidden = !Boolean(args.dashboardState.shareAlertMessage);
+      args.dom.shareAlert.classList.toggle("share-alert--visible", Boolean(args.dashboardState.shareAlertMessage));
+      const disputedMessage = args.dashboardState.disputedMatches.length > 0
+        ? args.dashboardState.disputedMatches
+          .map((alert) => `${alert.disputedByDisplayName} disputed ${new Date(alert.playedAt).toLocaleString()}`)
+          .join(" | ")
+        : "";
+      if (args.dom.disputedAlert) {
+        args.dom.disputedAlert.replaceChildren(
+          ...args.dashboardState.disputedMatches.map((alert) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "dashboard-alert-button";
+            button.textContent = `Disputed match • ${new Date(alert.playedAt).toLocaleString()} • ${alert.disputedByDisplayName}: ${alert.comment}`;
+            button.addEventListener("click", () => {
+              args.onDisputedMatchAlertClick?.(alert.matchId);
+            });
+            return button;
+          }),
+        );
+        args.dom.disputedAlert.hidden = !Boolean(disputedMessage);
+        args.dom.disputedAlert.classList.toggle("share-alert--visible", Boolean(disputedMessage));
+      }
 
       args.dom.globalButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "global"));
       args.dom.seasonButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "season"));

@@ -89,6 +89,7 @@ export const buildMatchesPanel = (args: {
 export const attachDashboardLayout = (args: {
   dashboard: HTMLElement;
   dashboardHeader: HTMLElement;
+  disputedAlert: HTMLElement;
   progressPanel: HTMLElement;
   dashboardStatus: HTMLElement;
   viewGrid: HTMLElement;
@@ -96,5 +97,5 @@ export const attachDashboardLayout = (args: {
   matchesPanel: HTMLElement;
 }): void => {
   args.viewGrid.append(args.leaderboardPanel, args.matchesPanel);
-  args.dashboard.append(args.dashboardHeader, args.progressPanel, args.dashboardStatus, args.viewGrid);
+  args.dashboard.append(args.dashboardHeader, args.disputedAlert, args.progressPanel, args.dashboardStatus, args.viewGrid);
 };

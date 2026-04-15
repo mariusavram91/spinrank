@@ -4,6 +4,8 @@ import { buildDashboardOverview } from "../dashboard/overview";
 import { buildFooter } from "../../shared/components/footer";
 import { buildLanguageSwitch } from "../../shared/components/languageSwitch";
 import { buildLoginView } from "../../shared/components/loginView";
+import { buildMatchDuplicateWarning } from "../../shared/components/matchDuplicateWarning";
+import { buildMatchDisputeModal } from "../../shared/components/matchDisputeModal";
 import { buildScoreCard } from "../../shared/components/scoreCard";
 import { buildDeleteWarning } from "../../shared/components/deleteWarning";
 import { languageOptions } from "../../shared/i18n/translations";
@@ -511,6 +513,8 @@ export const createAppDom = (args: {
   });
   openScoreCardButton.dataset.testid = "open-scorecard-button";
   const { overlay: deleteWarningOverlay, prompt: promptDeleteWarning } = buildDeleteWarning();
+  const { overlay: duplicateWarningOverlay, prompt: promptMatchDuplicateWarning } = buildMatchDuplicateWarning();
+  const { overlay: disputeReasonOverlay, prompt: promptMatchDisputeReason } = buildMatchDisputeModal();
 
   const exitAppOverlay = document.createElement("div");
   exitAppOverlay.className = "delete-warning-overlay";
@@ -940,6 +944,7 @@ export const createAppDom = (args: {
   card.append(
     header,
     dashboardOverview.shareAlert,
+    dashboardOverview.disputedAlert,
     loginView,
     dashboard,
     createMatchScreen,
@@ -951,7 +956,15 @@ export const createAppDom = (args: {
     privacyScreen,
     footer,
   );
-  container.append(card, scoreCardOverlay, deleteWarningOverlay, exitAppOverlay, loadingOverlay);
+  container.append(
+    card,
+    scoreCardOverlay,
+    deleteWarningOverlay,
+    duplicateWarningOverlay,
+    disputeReasonOverlay,
+    exitAppOverlay,
+    loadingOverlay,
+  );
 
   return {
     container,
@@ -1032,9 +1045,13 @@ export const createAppDom = (args: {
     syncScoreCard,
     setScoreCardSaveMatchHandler,
     deleteWarningOverlay,
+    duplicateWarningOverlay,
+    disputeReasonOverlay,
     exitAppOverlay,
     exitAppStayButton,
     promptDeleteWarning,
+    promptMatchDuplicateWarning,
+    promptMatchDisputeReason,
     ...dashboardOverview,
     composerPanel,
     composerTop,

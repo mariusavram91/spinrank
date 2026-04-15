@@ -3,6 +3,7 @@ import { errorResponse, successResponse } from "../responses";
 import { getAchievementOverview } from "../services/achievements";
 import { getBracketRounds } from "../services/brackets";
 import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { mapMatchRecordRow } from "../services/matchGuards";
 import { getProfileActivityHeatmap } from "../services/profileActivity";
 import { buildVisibleSeasonsSql, buildVisibleTournamentsSql, getRecentCompletionCutoffDate } from "../services/visibility";
 import type {
@@ -35,6 +36,8 @@ type MatchRow = {
   created_by_user_id: string;
   status: MatchRecord["status"];
   created_at: string;
+  delete_locked_at: string | null;
+  has_active_dispute: number;
   round_title: string | null;
   is_final: number | null;
 };
@@ -84,6 +87,8 @@ const buildSelectColumns = (): string => `
   m.created_by_user_id,
   m.status,
   m.created_at,
+  m.delete_locked_at,
+  m.has_active_dispute,
   tbm.round_title,
   tbm.is_final
 `;
@@ -115,20 +120,7 @@ const buildVisibilityPredicate = (): string => `
 `;
 
 const mapMatchRow = (row: MatchRow): MatchRecord => ({
-  id: row.id,
-  matchType: row.match_type,
-  formatType: row.format_type,
-  pointsToWin: row.points_to_win as 11 | 21,
-  teamAPlayerIds: parseJsonArray<string>(row.team_a_player_ids_json),
-  teamBPlayerIds: parseJsonArray<string>(row.team_b_player_ids_json),
-  score: JSON.parse(row.score_json),
-  winnerTeam: row.winner_team,
-  playedAt: row.played_at,
-  seasonId: row.season_id,
-  tournamentId: row.tournament_id,
-  createdByUserId: row.created_by_user_id,
-  status: row.status,
-  createdAt: row.created_at,
+  ...mapMatchRecordRow(row),
   bracketContext: row.round_title
     ? {
         roundTitle: row.round_title,

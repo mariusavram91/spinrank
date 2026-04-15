@@ -2,6 +2,7 @@ import { isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { rebuildTournamentBracket } from "../services/brackets";
 import { createBlankRatingState, recomputeAllRankings } from "../services/elo";
+import { computeDeleteLockedAt, isMatchDeletionAllowed } from "../services/matchGuards";
 import type { ApiRequest, DeactivateEntityPayload, Env, UserRow } from "../types";
 
 type DeactivateMatchRow = {
@@ -18,6 +19,8 @@ type DeactivateMatchRow = {
   segment_elo_delta_json: string;
   played_at: string;
   created_at: string;
+  delete_locked_at: string | null;
+  has_active_dispute: number;
 };
 
 type PlayerMatchHistoryRow = {
@@ -295,7 +298,9 @@ export async function handleDeactivateMatch(
         global_elo_delta_json,
         segment_elo_delta_json,
         played_at,
-        created_at
+        created_at,
+        delete_locked_at,
+        has_active_dispute
       FROM matches
       WHERE id = ?1
     `,
@@ -311,6 +316,24 @@ export async function handleDeactivateMatch(
   }
   if (match.tournament_id && !match.season_id && (await hasLaterDependentTournamentMatches(env, match.id))) {
     return errorResponse(request.requestId, "CONFLICT", "Only the latest tournament match can be deleted.");
+  }
+  const effectiveDeleteLockedAt = match.delete_locked_at || computeDeleteLockedAt(match.created_at);
+  if (
+    !isMatchDeletionAllowed(
+      {
+        createdByUserId: match.created_by_user_id,
+        deleteLockedAt: effectiveDeleteLockedAt,
+        hasActiveDispute: Boolean(match.has_active_dispute),
+      },
+      sessionUser.id,
+      isoNow(env.runtime),
+    )
+  ) {
+    return errorResponse(
+      request.requestId,
+      "FORBIDDEN",
+      "This match can no longer be deleted unless it has an active dispute.",
+    );
   }
 
   const nowIso = isoNow(env.runtime);
