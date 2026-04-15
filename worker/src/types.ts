@@ -128,6 +128,8 @@ export interface LeaderboardEntry {
   losses: number;
   streak: number;
   bestWinStreak?: number;
+  highestElo?: number;
+  highestScore?: number;
   rank: number;
   seasonScore?: number;
   seasonGlickoRating?: number;
@@ -618,6 +620,7 @@ export interface UserRow {
   avatar_url: string | null;
   locale: LocaleCode;
   global_elo: number;
+  highest_global_elo?: number;
   wins: number;
   losses: number;
   streak: number;

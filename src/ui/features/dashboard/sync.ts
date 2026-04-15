@@ -76,6 +76,10 @@ type DashboardSyncDom = {
   leaderboardStatLongestStreakLabel: HTMLElement;
   leaderboardStatLongestStreakPlayer: HTMLElement;
   leaderboardStatLongestStreakMeta: HTMLElement;
+  leaderboardStatHighestPeak: HTMLElement;
+  leaderboardStatHighestPeakLabel: HTMLElement;
+  leaderboardStatHighestPeakPlayer: HTMLElement;
+  leaderboardStatHighestPeakMeta: HTMLElement;
   leaderboardStatMostWins: HTMLElement;
   leaderboardStatMostWinsPlayer: HTMLElement;
   leaderboardStatMostWinsMeta: HTMLElement;
@@ -171,6 +175,41 @@ export const createDashboardSync = (args: {
         return entry;
       }
       return best;
+    }, null);
+
+  const getHighestPeakPlayer = (): LeaderboardEntry | null =>
+    args.dashboardState.leaderboard.reduce<LeaderboardEntry | null>((best, entry) => {
+      const matches = entry.wins + entry.losses;
+      if (matches <= 0) {
+        return best;
+      }
+
+      const peakValue =
+        args.dashboardState.segmentMode === "season" ? Number(entry.highestScore ?? 0) : Number(entry.highestElo ?? 0);
+      if (peakValue <= 0) {
+        return best;
+      }
+      if (!best) {
+        return entry;
+      }
+
+      const bestPeakValue =
+        args.dashboardState.segmentMode === "season"
+          ? Number(best.highestScore ?? 0)
+          : Number(best.highestElo ?? 0);
+      if (peakValue !== bestPeakValue) {
+        return peakValue > bestPeakValue ? entry : best;
+      }
+
+      const bestMatches = best.wins + best.losses;
+      if (matches !== bestMatches) {
+        return matches > bestMatches ? entry : best;
+      }
+      if (entry.wins !== best.wins) {
+        return entry.wins > best.wins ? entry : best;
+      }
+
+      return entry.displayName.localeCompare(best.displayName) < 0 ? entry : best;
     }, null);
 
   return {
@@ -363,11 +402,13 @@ export const createDashboardSync = (args: {
       const mostWinsPlayer = !isTournamentMode ? leaderboardStats?.mostWinsPlayer ?? null : null;
       const bestWinRatePlayer = !isTournamentMode ? getBestWinRatePlayer() : null;
       const longestStreakPlayer = !isTournamentMode ? getLongestStreakPlayer() : null;
+      const highestPeakPlayer = !isTournamentMode ? getHighestPeakPlayer() : null;
 
       const showStats =
         Boolean(leaderboardStats?.totalMatches) ||
         Boolean(busiestPlayer) ||
         Boolean(mostWinsPlayer) ||
+        Boolean(highestPeakPlayer) ||
         Boolean(bestWinRatePlayer) ||
         Boolean(longestStreakPlayer);
       args.dom.leaderboardStatsGroup.hidden = !showStats;
@@ -398,6 +439,23 @@ export const createDashboardSync = (args: {
         args.dom.leaderboardStatLongestStreak.hidden = false;
       } else {
         args.dom.leaderboardStatLongestStreak.hidden = true;
+      }
+
+      if (highestPeakPlayer) {
+        const isSeasonMode = args.dashboardState.segmentMode === "season";
+        const peakValue = isSeasonMode
+          ? Number(highestPeakPlayer.highestScore ?? 0)
+          : Number(highestPeakPlayer.highestElo ?? 0);
+        args.dom.leaderboardStatHighestPeakLabel.textContent = args.t(
+          isSeasonMode ? "leaderboardHighestScoreLabel" : "leaderboardHighestEloLabel",
+        );
+        args.dom.leaderboardStatHighestPeakPlayer.textContent = highestPeakPlayer.displayName;
+        args.dom.leaderboardStatHighestPeakMeta.textContent = ` • 📈 ${formatCount(peakValue)} ${args.t(
+          isSeasonMode ? "leaderboardSeasonScore" : "progressElo",
+        )}`;
+        args.dom.leaderboardStatHighestPeak.hidden = false;
+      } else {
+        args.dom.leaderboardStatHighestPeak.hidden = true;
       }
 
       if (!isTournamentMode && mostWinsPlayer && mostWinsPlayer.wins > 0) {

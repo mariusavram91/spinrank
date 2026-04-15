@@ -42,6 +42,7 @@ function buildInClausePlaceholders(count: number, startIndex = 1): string {
 function replayGlobalUserState(userId: string, rows: PlayerMatchHistoryRow[], nowIso: string) {
   const nextState = {
     elo: 1200,
+    highestElo: 1200,
     wins: 0,
     losses: 0,
     streak: 0,
@@ -53,6 +54,7 @@ function replayGlobalUserState(userId: string, rows: PlayerMatchHistoryRow[], no
     const deltaMap = parseJsonObject<Record<string, number>>(row.global_elo_delta_json, {});
     const didWin = row.winner_team === row.player_team;
     nextState.elo += Number(deltaMap[userId] ?? 0);
+    nextState.highestElo = Math.max(nextState.highestElo, nextState.elo);
     if (didWin) {
       nextState.wins += 1;
       nextState.streak = nextState.streak >= 0 ? nextState.streak + 1 : 1;
@@ -80,6 +82,7 @@ function replayTournamentSegmentState(
     const tournamentDelta = segmentDelta[tournamentId] ?? {};
     const didWin = row.winner_team === row.player_team;
     nextState.elo += Number(tournamentDelta[userId] ?? 0);
+    nextState.highestElo = Math.max(nextState.highestElo, nextState.elo);
     nextState.matchesPlayed += 1;
     nextState.matchEquivalentPlayed = Math.round((nextState.matchEquivalentPlayed + getMatchEquivalent(row.match_type)) * 10) / 10;
     nextState.lastMatchAt = row.played_at || nextState.lastMatchAt;
@@ -215,14 +218,15 @@ async function applyIncrementalMatchDeletion(
       `
         UPDATE users
         SET global_elo = ?2,
-            wins = ?3,
-            losses = ?4,
-            streak = ?5,
-            best_win_streak = ?6,
-            updated_at = ?7
+            highest_global_elo = ?3,
+            wins = ?4,
+            losses = ?5,
+            streak = ?6,
+            best_win_streak = ?7,
+            updated_at = ?8
         WHERE id = ?1
       `,
-    ).bind(userId, state.elo, state.wins, state.losses, state.streak, state.bestWinStreak, state.updatedAt);
+    ).bind(userId, state.elo, state.highestElo, state.wins, state.losses, state.streak, state.bestWinStreak, state.updatedAt);
   });
 
   if (match.tournament_id) {

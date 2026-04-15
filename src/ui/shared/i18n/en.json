@@ -118,6 +118,8 @@
   "leaderboardMostGamesLabel": "Most games this season",
   "leaderboardMostWinsLabel": "Most wins this season",
   "leaderboardBestWinRateLabel": "Best win rate",
+  "leaderboardHighestEloLabel": "Highest Elo",
+  "leaderboardHighestScoreLabel": "Highest score",
   "leaderboardLongestStreakLabel": "Longest win streak",
   "leaderboardWinner": "Winner",
   "leaderboardChampion": "Champion",

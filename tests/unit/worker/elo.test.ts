@@ -103,6 +103,7 @@ describe("elo helpers", () => {
 
     expect(state).toEqual({
       elo: 1200,
+      highestElo: 1200,
       wins: 0,
       losses: 0,
       streak: 0,

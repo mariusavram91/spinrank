@@ -126,6 +126,7 @@ async function loadTournamentRatings(
       row.user_id,
       {
         elo: Number(row.elo),
+        highestElo: Number(row.elo),
         wins: Number(row.wins),
         losses: Number(row.losses),
         streak: Number(row.streak),

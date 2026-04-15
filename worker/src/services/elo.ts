@@ -21,6 +21,7 @@ const WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
 
 interface RatingState {
   elo: number;
+  highestElo: number;
   wins: number;
   losses: number;
   streak: number;
@@ -32,6 +33,7 @@ interface RatingState {
 }
 
 interface SeasonRatingState extends RatingState {
+  highestScore: number;
   glickoRating: number;
   glickoRd: number;
   glickoVolatility: number;
@@ -289,7 +291,14 @@ function initializeSeasonRatingState(
     const blank = createBlankSeasonRatingState(nowIso);
     if (season.baseEloMode === "carry_over") {
       blank.elo = globalState[playerId]?.elo ?? STARTING_ELO;
+      blank.highestElo = blank.elo;
       blank.glickoRating = blank.elo;
+      blank.highestScore = calculateSeasonScore({
+        rating: blank.glickoRating,
+        rd: blank.glickoRd,
+        attendedWeeks: 0,
+        totalWeeks: 0,
+      });
     }
     state[playerId] = blank;
   });
@@ -334,6 +343,7 @@ function updateTeamState(
   teamPlayerIds.forEach((playerId) => {
     const state = ensureRatingState(stateMap, playerId, nowIso);
     state.elo += Number(deltaMap[playerId] || 0);
+    state.highestElo = Math.max(state.highestElo, state.elo);
     state.matchesPlayed += 1;
     state.matchEquivalentPlayed = addMatchEquivalent(state.matchEquivalentPlayed, matchEquivalentPlayed);
     state.lastMatchAt = playedAt;
@@ -370,11 +380,21 @@ function updateSeasonTeamState(
       state.glickoVolatility + (nextTeamState.volatility - currentTeamState.volatility) * matchWeight,
     );
     state.elo = Math.round(state.glickoRating);
+    state.highestElo = Math.max(state.highestElo, state.elo);
     state.matchesPlayed += 1;
     state.matchEquivalentPlayed = addMatchEquivalent(state.matchEquivalentPlayed, matchEquivalentPlayed);
     state.lastMatchAt = playedAt;
     state.updatedAt = nowIso;
     state.attendedWeekKeys.add(weekIndex);
+    state.highestScore = Math.max(
+      state.highestScore,
+      calculateSeasonScore({
+        rating: state.glickoRating,
+        rd: state.glickoRd,
+        attendedWeeks: state.attendedWeekKeys.size,
+        totalWeeks: weekIndex + 1,
+      }),
+    );
     if (isWinner) {
       state.wins += 1;
       state.streak = state.streak >= 0 ? state.streak + 1 : 1;
@@ -687,6 +707,7 @@ function buildRatingSnapshots(
 export function createBlankRatingState(nowIso: string): RatingState {
   return {
     elo: STARTING_ELO,
+    highestElo: STARTING_ELO,
     wins: 0,
     losses: 0,
     streak: 0,
@@ -701,6 +722,12 @@ export function createBlankRatingState(nowIso: string): RatingState {
 function createBlankSeasonRatingState(nowIso: string): SeasonRatingState {
   return {
     ...createBlankRatingState(nowIso),
+    highestScore: calculateSeasonScore({
+      rating: GLICKO_DEFAULT_RATING,
+      rd: GLICKO_DEFAULT_RD,
+      attendedWeeks: 0,
+      totalWeeks: 0,
+    }),
     glickoRating: GLICKO_DEFAULT_RATING,
     glickoRd: GLICKO_DEFAULT_RD,
     glickoVolatility: GLICKO_DEFAULT_VOLATILITY,
@@ -792,16 +819,18 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
         `
           UPDATE users
           SET global_elo = ?2,
-              wins = ?3,
-              losses = ?4,
-              streak = ?5,
-              best_win_streak = ?6,
-              updated_at = ?7
+              highest_global_elo = ?3,
+              wins = ?4,
+              losses = ?5,
+              streak = ?6,
+              best_win_streak = ?7,
+              updated_at = ?8
           WHERE id = ?1
         `,
       ).bind(
         user.id,
         snapshots.globalState[user.id]?.elo ?? STARTING_ELO,
+        snapshots.globalState[user.id]?.highestElo ?? STARTING_ELO,
         snapshots.globalState[user.id]?.wins ?? 0,
         snapshots.globalState[user.id]?.losses ?? 0,
         snapshots.globalState[user.id]?.streak ?? 0,
@@ -826,11 +855,11 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
           `
             INSERT INTO elo_segments (
               id, segment_type, segment_id, user_id, elo, matches_played, matches_played_equivalent,
-              wins, losses, streak, best_win_streak, last_match_at, updated_at, season_glicko_rating, season_glicko_rd,
-              season_glicko_volatility, season_conservative_rating, season_attended_weeks, season_total_weeks,
-              season_attendance_penalty
+              wins, losses, streak, best_win_streak, highest_score, last_match_at, updated_at,
+              season_glicko_rating, season_glicko_rd, season_glicko_volatility, season_conservative_rating,
+              season_attended_weeks, season_total_weeks, season_attendance_penalty
             ) VALUES (
-              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20
+              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21
             )
           `,
         ).bind(
@@ -845,6 +874,7 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
           value.losses,
           value.streak,
           value.bestWinStreak,
+          seasonState ? seasonState.highestScore : 0,
           value.lastMatchAt,
           value.updatedAt,
           seasonState ? seasonState.glickoRating : null,

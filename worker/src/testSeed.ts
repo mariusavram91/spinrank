@@ -181,13 +181,14 @@ async function upsertUser(
     `
       INSERT INTO users (
         id, provider, provider_user_id, email, display_name, avatar_url,
-        global_elo, wins, losses, streak, best_win_streak, created_at, updated_at
+        global_elo, highest_global_elo, wins, losses, streak, best_win_streak, created_at, updated_at
       )
-      VALUES (?1, 'google', ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?10)
+      VALUES (?1, 'google', ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)
       ON CONFLICT(id) DO UPDATE SET
         email = excluded.email,
         display_name = excluded.display_name,
         global_elo = excluded.global_elo,
+        highest_global_elo = excluded.highest_global_elo,
         wins = excluded.wins,
         losses = excluded.losses,
         streak = excluded.streak,
@@ -200,6 +201,7 @@ async function upsertUser(
       args.providerUserId,
       args.email,
       args.displayName,
+      args.globalElo ?? 1200,
       args.globalElo ?? 1200,
       args.wins ?? 0,
       args.losses ?? 0,
@@ -845,11 +847,11 @@ async function upsertSeasonSegment(
   await env.DB.prepare(
     `
       INSERT INTO elo_segments (
-        id, segment_type, segment_id, user_id, elo, matches_played, wins, losses, streak, best_win_streak, updated_at,
-        matches_played_equivalent, last_match_at, season_glicko_rating, season_glicko_rd,
+        id, segment_type, segment_id, user_id, elo, matches_played, wins, losses, streak, best_win_streak, highest_score,
+        updated_at, matches_played_equivalent, last_match_at, season_glicko_rating, season_glicko_rd,
         season_conservative_rating, season_attended_weeks, season_total_weeks, season_attendance_penalty
       )
-      VALUES (?1, 'season', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+      VALUES (?1, 'season', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
       ON CONFLICT(segment_type, segment_id, user_id) DO UPDATE SET
         elo = excluded.elo,
         matches_played = excluded.matches_played,
@@ -857,6 +859,7 @@ async function upsertSeasonSegment(
         losses = excluded.losses,
         streak = excluded.streak,
         best_win_streak = excluded.best_win_streak,
+        highest_score = excluded.highest_score,
         updated_at = excluded.updated_at,
         matches_played_equivalent = excluded.matches_played_equivalent,
         last_match_at = excluded.last_match_at,
@@ -878,6 +881,7 @@ async function upsertSeasonSegment(
       args.losses,
       args.streak,
       args.bestWinStreak ?? Math.max(args.streak, 0),
+      args.seasonConservativeRating - args.seasonAttendancePenalty,
       args.nowIso,
       args.matchesPlayedEquivalent,
       args.lastMatchAt,

@@ -100,6 +100,8 @@ describe("worker getSegmentLeaderboard action", () => {
                     wins: 1,
                     losses: 0,
                     streak: 1,
+                    best_win_streak: 1,
+                    highest_score: 0,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: null,
@@ -119,6 +121,8 @@ describe("worker getSegmentLeaderboard action", () => {
                     wins: 0,
                     losses: 1,
                     streak: -1,
+                    best_win_streak: 0,
+                    highest_score: 0,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: null,
@@ -138,6 +142,8 @@ describe("worker getSegmentLeaderboard action", () => {
                     wins: 0,
                     losses: 0,
                     streak: 0,
+                    best_win_streak: 0,
+                    highest_score: 0,
                     last_match_at: null,
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: null,
@@ -248,6 +254,8 @@ describe("worker getSegmentLeaderboard action", () => {
                     wins: 4,
                     losses: 0,
                     streak: 4,
+                    best_win_streak: 4,
+                    highest_score: 1490,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: 1500,
@@ -267,6 +275,8 @@ describe("worker getSegmentLeaderboard action", () => {
                     wins: 5,
                     losses: 0,
                     streak: 2,
+                    best_win_streak: 5,
+                    highest_score: 1335,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: 1300,
@@ -286,6 +296,8 @@ describe("worker getSegmentLeaderboard action", () => {
                     wins: 2,
                     losses: 1,
                     streak: 1,
+                    best_win_streak: 2,
+                    highest_score: 1210,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
                     season_glicko_rating: 1280,
@@ -334,5 +346,6 @@ describe("worker getSegmentLeaderboard action", () => {
     ]);
     expect(response.data?.leaderboard.map((entry) => entry.isQualified)).toEqual([true, false, false]);
     expect(response.data?.leaderboard.map((entry) => entry.rank)).toEqual([1, 2, 3]);
+    expect(response.data?.leaderboard[0]).toMatchObject({ userId: "user_qualified", highestScore: 1335 });
   });
 });

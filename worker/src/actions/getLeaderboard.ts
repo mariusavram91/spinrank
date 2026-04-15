@@ -21,6 +21,7 @@ export async function handleGetLeaderboard(
               display_name,
               avatar_url,
               global_elo,
+              highest_global_elo,
               wins,
               losses,
               streak,
@@ -40,13 +41,13 @@ export async function handleGetLeaderboard(
               ) AS rank
             FROM users
           )
-          SELECT id, display_name, avatar_url, global_elo, wins, losses, streak, best_win_streak, updated_at, rank
+          SELECT id, display_name, avatar_url, global_elo, highest_global_elo, wins, losses, streak, best_win_streak, updated_at, rank
           FROM ranked
           WHERE rank <= 10 OR id = ?1
           ORDER BY rank ASC
         `
       : `
-          SELECT id, display_name, avatar_url, global_elo, wins, losses, streak, best_win_streak, updated_at
+          SELECT id, display_name, avatar_url, global_elo, highest_global_elo, wins, losses, streak, best_win_streak, updated_at
           FROM users
           ORDER BY
             CASE WHEN wins + losses >= ${MINIMUM_LEADERBOARD_MATCHES} THEN 0 ELSE 1 END ASC,
@@ -67,6 +68,7 @@ export async function handleGetLeaderboard(
       display_name: string;
       avatar_url: string | null;
       global_elo: number;
+      highest_global_elo: number;
       wins: number;
       losses: number;
       streak: number;
@@ -80,6 +82,7 @@ export async function handleGetLeaderboard(
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
     elo: Number(row.global_elo),
+    highestElo: Math.max(Number(row.highest_global_elo ?? 0), Number(row.global_elo ?? 1200)),
     wins: Number(row.wins),
     losses: Number(row.losses),
     streak: Number(row.streak),

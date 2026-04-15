@@ -119,9 +119,10 @@ export async function handleGetSegmentLeaderboard(
   const rows = await env.DB.prepare(
     `
       SELECT es.user_id, es.elo, es.matches_played, es.matches_played_equivalent, es.wins, es.losses,
-             es.streak, es.best_win_streak, es.last_match_at, es.updated_at, es.season_glicko_rating, es.season_glicko_rd,
-             es.season_conservative_rating, es.season_attended_weeks, es.season_total_weeks,
-             es.season_attendance_penalty, u.display_name, u.avatar_url
+             es.streak, es.best_win_streak, es.highest_score, es.last_match_at, es.updated_at,
+             es.season_glicko_rating, es.season_glicko_rd, es.season_conservative_rating,
+             es.season_attended_weeks, es.season_total_weeks, es.season_attendance_penalty,
+             u.display_name, u.avatar_url
       FROM elo_segments es
       JOIN users u ON u.id = es.user_id
       WHERE es.segment_type = ?1 AND es.segment_id = ?2
@@ -137,6 +138,7 @@ export async function handleGetSegmentLeaderboard(
       losses: number;
       streak: number;
       best_win_streak: number;
+      highest_score: number;
       last_match_at: string;
       updated_at: string;
       season_glicko_rating: number | null;
@@ -179,6 +181,15 @@ export async function handleGetSegmentLeaderboard(
       const seasonAttendancePenalty = Number(row.season_attendance_penalty ?? 0);
       const seasonConservativeRating =
         row.season_conservative_rating === null ? undefined : Number(row.season_conservative_rating);
+      const currentSeasonScore =
+        segmentType === "season"
+          ? calculateSeasonScore({
+              rating: seasonGlickoRating ?? Number(row.elo),
+              rd: seasonGlickoRd ?? 0,
+              attendedWeeks: seasonAttendedWeeks,
+              totalWeeks: seasonTotalWeeks,
+            })
+          : undefined;
       return {
         userId: row.user_id,
         displayName: row.display_name,
@@ -188,6 +199,10 @@ export async function handleGetSegmentLeaderboard(
         losses: Number(row.losses),
         streak: Number(row.streak),
         bestWinStreak: Number(row.best_win_streak ?? 0),
+        highestScore:
+          segmentType === "season"
+            ? Math.max(Number(row.highest_score ?? 0), Number(currentSeasonScore ?? 0))
+            : undefined,
         matchEquivalentPlayed,
         lastMatchAt: row.last_match_at || null,
         seasonGlickoRating,
@@ -196,15 +211,7 @@ export async function handleGetSegmentLeaderboard(
         seasonAttendancePenalty: segmentType === "season" ? seasonAttendancePenalty : undefined,
         seasonAttendedWeeks: segmentType === "season" ? seasonAttendedWeeks : undefined,
         seasonTotalWeeks: segmentType === "season" ? seasonTotalWeeks : undefined,
-        seasonScore:
-          segmentType === "season"
-            ? calculateSeasonScore({
-                rating: seasonGlickoRating ?? Number(row.elo),
-                rd: seasonGlickoRd ?? 0,
-                attendedWeeks: seasonAttendedWeeks,
-                totalWeeks: seasonTotalWeeks,
-              })
-            : undefined,
+        seasonScore: currentSeasonScore,
         isQualified: segmentType === "season" ? matchEquivalentPlayed >= MINIMUM_LEADERBOARD_MATCHES : undefined,
         ...(segmentType === "tournament" && tournamentPlacementMetrics
           ? (() => {

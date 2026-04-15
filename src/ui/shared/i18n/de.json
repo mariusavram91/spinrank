@@ -118,6 +118,8 @@
   "leaderboardMostGamesLabel": "Die meisten Matches",
   "leaderboardMostWinsLabel": "Die meisten Siege",
   "leaderboardBestWinRateLabel": "Beste Siegquote",
+  "leaderboardHighestEloLabel": "Höchste Elo",
+  "leaderboardHighestScoreLabel": "Höchster Score",
   "leaderboardLongestStreakLabel": "Längste Siegesserie",
   "leaderboardWinner": "Sieger",
   "leaderboardChampion": "Champion",

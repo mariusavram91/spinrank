@@ -124,6 +124,8 @@ export interface LeaderboardEntry {
   losses: number;
   streak: number;
   bestWinStreak?: number;
+  highestElo?: number;
+  highestScore?: number;
   rank: number;
   seasonScore?: number;
   seasonGlickoRating?: number;

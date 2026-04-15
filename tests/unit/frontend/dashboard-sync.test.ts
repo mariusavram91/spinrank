@@ -56,6 +56,8 @@ const createLeaderboardEntry = (overrides?: Record<string, unknown>) => ({
   displayName: "Ada",
   avatarUrl: null,
   elo: 1200,
+  highestElo: 1290,
+  highestScore: 1230,
   wins: 7,
   losses: 1,
   streak: 4,
@@ -151,6 +153,10 @@ const createDom = () => ({
   leaderboardStatLongestStreakLabel: makeDiv(),
   leaderboardStatLongestStreakPlayer: makeDiv(),
   leaderboardStatLongestStreakMeta: makeDiv(),
+  leaderboardStatHighestPeak: makeDiv(),
+  leaderboardStatHighestPeakLabel: makeDiv(),
+  leaderboardStatHighestPeakPlayer: makeDiv(),
+  leaderboardStatHighestPeakMeta: makeDiv(),
   leaderboardStatMostWins: makeDiv(),
   leaderboardStatMostWinsPlayer: makeDiv(),
   leaderboardStatMostWinsMeta: makeDiv(),
@@ -220,6 +226,8 @@ const createDashboardState = (overrides?: Partial<DashboardState>) =>
       createLeaderboardEntry({
         userId: "user_2",
         displayName: "Bob",
+        highestElo: 1260,
+        highestScore: 1210,
         elo: 1180,
         wins: 12,
         losses: 8,
@@ -335,6 +343,10 @@ describe("dashboard sync", () => {
     expect(dom.leaderboardStatMostActive.hidden).toBe(false);
     expect(dom.leaderboardStatMostWins.hidden).toBe(false);
     expect(dom.leaderboardStatLongestStreak.hidden).toBe(false);
+    expect(dom.leaderboardStatHighestPeak.hidden).toBe(false);
+    expect(dom.leaderboardStatHighestPeakPlayer.textContent).toBe("Ada");
+    expect(dom.leaderboardStatHighestPeakLabel.textContent).toBe("leaderboardHighestEloLabel");
+    expect(dom.leaderboardStatHighestPeakMeta.textContent).toContain("1,290");
     expect(dom.leaderboardStatBestWinRate.hidden).toBe(false);
     expect(dom.leaderboardStatBestWinRatePlayer.textContent).toBe("Bob");
     expect(dom.leaderboardStatBestWinRateMeta.textContent).toContain("60.0%");
@@ -430,6 +442,7 @@ describe("dashboard sync", () => {
     expect(dom.deleteTournamentButton.hidden).toBe(true);
     expect(dom.leaderboardStatMostActive.hidden).toBe(true);
     expect(dom.leaderboardStatMostWins.hidden).toBe(true);
+    expect(dom.leaderboardStatHighestPeak.hidden).toBe(true);
     expect(dom.leaderboardStatBestWinRate.hidden).toBe(true);
   });
 
@@ -443,6 +456,7 @@ describe("dashboard sync", () => {
           createLeaderboardEntry({
             userId: "user_1",
             displayName: "Ada",
+            highestScore: 1380,
             wins: 9,
             losses: 0,
             rank: 1,
@@ -450,6 +464,7 @@ describe("dashboard sync", () => {
           createLeaderboardEntry({
             userId: "user_2",
             displayName: "Bob",
+            highestScore: 1410,
             wins: 8,
             losses: 2,
             rank: 2,
@@ -496,5 +511,9 @@ describe("dashboard sync", () => {
     expect(dom.leaderboardStatBestWinRate.hidden).toBe(false);
     expect(dom.leaderboardStatBestWinRatePlayer.textContent).toBe("Bob");
     expect(dom.leaderboardStatBestWinRateMeta.textContent).toContain("80.0%");
+    expect(dom.leaderboardStatHighestPeak.hidden).toBe(false);
+    expect(dom.leaderboardStatHighestPeakPlayer.textContent).toBe("Bob");
+    expect(dom.leaderboardStatHighestPeakLabel.textContent).toBe("leaderboardHighestScoreLabel");
+    expect(dom.leaderboardStatHighestPeakMeta.textContent).toContain("1,410");
   });
 });

@@ -30,6 +30,10 @@ export interface DashboardOverviewElements {
   leaderboardStatLongestStreakLabel: HTMLSpanElement;
   leaderboardStatLongestStreakPlayer: HTMLSpanElement;
   leaderboardStatLongestStreakMeta: HTMLSpanElement;
+  leaderboardStatHighestPeak: HTMLDivElement;
+  leaderboardStatHighestPeakLabel: HTMLSpanElement;
+  leaderboardStatHighestPeakPlayer: HTMLSpanElement;
+  leaderboardStatHighestPeakMeta: HTMLSpanElement;
   leaderboardStatMostWins: HTMLDivElement;
   leaderboardStatMostWinsPlayer: HTMLSpanElement;
   leaderboardStatMostWinsMeta: HTMLSpanElement;
@@ -216,6 +220,29 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   leaderboardStatLongestStreakDetails.append(leaderboardStatLongestStreakLabel, leaderboardStatLongestStreakName);
   leaderboardStatLongestStreak.append(leaderboardStatLongestStreakDetails);
 
+  const leaderboardStatHighestPeak = document.createElement("div");
+  leaderboardStatHighestPeak.className = "leaderboard-stat";
+  leaderboardStatHighestPeak.hidden = true;
+
+  const leaderboardStatHighestPeakDetails = document.createElement("div");
+  leaderboardStatHighestPeakDetails.className = "leaderboard-stat__details";
+
+  const leaderboardStatHighestPeakLabel = document.createElement("span");
+  leaderboardStatHighestPeakLabel.className = "leaderboard-stat__label";
+
+  const leaderboardStatHighestPeakName = document.createElement("p");
+  leaderboardStatHighestPeakName.className = "leaderboard-stat__name";
+
+  const leaderboardStatHighestPeakPlayer = document.createElement("span");
+  leaderboardStatHighestPeakPlayer.className = "leaderboard-stat__player";
+
+  const leaderboardStatHighestPeakMeta = document.createElement("span");
+  leaderboardStatHighestPeakMeta.className = "leaderboard-stat__meta";
+
+  leaderboardStatHighestPeakName.append(leaderboardStatHighestPeakPlayer, leaderboardStatHighestPeakMeta);
+  leaderboardStatHighestPeakDetails.append(leaderboardStatHighestPeakLabel, leaderboardStatHighestPeakName);
+  leaderboardStatHighestPeak.append(leaderboardStatHighestPeakDetails);
+
   const leaderboardStatMostWins = document.createElement("div");
   leaderboardStatMostWins.className = "leaderboard-stat";
   leaderboardStatMostWins.hidden = true;
@@ -269,6 +296,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatMostActive,
     leaderboardStatMostWins,
     leaderboardStatLongestStreak,
+    leaderboardStatHighestPeak,
     leaderboardStatBestWinRate,
   );
 
@@ -310,6 +338,10 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatLongestStreakLabel,
     leaderboardStatLongestStreakPlayer,
     leaderboardStatLongestStreakMeta,
+    leaderboardStatHighestPeak,
+    leaderboardStatHighestPeakLabel,
+    leaderboardStatHighestPeakPlayer,
+    leaderboardStatHighestPeakMeta,
     leaderboardStatMostWins,
     leaderboardStatMostWinsPlayer,
     leaderboardStatMostWinsMeta,
