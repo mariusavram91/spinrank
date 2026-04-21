@@ -39,7 +39,7 @@ vi.mock("../../../worker/src/services/brackets", () => ({
 }));
 
 vi.mock("../../../worker/src/services/elo", () => ({
-  MINIMUM_LEADERBOARD_MATCHES: 5,
+  MINIMUM_LEADERBOARD_MATCHES: 10,
   MINIMUM_MATCHES_TO_QUALIFY: 3,
   calculateSeasonScore: vi.fn(({ rating }: { rating: number }) => rating),
 }));
@@ -223,7 +223,7 @@ describe("worker getSegmentLeaderboard action", () => {
     });
   });
 
-  it("keeps season players with fewer than five matches below qualified players", async () => {
+  it("keeps season players with fewer than ten matches below qualified players", async () => {
     const sessionUser = {
       id: "user_a",
       provider: "google",
@@ -249,12 +249,12 @@ describe("worker getSegmentLeaderboard action", () => {
                   {
                     user_id: "user_unqualified_high_score",
                     elo: 1500,
-                    matches_played: 4,
-                    matches_played_equivalent: 4,
-                    wins: 4,
+                    matches_played: 9,
+                    matches_played_equivalent: 9,
+                    wins: 9,
                     losses: 0,
-                    streak: 4,
-                    best_win_streak: 4,
+                    streak: 9,
+                    best_win_streak: 9,
                     highest_score: 1490,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",
@@ -270,12 +270,12 @@ describe("worker getSegmentLeaderboard action", () => {
                   {
                     user_id: "user_qualified",
                     elo: 1300,
-                    matches_played: 5,
-                    matches_played_equivalent: 5,
-                    wins: 5,
+                    matches_played: 10,
+                    matches_played_equivalent: 10,
+                    wins: 10,
                     losses: 0,
                     streak: 2,
-                    best_win_streak: 5,
+                    best_win_streak: 10,
                     highest_score: 1335,
                     last_match_at: "2026-04-05T10:00:00.000Z",
                     updated_at: "2026-04-05T10:05:00.000Z",

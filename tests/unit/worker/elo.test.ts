@@ -36,9 +36,9 @@ describe("elo helpers", () => {
     expect(compareLeaderboardRows(alphabetical, alphabeticalOther)).toBeGreaterThan(0);
   });
 
-  it("demotes players with fewer than five matches below qualified players", () => {
-    const qualified = { elo: 1200, wins: 5, losses: 0, displayName: "Qualified" };
-    const unqualified = { elo: 1500, wins: 4, losses: 0, displayName: "Unqualified" };
+  it("demotes players with fewer than ten matches below qualified players", () => {
+    const qualified = { elo: 1200, wins: 10, losses: 0, displayName: "Qualified" };
+    const unqualified = { elo: 1500, wins: 9, losses: 0, displayName: "Unqualified" };
     expect(compareLeaderboardRows(qualified, unqualified)).toBeLessThan(0);
   });
 

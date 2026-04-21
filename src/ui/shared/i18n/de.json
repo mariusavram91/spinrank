@@ -310,7 +310,7 @@
   "faqSummarySeasonDetail": "Der sichtbare Saison-Score ist ein vorsichtiger Glicko-2-Wert, nicht das rohe Rating. Er nutzt Rating, Unsicherheit und eine mögliche Teilnahme-Strafe.",
   "faqSummaryEloLabel": "Globale Rangliste",
   "faqSummaryEloValue": "Jedes gerankte Match zählt",
-  "faqSummaryEloDetail": "Freie Matches, Saison-Matches und Turnier-Matches beeinflussen deine globale Rangliste, solange sie aktiv sind. Du brauchst 5 Matches, um vor nicht qualifizierten Spielern zu stehen.",
+  "faqSummaryEloDetail": "Freie Matches, Saison-Matches und Turnier-Matches beeinflussen deine globale Rangliste, solange sie aktiv sind. Du brauchst 10 Matches, um vor nicht qualifizierten Spielern zu stehen.",
   "faqSummarySeasonOnlyLabel": "Saison-Matches",
   "faqSummarySeasonOnlyValue": "Nur Saison-Matches zählen",
   "faqSummarySeasonOnlyDetail": "Eine Saison-Tabelle ignoriert Matches außerhalb dieser Saison, außer wenn ein verknüpftes Turnier-Match dazu gehört.",

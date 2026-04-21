@@ -120,7 +120,7 @@ describe("worker getUserProgress action", () => {
         prepare: vi.fn((sql: string) =>
           createPreparedStatement(sql, async (statementSql, args) => {
             if (statementSql.includes("ROW_NUMBER() OVER")) {
-              expect(statementSql).toContain("CASE WHEN wins + losses >= 5 THEN 0 ELSE 1 END ASC");
+              expect(statementSql).toContain("CASE WHEN wins + losses >= 10 THEN 0 ELSE 1 END ASC");
               expect(args).toEqual(["user_a"]);
               return { rank: 13 };
             }
