@@ -682,4 +682,80 @@ describe("match player search inputs", () => {
     sync();
     expect(input?.value).toBe("Carla (1175)");
   });
+
+  it("offers guest creation when no players are found and selects the created guest", async () => {
+    const dashboardState = createDashboardStateStub();
+    const teamA1Field = document.createElement("div");
+    const teamA2Field = document.createElement("div");
+    const teamB1Field = document.createElement("div");
+    const teamB2Field = document.createElement("div");
+    const teamA1Select = document.createElement("select");
+    const teamA2Select = document.createElement("select");
+    const teamB1Select = document.createElement("select");
+    const teamB2Select = document.createElement("select");
+
+    [teamA1Select, teamA2Select, teamB1Select, teamB2Select].forEach((select) => {
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "empty";
+      select.append(emptyOption);
+    });
+
+    const createGuestPlayer = vi.fn(async () => ({
+      userId: "user_guest",
+      displayName: "Guest Nora",
+      avatarUrl: null,
+      elo: 1200,
+      rank: Number.MAX_SAFE_INTEGER,
+    }));
+
+    const sync = createMatchPlayerSearchInputs({
+      dashboardState,
+      t: (key) => (
+        key === "scoreCardCreateGuestPlayer"
+          ? "Create guest player"
+          : key === "scoreCardCreatingGuestPlayer"
+            ? "Creating guest player..."
+            : key
+      ),
+      getCurrentUserId: () => "user_a",
+      getAllowedMatchPlayerIds: () => null,
+      getMatchPlayerEntries: () => [],
+      searchPlayers: vi.fn(async () => []),
+      createGuestPlayer,
+      formSeasonSelect: document.createElement("select"),
+      formTournamentSelect: document.createElement("select"),
+      teamA1Field,
+      teamA2Field,
+      teamB1Field,
+      teamB2Field,
+      teamA1Select,
+      teamA2Select,
+      teamB1Select,
+      teamB2Select,
+    }).sync;
+
+    sync();
+
+    const input = teamB1Field.querySelector<HTMLInputElement>('[data-testid="match-player-search-team-b-1"]');
+    expect(input).not.toBeNull();
+
+    input!.dispatchEvent(new Event("focus"));
+    input!.value = "Guest Nora";
+    input!.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    const createGuestButton = teamB1Field.querySelector<HTMLButtonElement>(
+      '[data-testid="match-player-search-create-guest"]',
+    );
+    expect(createGuestButton?.textContent).toContain("Create guest player");
+
+    createGuestButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    createGuestButton?.click();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(createGuestPlayer).toHaveBeenCalledWith("Guest Nora");
+    expect(teamB1Select.value).toBe("user_guest");
+    expect(input?.value).toBe("Guest Nora (1200)");
+  });
 });

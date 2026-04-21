@@ -160,6 +160,8 @@
   "scoreCardInstructions": "Tippe zum Hinzufügen, ziehe zum Abziehen. Wähle Spieler aus, um das Match zu speichern.",
   "scoreCardPlayersToggle": "Spieler",
   "scoreCardNoPlayersFound": "Keine Spieler gefunden",
+  "scoreCardCreateGuestPlayer": "Gastspieler erstellen",
+  "scoreCardCreatingGuestPlayer": "Gastspieler wird erstellt...",
   "scoreCardAnonymous": "Anonym",
   "scoreCardAnonymousMatch": "Standardmäßig anonym.",
   "scoreCardCurrentGame": "Spiel",

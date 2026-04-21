@@ -160,6 +160,8 @@
   "scoreCardInstructions": "Tap to add, drag to subtract. Pick players to save the match.",
   "scoreCardPlayersToggle": "Players",
   "scoreCardNoPlayersFound": "No players found",
+  "scoreCardCreateGuestPlayer": "Create guest player",
+  "scoreCardCreatingGuestPlayer": "Creating guest player...",
   "scoreCardAnonymous": "Anonymous",
   "scoreCardAnonymousMatch": "Anonymous by default.",
   "scoreCardCurrentGame": "Game",

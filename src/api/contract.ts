@@ -5,6 +5,7 @@ export const apiActions = [
   "getDashboard",
   "getLeaderboard",
   "searchParticipants",
+  "createGuestPlayer",
   "getUserProgress",
   "getSharedUserProfile",
   "getSegmentLeaderboard",
@@ -207,6 +208,17 @@ export interface ParticipantSearchEntry {
 
 export interface SearchParticipantsData {
   participants: ParticipantSearchEntry[];
+}
+
+export interface CreateGuestPlayerPayload {
+  displayName: string;
+  seasonId?: string | null;
+}
+
+export interface CreateGuestPlayerData {
+  participant: ParticipantSearchEntry;
+  seasonId: string | null;
+  seasonParticipantIds: string[] | null;
 }
 
 export interface GetUserProgressPayload {
@@ -704,6 +716,10 @@ export interface ApiActionMap {
   searchParticipants: {
     payload: SearchParticipantsPayload;
     data: SearchParticipantsData;
+  };
+  createGuestPlayer: {
+    payload: CreateGuestPlayerPayload;
+    data: CreateGuestPlayerData;
   };
   getUserProgress: {
     payload: GetUserProgressPayload;

@@ -15,6 +15,7 @@ import { handleGetLeaderboard } from "./actions/getLeaderboard";
 import { handleGetMatches } from "./actions/getMatches";
 import { handleGetSharedUserProfile } from "./actions/getSharedUserProfile";
 import { handleSearchParticipants } from "./actions/searchParticipants";
+import { handleCreateGuestPlayer } from "./actions/createGuestPlayer";
 import { handleGetSeasons } from "./actions/getSeasons";
 import { handleGetSegmentLeaderboard } from "./actions/getSegmentLeaderboard";
 import { handleGetTournamentBracket } from "./actions/getTournamentBracket";
@@ -30,6 +31,7 @@ import type {
   CheckMatchDuplicatePayload,
   CreateMatchPayload,
   CreateMatchDisputePayload,
+  CreateGuestPlayerPayload,
   CreateSeasonPayload,
   CreateSegmentShareLinkPayload,
   CreateTournamentPayload,
@@ -123,6 +125,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
     case "searchParticipants":
       return handleSearchParticipants(
         apiRequest as ApiRequest<"searchParticipants", SearchParticipantsPayload>,
+        sessionUser,
+        env,
+      );
+    case "createGuestPlayer":
+      return handleCreateGuestPlayer(
+        apiRequest as ApiRequest<"createGuestPlayer", CreateGuestPlayerPayload>,
         sessionUser,
         env,
       );

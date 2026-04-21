@@ -7,6 +7,7 @@ export const apiActionNames = [
   "getDashboard",
   "getLeaderboard",
   "searchParticipants",
+  "createGuestPlayer",
   "getMatches",
   "getSeasons",
   "getSharedUserProfile",
@@ -211,6 +212,17 @@ export interface ParticipantSearchEntry {
 
 export interface SearchParticipantsData {
   participants: ParticipantSearchEntry[];
+}
+
+export interface CreateGuestPlayerPayload {
+  displayName: string;
+  seasonId?: string | null;
+}
+
+export interface CreateGuestPlayerData {
+  participant: ParticipantSearchEntry;
+  seasonId: string | null;
+  seasonParticipantIds: string[] | null;
 }
 
 export interface UserProgressPoint {

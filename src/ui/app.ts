@@ -2479,6 +2479,29 @@ export const buildApp = (): HTMLElement => {
         rank: Number.MAX_SAFE_INTEGER,
       }));
     },
+    createGuestPlayer: async (displayName) => {
+      if (!isAuthedState(state.current) || formTournamentSelect.value) {
+        return null;
+      }
+      const data = await runAuthedAction("createGuestPlayer", {
+        displayName,
+        seasonId: formSeasonSelect.value || null,
+      });
+      rememberMatchParticipants([data.participant]);
+      if (data.seasonId && data.seasonParticipantIds) {
+        const season = dashboardState.seasons.find((candidate) => candidate.id === data.seasonId);
+        if (season) {
+          season.participantIds = [...data.seasonParticipantIds];
+        }
+      }
+      return {
+        userId: data.participant.userId,
+        displayName: data.participant.displayName,
+        avatarUrl: data.participant.avatarUrl,
+        elo: data.participant.elo,
+        rank: Number.MAX_SAFE_INTEGER,
+      };
+    },
     formSeasonSelect,
     formTournamentSelect,
     teamA1Field,
