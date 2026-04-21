@@ -6,6 +6,8 @@ import {
   shouldShowTournamentInDropdown,
   isCompletedSeason,
   isCompletedTournament,
+  isLockedSeason,
+  isLockedTournament,
 } from "./helpers";
 import { getTodayDateValue } from "../../shared/utils/format";
 
@@ -302,11 +304,13 @@ export const createFormOrchestration = (args: {
     const visibleTournaments = args.dashboardState.tournaments.filter((tournament) =>
       shouldShowTournamentInDropdown(tournament, sessionUserId),
     );
+    const availableSeasons = visibleSeasons.filter((season) => !isLockedSeason(season));
+    const availableTournaments = visibleTournaments.filter((tournament) => !isLockedTournament(tournament));
     let contextMode = resolveMatchContextMode(contextToggle);
-    if (contextMode === "season" && visibleSeasons.length === 0) {
+    if (contextMode === "season" && availableSeasons.length === 0) {
       contextMode = "open";
     }
-    if (contextMode === "tournament" && visibleTournaments.length === 0) {
+    if (contextMode === "tournament" && availableTournaments.length === 0) {
       contextMode = "open";
     }
     const isTournamentContext = Boolean(args.formTournamentSelect.value) || contextMode === "tournament";
@@ -366,9 +370,9 @@ export const createFormOrchestration = (args: {
 
     const selectedTournamentValue =
       contextMode === "tournament"
-        ? (visibleTournaments.some((tournament) => tournament.id === args.formTournamentSelect.value)
+        ? (availableTournaments.some((tournament) => tournament.id === args.formTournamentSelect.value)
             ? args.formTournamentSelect.value
-            : visibleTournaments[0]?.id || "")
+            : availableTournaments[0]?.id || "")
         : args.formTournamentSelect.value;
     const selectedTournament = args.dashboardState.tournaments.find(
       (tournament) => tournament.id === selectedTournamentValue,
@@ -457,9 +461,9 @@ export const createFormOrchestration = (args: {
     const selectedSeasonValue =
       lockedSeasonId ||
       (contextMode === "season"
-        ? (visibleSeasons.some((season) => season.id === args.formSeasonSelect.value)
+        ? (availableSeasons.some((season) => season.id === args.formSeasonSelect.value)
             ? args.formSeasonSelect.value
-            : visibleSeasons[0]?.id || "")
+            : availableSeasons[0]?.id || "")
         : args.formSeasonSelect.value);
 
     replaceOptions(
@@ -468,7 +472,7 @@ export const createFormOrchestration = (args: {
         ...(contextMode === "season"
           ? []
           : [{ value: "", label: "No season" }]),
-        ...visibleSeasons.map((season) => ({
+        ...availableSeasons.map((season) => ({
           value: season.id,
           label: `${season.name}${isCompletedSeason(season) ? ` • ${args.t("completedLabel")}` : ""}`,
         })),
@@ -487,10 +491,10 @@ export const createFormOrchestration = (args: {
 
     const filteredTournaments =
       contextMode === "season" && !lockedSeasonId
-        ? visibleTournaments.filter((tournament) => {
+        ? availableTournaments.filter((tournament) => {
             return !args.formSeasonSelect.value || tournament.seasonId === args.formSeasonSelect.value;
           })
-        : visibleTournaments;
+        : availableTournaments;
     const nextTournamentValue =
       contextMode === "tournament"
         ? (filteredTournaments.some((tournament) => tournament.id === selectedTournamentValue)
@@ -559,8 +563,8 @@ export const createFormOrchestration = (args: {
     }
     syncSegmentedToggle(contextToggle, contextMode);
     setSegmentedToggleOptionDisabled(contextToggle, "open", false);
-    setSegmentedToggleOptionDisabled(contextToggle, "season", visibleSeasons.length === 0);
-    setSegmentedToggleOptionDisabled(contextToggle, "tournament", visibleTournaments.length === 0);
+    setSegmentedToggleOptionDisabled(contextToggle, "season", availableSeasons.length === 0);
+    setSegmentedToggleOptionDisabled(contextToggle, "tournament", availableTournaments.length === 0);
     syncSegmentedToggle(matchTypeToggle, args.matchTypeSelect.value || "singles");
     syncSegmentedToggle(formatTypeToggle, args.formatTypeSelect.value || "single_game");
     syncSegmentedToggle(pointsToggle, args.pointsToWinSelect.value || "11");

@@ -401,6 +401,59 @@ describe("form orchestration", () => {
     expect(harness.formTournamentSelect.value).toBe("");
   });
 
+  it("excludes completed seasons and tournaments from create-match selects", () => {
+    const harness = createHarness();
+    harness.dashboardState.seasons = [
+      {
+        id: "season_active",
+        name: "Active Season",
+        status: "active",
+        isActive: true,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+      {
+        id: "season_completed",
+        name: "Completed Season",
+        status: "completed",
+        isActive: false,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+    ] as unknown as DashboardState["seasons"];
+    harness.dashboardState.tournaments = [
+      {
+        id: "tournament_active",
+        name: "Active Tournament",
+        seasonId: null,
+        status: "active",
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+        bracketStatus: "draft",
+      },
+      {
+        id: "tournament_completed",
+        name: "Completed Tournament",
+        seasonId: null,
+        status: "completed",
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+        bracketStatus: "completed",
+      },
+    ] as unknown as DashboardState["tournaments"];
+
+    harness.orchestration.populateMatchFormOptions();
+
+    expect(Array.from(harness.formSeasonSelect.options).map((option) => option.value)).toEqual([
+      "",
+      "season_active",
+    ]);
+    expect(Array.from(harness.formTournamentSelect.options).map((option) => option.value)).toEqual([
+      "",
+      "tournament_active",
+    ]);
+  });
+
   it("rejects season and tournament payloads when no target is selected", () => {
     const seasonHarness = createHarness();
     seasonHarness.contextToggle.dataset.mode = "season";
