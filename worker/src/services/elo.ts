@@ -15,8 +15,8 @@ const GLICKO_TAU = 0.5;
 const GLICKO_SCALE = 173.7178;
 
 const ATTENDANCE_FREE_MISSES = 2;
-const ATTENDANCE_PENALTY_PER_WEEK = 4;
-const ATTENDANCE_PENALTY_CAP = 16;
+const ATTENDANCE_PENALTY_BASE = 4;
+const ATTENDANCE_PENALTY_CAP = 128;
 const WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
 
 interface RatingState {
@@ -111,21 +111,51 @@ function calculateSeasonConservativeRating(rating: number, rd: number): number {
   return Math.round(rating - 2 * rd);
 }
 
-function calculateAttendancePenalty(attendedWeeks: number, totalWeeks: number): number {
-  const missedWeeks = Math.max(0, totalWeeks - attendedWeeks);
-  return Math.min(
-    ATTENDANCE_PENALTY_CAP,
-    Math.max(0, missedWeeks - ATTENDANCE_FREE_MISSES) * ATTENDANCE_PENALTY_PER_WEEK,
-  );
+function calculateAttendancePenaltyForMissedWeeks(missedWeeks: number): number {
+  const penalizedMisses = Math.max(0, missedWeeks - ATTENDANCE_FREE_MISSES);
+  if (penalizedMisses <= 0) {
+    return 0;
+  }
+
+  return Math.min(ATTENDANCE_PENALTY_CAP, ATTENDANCE_PENALTY_BASE * 2 ** (penalizedMisses - 1));
 }
 
 export function calculateSeasonScore(args: {
   rating: number;
   rd: number;
-  attendedWeeks: number;
-  totalWeeks: number;
+  attendancePenalty?: number;
+  consecutiveMissedWeeks?: number;
+  attendedWeeks?: number;
+  totalWeeks?: number;
 }): number {
-  return calculateSeasonConservativeRating(args.rating, args.rd) - calculateAttendancePenalty(args.attendedWeeks, args.totalWeeks);
+  const attendedWeeks = Number(args.attendedWeeks ?? 0);
+  const totalWeeks = Number(args.totalWeeks ?? 0);
+  const attendancePenalty =
+    args.attendancePenalty ??
+    (args.consecutiveMissedWeeks !== undefined
+      ? calculateAttendancePenaltyForMissedWeeks(Math.max(0, Number(args.consecutiveMissedWeeks)))
+      : calculateAttendancePenaltyForMissedWeeks(Math.max(0, totalWeeks - attendedWeeks)));
+  return calculateSeasonConservativeRating(args.rating, args.rd) - attendancePenalty;
+}
+
+function calculateConsecutiveMissedWeeks(attendedWeekKeys: Set<number>, totalWeeks: number): number {
+  if (totalWeeks <= 0) {
+    return 0;
+  }
+
+  let missedWeeks = 0;
+  for (let weekIndex = totalWeeks - 1; weekIndex >= 0; weekIndex -= 1) {
+    if (attendedWeekKeys.has(weekIndex)) {
+      break;
+    }
+    missedWeeks += 1;
+  }
+
+  return missedWeeks;
+}
+
+function calculateAttendancePenalty(attendedWeekKeys: Set<number>, totalWeeks: number): number {
+  return calculateAttendancePenaltyForMissedWeeks(calculateConsecutiveMissedWeeks(attendedWeekKeys, totalWeeks));
 }
 
 function getPlayerElo(state: RatingState | UserRow | undefined): number {
@@ -296,8 +326,7 @@ function initializeSeasonRatingState(
       blank.highestScore = calculateSeasonScore({
         rating: blank.glickoRating,
         rd: blank.glickoRd,
-        attendedWeeks: 0,
-        totalWeeks: 0,
+        attendancePenalty: 0,
       });
     }
     state[playerId] = blank;
@@ -391,8 +420,7 @@ function updateSeasonTeamState(
       calculateSeasonScore({
         rating: state.glickoRating,
         rd: state.glickoRd,
-        attendedWeeks: state.attendedWeekKeys.size,
-        totalWeeks: weekIndex + 1,
+        attendancePenalty: calculateAttendancePenalty(state.attendedWeekKeys, weekIndex + 1),
       }),
     );
     if (isWinner) {
@@ -725,8 +753,7 @@ function createBlankSeasonRatingState(nowIso: string): SeasonRatingState {
     highestScore: calculateSeasonScore({
       rating: GLICKO_DEFAULT_RATING,
       rd: GLICKO_DEFAULT_RD,
-      attendedWeeks: 0,
-      totalWeeks: 0,
+      attendancePenalty: 0,
     }),
     glickoRating: GLICKO_DEFAULT_RATING,
     glickoRd: GLICKO_DEFAULT_RD,
@@ -849,7 +876,7 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
           ? calculateSeasonConservativeRating(seasonState.glickoRating, seasonState.glickoRd)
           : null;
         const attendedWeeks = seasonState ? seasonState.attendedWeekKeys.size : 0;
-        const attendancePenalty = seasonState ? calculateAttendancePenalty(attendedWeeks, totalWeeks) : 0;
+        const attendancePenalty = seasonState ? calculateAttendancePenalty(seasonState.attendedWeekKeys, totalWeeks) : 0;
 
         return env.DB.prepare(
           `

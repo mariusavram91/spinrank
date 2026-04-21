@@ -94,8 +94,8 @@ export const faqEntries: FaqEntry[] = [
         de: "Deshalb kann eine **zurückgesetzte Saison** auf dem Bildschirm bei **500** starten, obwohl das Basis-Rating 1200 ist. Dieses **500-Beispiel** gilt für einen *frischen Reset*, nicht für Übernehmen. *Übernehmen* startet mit deinem aktuellen Rating, daher ist der sichtbare Startwert **nicht fest** und kann über oder unter 500 liegen.",
       },
       {
-        en: "**Attendance matters too.** After **two missed season weeks**, each extra missed week lowers the season score a little, up to **16 points total**.",
-        de: "**Auch die Teilnahme zählt.** Nach **zwei verpassten Saisonwochen** senkt jede weitere verpasste Woche den Saison-Score ein wenig, insgesamt um **maximal 16 Punkte**.",
+        en: "**Attendance matters too.** Penalties apply to **consecutive missed season weeks**: first 2 misses are free, then **4, 8, 16, 32, 64**, capped at **128**. If you play again, the miss counter resets.",
+        de: "**Auch die Teilnahme zählt.** Die Strafe gilt für **aufeinanderfolgende verpasste Saisonwochen**: Die ersten 2 Fehlwochen sind frei, danach **4, 8, 16, 32, 64**, gedeckelt bei **128**. Wenn du wieder spielst, wird der Fehlzähler zurückgesetzt.",
       },
     ],
   },

@@ -730,19 +730,18 @@ async function loadCompletedSeasonOutcomeCounts(
         seasonGlickoRd: row.season_glicko_rd === null ? 0 : Number(row.season_glicko_rd),
         seasonAttendedWeeks: Number(row.season_attended_weeks ?? 0),
         seasonTotalWeeks: Number(row.season_total_weeks ?? 0),
+        seasonAttendancePenalty: Number(row.season_attendance_penalty ?? 0),
       }))
       .sort((left, right) => {
         const leftSeasonScore = calculateSeasonScore({
           rating: left.seasonGlickoRating || left.elo,
           rd: left.seasonGlickoRd,
-          attendedWeeks: left.seasonAttendedWeeks,
-          totalWeeks: left.seasonTotalWeeks,
+          attendancePenalty: left.seasonAttendancePenalty,
         });
         const rightSeasonScore = calculateSeasonScore({
           rating: right.seasonGlickoRating || right.elo,
           rd: right.seasonGlickoRd,
-          attendedWeeks: right.seasonAttendedWeeks,
-          totalWeeks: right.seasonTotalWeeks,
+          attendancePenalty: right.seasonAttendancePenalty,
         });
         if (rightSeasonScore !== leftSeasonScore) {
           return rightSeasonScore - leftSeasonScore;

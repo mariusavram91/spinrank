@@ -323,7 +323,7 @@
   "faqSummaryCarryDetail": "Carry over does not have one fixed starting score. It can be above or below 500 depending on your current global rating. A fresh reset can show 500.",
   "faqSummaryAttendanceLabel": "Season attendance",
   "faqSummaryAttendanceValue": "First 2 misses are free",
-  "faqSummaryAttendanceDetail": "After that, each extra missed season week lowers the season score by 4, up to 16 total.",
+  "faqSummaryAttendanceDetail": "Attendance penalties are based on consecutive missed weeks: first 2 misses free, then 4, 8, 16, 32, 64, capped at 128. Playing again resets the miss counter.",
   "faqSummaryTournamentLabel": "Tournament results",
   "faqSummaryTournamentValue": "Bracket decides placement",
   "faqSummaryTournamentDetail": "Tournament order comes from the bracket result, not from Elo or season score.",

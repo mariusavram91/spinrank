@@ -186,8 +186,7 @@ export async function handleGetSegmentLeaderboard(
           ? calculateSeasonScore({
               rating: seasonGlickoRating ?? Number(row.elo),
               rd: seasonGlickoRd ?? 0,
-              attendedWeeks: seasonAttendedWeeks,
-              totalWeeks: seasonTotalWeeks,
+              attendancePenalty: seasonAttendancePenalty,
             })
           : undefined;
       return {

@@ -383,6 +383,7 @@ const buildSharedSegmentSummary = async (
       const seasonGlickoRd = row.season_glicko_rd === null ? undefined : Number(row.season_glicko_rd);
       const seasonAttendedWeeks = Number(row.season_attended_weeks ?? 0);
       const seasonTotalWeeks = Number(row.season_total_weeks ?? 0);
+      const seasonAttendancePenalty = Number(row.season_attendance_penalty ?? 0);
       return {
         userId: row.user_id,
         displayName: row.display_name,
@@ -407,8 +408,7 @@ const buildSharedSegmentSummary = async (
             ? calculateSeasonScore({
                 rating: seasonGlickoRating ?? Number(row.elo),
                 rd: seasonGlickoRd ?? 0,
-                attendedWeeks: seasonAttendedWeeks,
-                totalWeeks: seasonTotalWeeks,
+                attendancePenalty: seasonAttendancePenalty,
               })
             : undefined,
         ...(segmentType === "tournament" && tournamentPlacementMetrics

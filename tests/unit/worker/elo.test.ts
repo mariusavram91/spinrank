@@ -11,11 +11,60 @@ describe("elo helpers", () => {
     const score = calculateSeasonScore({
       rating: 1500,
       rd: 50,
-      attendedWeeks: 3,
-      totalWeeks: 10,
+      attendancePenalty: 64,
     });
 
-    expect(score).toBe(1384);
+    expect(score).toBe(1336);
+  });
+
+  it("applies consecutive-miss penalties with reset semantics", () => {
+    expect(
+      calculateSeasonScore({
+        rating: 1500,
+        rd: 50,
+        consecutiveMissedWeeks: 2,
+      }),
+    ).toBe(1400);
+
+    expect(
+      calculateSeasonScore({
+        rating: 1500,
+        rd: 50,
+        consecutiveMissedWeeks: 3,
+      }),
+    ).toBe(1396);
+
+    expect(
+      calculateSeasonScore({
+        rating: 1500,
+        rd: 50,
+        consecutiveMissedWeeks: 4,
+      }),
+    ).toBe(1392);
+
+    expect(
+      calculateSeasonScore({
+        rating: 1500,
+        rd: 50,
+        consecutiveMissedWeeks: 8,
+      }),
+    ).toBe(1272);
+
+    expect(
+      calculateSeasonScore({
+        rating: 1500,
+        rd: 50,
+        consecutiveMissedWeeks: 12,
+      }),
+    ).toBe(1272);
+
+    expect(
+      calculateSeasonScore({
+        rating: 1500,
+        rd: 50,
+        consecutiveMissedWeeks: 0,
+      }),
+    ).toBe(1400);
   });
 
   it("orders leaderboard rows by elo, wins, losses, and name", () => {
