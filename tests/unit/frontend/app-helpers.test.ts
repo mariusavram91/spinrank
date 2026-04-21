@@ -1,9 +1,10 @@
-import type { MatchRecord, SeasonRecord, TournamentRecord } from "../../../src/api/contract";
+import type { MatchRecord, SeasonRecord, TournamentBracketRound, TournamentRecord } from "../../../src/api/contract";
 import {
   renderMatchContext,
   shouldShowSeasonInDropdown,
   shouldShowTournamentInDropdown,
   getWinnerLabel,
+  isTournamentBracketMatchReadyForCreation,
   matchFilterLabels,
   getMatchLimitForFilter,
 } from "../../../src/ui/features/app/helpers";
@@ -63,6 +64,94 @@ describe("app helpers", () => {
   it("returns winner labels based on team selection", () => {
     expect(getWinnerLabel("A", "Alpha", "Beta")).toBe("Alpha");
     expect(getWinnerLabel("B", "Alpha", "Beta")).toBe("Beta");
+  });
+
+  it("requires previous-round winners before later-round bracket matches are considered ready", () => {
+    const rounds: TournamentBracketRound[] = [
+      {
+        title: "Semifinals",
+        matches: [
+          {
+            id: "sf_1",
+            leftPlayerId: "user_alex",
+            rightPlayerId: "user_bea",
+            createdMatchId: null,
+            winnerPlayerId: null,
+            locked: false,
+            isFinal: false,
+          },
+          {
+            id: "sf_2",
+            leftPlayerId: "user_marius",
+            rightPlayerId: "user_kai",
+            createdMatchId: null,
+            winnerPlayerId: "user_marius",
+            locked: true,
+            isFinal: false,
+          },
+        ],
+      },
+      {
+        title: "Final",
+        matches: [
+          {
+            id: "final_1",
+            leftPlayerId: "user_alex",
+            rightPlayerId: "user_marius",
+            createdMatchId: null,
+            winnerPlayerId: null,
+            locked: false,
+            isFinal: true,
+          },
+        ],
+      },
+    ];
+
+    expect(isTournamentBracketMatchReadyForCreation(rounds, 1, 0)).toBe(false);
+  });
+
+  it("treats later-round bracket matches as ready only when both feeder winners exist", () => {
+    const rounds: TournamentBracketRound[] = [
+      {
+        title: "Semifinals",
+        matches: [
+          {
+            id: "sf_1",
+            leftPlayerId: "user_alex",
+            rightPlayerId: "user_bea",
+            createdMatchId: "match_sf_1",
+            winnerPlayerId: "user_alex",
+            locked: true,
+            isFinal: false,
+          },
+          {
+            id: "sf_2",
+            leftPlayerId: "user_marius",
+            rightPlayerId: "user_kai",
+            createdMatchId: "match_sf_2",
+            winnerPlayerId: "user_marius",
+            locked: true,
+            isFinal: false,
+          },
+        ],
+      },
+      {
+        title: "Final",
+        matches: [
+          {
+            id: "final_1",
+            leftPlayerId: "user_alex",
+            rightPlayerId: "user_marius",
+            createdMatchId: null,
+            winnerPlayerId: null,
+            locked: false,
+            isFinal: true,
+          },
+        ],
+      },
+    ];
+
+    expect(isTournamentBracketMatchReadyForCreation(rounds, 1, 0)).toBe(true);
   });
 
   it("considers active or associated seasons visible", () => {

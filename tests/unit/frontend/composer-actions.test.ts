@@ -29,6 +29,27 @@ const createDashboardState = (): DashboardState =>
     matchFormError: "",
     matchFormMessage: "",
     screen: "dashboard",
+    matchTournamentBracketCache: {
+      tournament_1: {
+        tournament: {
+          id: "tournament_1",
+          name: "Cup",
+          date: "2026-04-06",
+          seasonId: "season_1",
+          seasonName: "Season 1",
+          status: "active",
+          createdByUserId: "user_a",
+          createdAt: "2026-04-06T00:00:00.000Z",
+          completedAt: null,
+          participantCount: 2,
+          participantIds: ["user_a", "user_b"],
+          bracketStatus: "draft",
+        },
+        participantIds: ["user_a", "user_b"],
+        participants: [],
+        rounds: [],
+      },
+    },
   } as unknown as DashboardState);
 
 const createTournamentPlannerState = (): TournamentPlannerState =>
@@ -166,6 +187,7 @@ describe("composer actions", () => {
     await actions.advanceTournamentBye(0, 0);
     expect(args.applyTournamentWinnerLocally).toHaveBeenCalledWith(expect.any(Array), 0, 0, "user_a");
     expect(args.saveTournament).toHaveBeenCalled();
+    expect(args.dashboardState.matchTournamentBracketCache.tournament_1).toBeUndefined();
   });
 
   it("prefills a tournament pairing into the match composer", () => {
@@ -192,5 +214,6 @@ describe("composer actions", () => {
     expect(args.applySelectedTournamentBracketMatch).toHaveBeenCalled();
     expect(args.syncAuthState).toHaveBeenCalled();
     expect(args.syncDashboardState).toHaveBeenCalled();
+    expect(args.dashboardState.matchTournamentBracketCache.tournament_1).toBeUndefined();
   });
 });

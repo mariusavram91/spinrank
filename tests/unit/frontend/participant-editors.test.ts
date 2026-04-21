@@ -24,6 +24,7 @@ const createDashboardState = (): DashboardState =>
       },
     ],
     editingSeasonParticipantIds: ["user_a"],
+    editingSeasonId: "season_1",
     seasonParticipantQuery: "",
     seasonParticipantResults: [],
     seasonParticipantSearchLoading: false,
@@ -88,6 +89,13 @@ const createHarness = () => {
           ],
         };
       }
+      if (action === "getSegmentLeaderboard") {
+        return {
+          leaderboard: [],
+          stats: null,
+          updatedAt: "",
+        };
+      }
       throw new Error(`Unexpected action ${action}`);
     }),
     renderPlayerNames: (playerIds: string[], players: DashboardState["players"]) =>
@@ -147,6 +155,65 @@ describe("participant editors", () => {
     ) as HTMLButtonElement | null;
 
     expect(currentUserChip?.disabled).toBe(true);
+  });
+
+  it("disables removing season participants who already played at least one season match", async () => {
+    const harness = createHarness();
+    harness.args.dashboardState.editingSeasonParticipantIds = ["user_a", "user_b", "user_c"];
+    vi.mocked(harness.args.runAuthedAction).mockImplementation(async (action: string) => {
+      if (action === "searchParticipants") {
+        return {
+          participants: [
+            { userId: "user_b", displayName: "Bob", avatarUrl: null, elo: 1180, isSuggested: true },
+            { userId: "user_c", displayName: "Cara", avatarUrl: null, elo: 1160, isSuggested: true },
+          ],
+        };
+      }
+      if (action === "getSegmentLeaderboard") {
+        return {
+          leaderboard: [
+            {
+              userId: "user_b",
+              displayName: "Bob",
+              avatarUrl: null,
+              elo: 1180,
+              wins: 1,
+              losses: 0,
+              streak: 1,
+              rank: 1,
+              matchEquivalentPlayed: 1,
+            },
+            {
+              userId: "user_c",
+              displayName: "Cara",
+              avatarUrl: null,
+              elo: 1160,
+              wins: 0,
+              losses: 0,
+              streak: 0,
+              rank: 2,
+              matchEquivalentPlayed: 0,
+            },
+          ],
+          stats: null,
+          updatedAt: "",
+        };
+      }
+      throw new Error(`Unexpected action ${action}`);
+    });
+
+    harness.editors.renderSeasonEditor();
+    await flush();
+
+    const playedParticipantButton = harness.args.seasonParticipantList.querySelector(
+      "[data-participant-id='user_b'] [data-testid='participant-remove-button']",
+    ) as HTMLButtonElement | null;
+    const notPlayedParticipantButton = harness.args.seasonParticipantList.querySelector(
+      "[data-participant-id='user_c'] [data-testid='participant-remove-button']",
+    ) as HTMLButtonElement | null;
+
+    expect(playedParticipantButton?.disabled).toBe(true);
+    expect(notPlayedParticipantButton?.disabled).toBe(false);
   });
 
   it("renders tournament bracket actions and routes create-match clicks into the composer prefill", async () => {

@@ -4,6 +4,7 @@ import type {
   MatchFeedFilter,
   MatchRecord,
   SeasonRecord,
+  TournamentBracketRound,
   TournamentRecord,
 } from "../../../api/contract";
 import type { TextKey } from "../../shared/i18n/translations";
@@ -125,6 +126,28 @@ export const shouldShowTournamentInDropdown = (
 
 export const getWinnerLabel = (winnerTeam: "A" | "B", teamA: string, teamB: string): string =>
   winnerTeam === "A" ? teamA : teamB;
+
+export const isTournamentBracketMatchReadyForCreation = (
+  rounds: TournamentBracketRound[],
+  roundIndex: number,
+  matchIndex: number,
+): boolean => {
+  const round = rounds[roundIndex];
+  const match = round?.matches[matchIndex];
+  if (!match || !match.leftPlayerId || !match.rightPlayerId) {
+    return false;
+  }
+  if (roundIndex === 0) {
+    return true;
+  }
+  const previousRound = rounds[roundIndex - 1];
+  if (!previousRound) {
+    return false;
+  }
+  const previousLeft = previousRound.matches[matchIndex * 2];
+  const previousRight = previousRound.matches[matchIndex * 2 + 1];
+  return Boolean(previousLeft?.winnerPlayerId) && Boolean(previousRight?.winnerPlayerId);
+};
 
 export const renderMatchContext = (
   match: MatchRecord,

@@ -178,6 +178,9 @@ export const createDashboardActions = (args: {
       args.dashboardState.selectedTournamentId = visibleTournamentIds.has(args.dashboardState.selectedTournamentId)
         ? args.dashboardState.selectedTournamentId
         : data.tournaments[0]?.id || "";
+      // Bracket snapshots can become stale after tournament mutations (match creation/advancement).
+      // Clear cached bracket payloads so the match composer refetches up-to-date options.
+      args.dashboardState.matchTournamentBracketCache = {};
       args.dashboardState.players = mergePlayers(data.players ?? [], data.leaderboard);
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.leaderboardUpdatedAt;

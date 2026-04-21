@@ -375,4 +375,102 @@ describe("worker integration: createSeason", () => {
       await context.cleanup();
     }
   });
+
+  it("rejects removing participants who already have season matches", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+      await seedUser(context.env, { id: "user_new", displayName: "New Friend" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+
+      const createResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_create_season_remove_guard_create",
+          payload: {
+            name: "Removal Guard Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_friend", "user_new"],
+            isPublic: true,
+          },
+        },
+        owner!,
+        context.env,
+      );
+
+      const seasonId = createResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      await context.env.DB.prepare(
+        `
+          INSERT INTO matches (
+            id, match_type, format_type, points_to_win, team_a_player_ids_json, team_b_player_ids_json, score_json, winner_team,
+            global_elo_delta_json, segment_elo_delta_json, played_at, season_id, tournament_id, created_by_user_id, status, created_at
+          ) VALUES (?1, 'singles', 'single_game', 11, ?2, ?3, ?4, 'A', '{}', '{}', ?5, ?6, NULL, ?7, 'active', ?8)
+        `,
+      )
+        .bind(
+          "match_season_removal_guard",
+          JSON.stringify(["user_friend"]),
+          JSON.stringify(["user_owner"]),
+          JSON.stringify([{ teamA: 11, teamB: 8 }]),
+          "2026-04-10T10:00:00.000Z",
+          seasonId,
+          "user_owner",
+          "2026-04-10T10:00:00.000Z",
+        )
+        .run();
+      await context.env.DB.prepare(
+        `
+          INSERT INTO match_players (match_id, user_id, team)
+          VALUES (?1, ?2, ?3), (?1, ?4, ?5)
+        `,
+      )
+        .bind("match_season_removal_guard", "user_friend", "A", "user_owner", "B")
+        .run();
+
+      const updateResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_create_season_remove_guard_update",
+          payload: {
+            seasonId,
+            name: "Removal Guard Season Updated",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_new"],
+            isPublic: true,
+          },
+        },
+        owner!,
+        context.env,
+      );
+
+      expect(updateResponse.ok).toBe(false);
+      expect(updateResponse.error?.code).toBe("CONFLICT");
+      expect(updateResponse.error?.message).toBe("Participants with recorded matches in this season cannot be removed.");
+
+      const participants = await context.env.DB.prepare(
+        `
+          SELECT user_id
+          FROM season_participants
+          WHERE season_id = ?1
+          ORDER BY user_id ASC
+        `,
+      )
+        .bind(seasonId)
+        .all<{ user_id: string }>();
+
+      expect(participants.results.map((row) => row.user_id)).toEqual(["user_friend", "user_new", "user_owner"]);
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

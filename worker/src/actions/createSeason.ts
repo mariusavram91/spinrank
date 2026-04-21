@@ -1,4 +1,4 @@
-import { dateOnly, isoNow, randomId } from "../db";
+import { dateOnly, isoNow, parseJsonArray, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { createEnqueueAchievementTriggerStatement } from "../services/achievements";
 import { getSeasonById } from "../services/visibility";
@@ -25,6 +25,29 @@ async function validatePlayers(env: Env, playerIds: string[]): Promise<boolean> 
     .first<{ count: number }>();
 
   return Number(result?.count || 0) === playerIds.length;
+}
+
+async function getParticipantsWithSeasonMatches(env: Env, seasonId: string, participantIds: string[]): Promise<string[]> {
+  if (participantIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = participantIds.map((_, index) => `?${index + 2}`).join(", ");
+  const rows = await env.DB.prepare(
+    `
+      SELECT DISTINCT mp.user_id
+      FROM match_players mp
+      JOIN matches m ON m.id = mp.match_id
+      WHERE m.season_id = ?1
+        AND m.status = 'active'
+        AND mp.user_id IN (${placeholders})
+      ORDER BY mp.user_id ASC
+    `,
+  )
+    .bind(seasonId, ...participantIds)
+    .all<{ user_id: string }>();
+
+  return rows.results.map((row) => row.user_id);
 }
 
 function toSeasonRecord(row: {
@@ -97,6 +120,20 @@ export async function handleCreateSeason(
       (existing.end_date && dateOnly(isoNow(env.runtime)) > existing.end_date))
   ) {
     return errorResponse(request.requestId, "CONFLICT", "This season can no longer be edited.");
+  }
+  if (existing) {
+    const existingParticipantIds = parseJsonArray<string>(existing.participant_ids_json);
+    const removedParticipantIds = existingParticipantIds.filter((participantId) => !participantIds.includes(participantId));
+    if (removedParticipantIds.length > 0) {
+      const lockedParticipantIds = await getParticipantsWithSeasonMatches(env, existing.id, removedParticipantIds);
+      if (lockedParticipantIds.length > 0) {
+        return errorResponse(
+          request.requestId,
+          "CONFLICT",
+          "Participants with recorded matches in this season cannot be removed.",
+        );
+      }
+    }
   }
 
   const nowIso = isoNow(env.runtime);

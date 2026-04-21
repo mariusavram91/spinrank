@@ -43,6 +43,13 @@ export const createComposerActions = (args: {
     winnerPlayerId: string,
   ) => TournamentPlannerState["rounds"];
 }) => {
+  const invalidateTournamentBracketCache = (tournamentId: string): void => {
+    if (!tournamentId) {
+      return;
+    }
+    delete args.dashboardState.matchTournamentBracketCache[tournamentId];
+  };
+
   const applyFairMatchSuggestion = async (): Promise<void> => {
     const state = args.getViewState();
     if (!args.isAuthedState(state)) {
@@ -136,6 +143,7 @@ export const createComposerActions = (args: {
 
     if (args.tournamentPlannerState.tournamentId) {
       await args.saveTournament();
+      invalidateTournamentBracketCache(args.tournamentPlannerState.tournamentId);
     }
   };
 
@@ -162,6 +170,7 @@ export const createComposerActions = (args: {
     args.setActiveTournamentBracketMatchId(match.id);
     args.dashboardState.screen = "createMatch";
     args.populateMatchFormOptions();
+    invalidateTournamentBracketCache(args.tournamentPlannerState.tournamentId);
     args.syncMatchBracketOptions();
     args.applySelectedTournamentBracketMatch();
     args.syncAuthState();

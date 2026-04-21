@@ -110,6 +110,7 @@ import {
   getMatchFeedContextLabel,
   getMatchLimitForFilter,
   getWinnerLabel,
+  isTournamentBracketMatchReadyForCreation,
   isAuthedState,
   isLockedSeason,
   isLockedTournament,
@@ -885,9 +886,10 @@ export const buildApp = (): HTMLElement => {
     if (!bracketData || !currentUserId) {
       return [];
     }
-    return bracketData.rounds.flatMap((round: GetTournamentBracketData["rounds"][number]) =>
+    return bracketData.rounds.flatMap((round: GetTournamentBracketData["rounds"][number], roundIndex: number) =>
       round.matches
-        .filter((match: GetTournamentBracketData["rounds"][number]["matches"][number]) =>
+        .filter((match: GetTournamentBracketData["rounds"][number]["matches"][number], matchIndex: number) =>
+          isTournamentBracketMatchReadyForCreation(bracketData.rounds, roundIndex, matchIndex) &&
           Boolean(match.leftPlayerId) &&
           Boolean(match.rightPlayerId) &&
           !match.createdMatchId &&
@@ -918,13 +920,22 @@ export const buildApp = (): HTMLElement => {
     rightPlayerId: string;
   } | null => {
     const bracketData = dashboardState.matchTournamentBracketCache[tournamentId];
-    if (!bracketData) {
+    const currentUserId = getCurrentUserId(state.current);
+    if (!bracketData || !currentUserId) {
       return null;
     }
-
-    for (const round of bracketData.rounds) {
-      for (const match of round.matches) {
-        if (match.id !== matchId || !match.leftPlayerId || !match.rightPlayerId) {
+    for (const [roundIndex, round] of bracketData.rounds.entries()) {
+      for (const [matchIndex, match] of round.matches.entries()) {
+        if (
+          match.id !== matchId ||
+          !isTournamentBracketMatchReadyForCreation(bracketData.rounds, roundIndex, matchIndex) ||
+          !match.leftPlayerId ||
+          !match.rightPlayerId ||
+          match.createdMatchId ||
+          match.winnerPlayerId ||
+          match.locked ||
+          ![match.leftPlayerId, match.rightPlayerId].includes(currentUserId)
+        ) {
           continue;
         }
         const leftName = findMatchPlayer(match.leftPlayerId)?.displayName || "Player 1";

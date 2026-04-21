@@ -32,6 +32,8 @@ export const createParticipantEditors = (args: {
   t: (key: TextKey) => string;
 }) => {
   const knownParticipants = new Map<string, ParticipantSearchEntry>();
+  const seasonParticipantsWithMatchesBySeasonId = new Map<string, Set<string>>();
+  const pendingSeasonParticipantMatchLoads = new Set<string>();
   let seasonSearchToken = 0;
   let tournamentSearchToken = 0;
 
@@ -239,6 +241,32 @@ export const createParticipantEditors = (args: {
     }
   };
 
+  const refreshSeasonParticipantsWithMatches = async (seasonId: string): Promise<void> => {
+    if (!seasonId || pendingSeasonParticipantMatchLoads.has(seasonId)) {
+      return;
+    }
+
+    pendingSeasonParticipantMatchLoads.add(seasonId);
+    try {
+      const data = await args.runAuthedAction("getSegmentLeaderboard", {
+        segmentType: "season",
+        segmentId: seasonId,
+      });
+      const lockedParticipantIds = new Set(
+        data.leaderboard
+          .filter((entry) => Number(entry.matchEquivalentPlayed ?? entry.wins + entry.losses) > 0)
+          .map((entry) => entry.userId),
+      );
+      seasonParticipantsWithMatchesBySeasonId.set(seasonId, lockedParticipantIds);
+    } catch {
+      seasonParticipantsWithMatchesBySeasonId.set(seasonId, new Set());
+    } finally {
+      pendingSeasonParticipantMatchLoads.delete(seasonId);
+      renderSeasonEditor();
+      args.syncDashboardState();
+    }
+  };
+
   const refreshTournamentParticipantResults = async (): Promise<void> => {
     const requestToken = ++tournamentSearchToken;
     args.tournamentPlannerState.participantSearchLoading = true;
@@ -385,26 +413,53 @@ export const createParticipantEditors = (args: {
     args.seasonParticipantSearchInput.value = args.dashboardState.seasonParticipantQuery;
     args.seasonParticipantSearchInput.disabled = args.isLockedSeason(args.getEditingSeason());
 
+    const editingSeasonId = args.dashboardState.editingSeasonId;
+    if (
+      editingSeasonId &&
+      !seasonParticipantsWithMatchesBySeasonId.has(editingSeasonId) &&
+      !pendingSeasonParticipantMatchLoads.has(editingSeasonId)
+    ) {
+      void refreshSeasonParticipantsWithMatches(editingSeasonId);
+    }
+
     const sessionUserId = args.getSessionUserId();
     const locked = args.isLockedSeason(args.getEditingSeason());
     const selectedIds = args.dashboardState.editingSeasonParticipantIds;
+    const seasonMatchLocksPending = editingSeasonId
+      ? pendingSeasonParticipantMatchLoads.has(editingSeasonId)
+      : false;
+    const participantsWithMatches = editingSeasonId
+      ? seasonParticipantsWithMatchesBySeasonId.get(editingSeasonId) ?? new Set<string>()
+      : new Set<string>();
 
     if (selectedIds.length === 0) {
       args.seasonParticipantList.replaceChildren(renderEmptyState(args.t("participantSelectedEmpty")));
     } else {
       const chips = selectedIds.map((participantId) =>
-        buildSelectedParticipantChip(participantId, locked || participantId === sessionUserId, () => {
-          if (locked || participantId === sessionUserId) {
-            return;
-          }
-          args.dashboardState.editingSeasonParticipantIds = args.dashboardState.editingSeasonParticipantIds.filter(
-            (currentId) => currentId !== participantId,
-          );
-          args.dashboardState.seasonFormError = "";
-          args.dashboardState.seasonFormMessage = "";
-          renderSeasonEditor();
-          args.syncDashboardState();
-        }),
+        buildSelectedParticipantChip(
+          participantId,
+          seasonMatchLocksPending ||
+            locked ||
+            participantId === sessionUserId ||
+            participantsWithMatches.has(participantId),
+          () => {
+            if (
+              seasonMatchLocksPending ||
+              locked ||
+              participantId === sessionUserId ||
+              participantsWithMatches.has(participantId)
+            ) {
+              return;
+            }
+            args.dashboardState.editingSeasonParticipantIds = args.dashboardState.editingSeasonParticipantIds.filter(
+              (currentId) => currentId !== participantId,
+            );
+            args.dashboardState.seasonFormError = "";
+            args.dashboardState.seasonFormMessage = "";
+            renderSeasonEditor();
+            args.syncDashboardState();
+          },
+        ),
       );
       args.seasonParticipantList.replaceChildren(...chips);
     }

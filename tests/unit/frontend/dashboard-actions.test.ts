@@ -180,7 +180,16 @@ const createHarness = (dashboardState: DashboardState, runAuthedAction = vi.fn()
 
 describe("dashboard actions", () => {
   it("loads dashboard data, normalizes selected ids, and syncs helper state", async () => {
-    const dashboardState = createDashboardState();
+    const dashboardState = createDashboardState({
+      matchTournamentBracketCache: {
+        stale_tournament: {
+          tournament: tournamentRecord({ id: "stale_tournament" }),
+          participantIds: ["user_1", "user_2"],
+          participants: [],
+          rounds: [],
+        },
+      },
+    });
     const data: GetDashboardData = {
       seasons: [
         seasonRecord({ id: "season_2", isActive: false }),
@@ -230,6 +239,7 @@ describe("dashboard actions", () => {
     expect(dashboardState.matches).toEqual(data.matches);
     expect(dashboardState.matchesCursor).toBe("cursor_1");
     expect(dashboardState.matchBracketContextByMatchId).toEqual(data.matchBracketContextByMatchId);
+    expect(dashboardState.matchTournamentBracketCache).toEqual({});
     expect(dashboardState.loading).toBe(false);
     expect(harness.args.populateSeasonOptions).toHaveBeenCalled();
     expect(harness.args.populateSeasonManagerLoadOptions).toHaveBeenCalled();
