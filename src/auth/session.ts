@@ -68,7 +68,7 @@ export const createSessionStore = ({
         ...parsed,
         user: {
           ...parsed.user,
-          locale: parsed.user.locale === "de" ? "de" : "en",
+          locale: parsed.user.locale === "de" || parsed.user.locale === "es" ? parsed.user.locale : "en",
         },
       };
     } catch {

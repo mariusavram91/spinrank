@@ -1,12 +1,19 @@
 export type FaqDetail = {
   en: string;
   de: string;
+  es?: string;
 };
 
 export interface FaqEntry {
   titleEn: string;
   titleDe: string;
+  titleEs?: string;
   details: FaqDetail[];
+}
+
+export interface FaqEntryEs {
+  title: string;
+  details: string[];
 }
 
 export const faqEntries: FaqEntry[] = [
@@ -278,6 +285,93 @@ export const faqEntries: FaqEntry[] = [
         en: "**Important:** achievement points **do not currently affect** your *global ranking*, *season score*, or *tournament placement*.",
         de: "**Wichtig:** Erfolgspunkte **beeinflussen aktuell nicht** deine *globale Rangliste*, den *Saison-Score* oder die *Turnierplatzierung*.",
       },
+    ],
+  },
+];
+
+export const faqEntriesEs: FaqEntryEs[] = [
+  {
+    title: "¿Qué afecta a qué?",
+    details: [
+      "SpinRank muestra tres vistas: clasificación global, clasificación de temporada y posición en torneo.",
+      "Regla simple: todo partido rankeado afecta a tu clasificación global; solo los partidos dentro de una temporada afectan a esa temporada; el torneo lo decide el avance en el bracket.",
+    ],
+  },
+  {
+    title: "Clasificación global",
+    details: [
+      "La clasificación global mide tu nivel general a largo plazo con Elo e incluye todos los partidos rankeados activos.",
+      "Los primeros resultados mueven más rápido el Elo global (0-9 más rápido, 10-29 más estable, 30+ más calmado).",
+      "Necesitas al menos 10 partidos para aparecer por encima de jugadores no cualificados.",
+    ],
+  },
+  {
+    title: "Clasificación de temporada",
+    details: [
+      "La temporada solo cuenta partidos dentro de esa temporada (y torneos vinculados a ella).",
+      "La puntuación de temporada usa Glicko-2 (con incertidumbre), no Elo simple.",
+      "La puntuación visible es prudente: rating menos incertidumbre y menos penalización de asistencia si aplica.",
+    ],
+  },
+  {
+    title: "Posición en torneo",
+    details: [
+      "La posición del torneo la determina el bracket, no una puntuación separada.",
+      "Los partidos de torneo siempre afectan al torneo y al ranking global; solo afectan a temporada si el torneo está vinculado a esa temporada.",
+    ],
+  },
+  {
+    title: "Tipos de partido",
+    details: [
+      "Puedes jugar individual o dobles, a un juego o mejor de 3, y a 11 o 21 puntos.",
+      "Individual suele impactar más al rating; dobles cuenta con peso reducido.",
+      "Open play cuenta para global, pero no para temporada o torneo salvo que se vincule.",
+    ],
+  },
+  {
+    title: "Opciones de inicio de temporada",
+    details: [
+      "Al crear temporada puedes arrastrar rating actual o reiniciar a 1200.",
+      "Arrastrar mantiene diferencias previas; reiniciar empieza limpio para todos.",
+      "La puntuación visible inicial puede variar según modo y contexto.",
+    ],
+  },
+  {
+    title: "Eliminar elementos",
+    details: [
+      "Solo el creador puede eliminar partidos, temporadas o torneos.",
+      "Eliminar un partido quita su impacto en rankings y segmentos relacionados.",
+      "Eliminar torneo o temporada también elimina sus partidos dependientes según las reglas del sistema.",
+    ],
+  },
+  {
+    title: "Listas desplegables de jugadores",
+    details: [
+      "Por defecto se priorizan jugadores relevantes por contexto.",
+      "Al escribir en búsqueda se amplía el alcance, pero siempre respetando reglas de temporada/torneo.",
+      "En bracket de torneo solo puedes seleccionar la pareja definida por ese cruce.",
+    ],
+  },
+  {
+    title: "Público vs privado",
+    details: [
+      "Las temporadas pueden ser públicas o privadas según configuración.",
+      "Los torneos actualmente se controlan por participación del torneo, no por ajuste público separado.",
+      "Un torneo vinculado a una temporada pública no se vuelve automáticamente público.",
+    ],
+  },
+  {
+    title: "Botones útiles",
+    details: [
+      "\"Sugerir matchup justo\" propone emparejamientos de nivel parecido.",
+      "\"Sugerir torneo\" construye el bracket y reparte jugadores fuertes para equilibrar el cuadro.",
+    ],
+  },
+  {
+    title: "Logros",
+    details: [
+      "Los logros son hitos por actividad, objetivos y progreso.",
+      "Dan puntos de progreso, pero actualmente no modifican ranking global, puntuación de temporada ni posición de torneo.",
     ],
   },
 ];

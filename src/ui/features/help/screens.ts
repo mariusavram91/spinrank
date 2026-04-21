@@ -1,4 +1,4 @@
-import { faqEntries } from "./faqContent";
+import { faqEntries, faqEntriesEs } from "./faqContent";
 import { bindLocalizedText, getCurrentLanguage, onLanguageChange, t } from "../../shared/i18n/runtime";
 
 export interface HelpScreenElements {
@@ -116,17 +116,60 @@ export const buildHelpScreens = (): HelpScreenElements => {
   const faqGrid = document.createElement("div");
   faqGrid.className = "faq-grid";
 
-  const getLocalizedText = (detail: { en: string; de: string }): string =>
-    getCurrentLanguage() === "de" ? detail.de : detail.en;
+  const getLocalizedText = (detail: { en: string; de: string; es?: string }): string => {
+    const language = getCurrentLanguage();
+    if (language === "de") {
+      return detail.de;
+    }
+    if (language === "es") {
+      return detail.es ?? detail.en;
+    }
+    return detail.en;
+  };
 
   const renderFaqCards = (): void => {
+    if (getCurrentLanguage() === "es") {
+      const cards = faqEntriesEs.map((entry) => {
+        const card = document.createElement("article");
+        card.className = "faq-card";
+
+        const cardTitle = document.createElement("h3");
+        cardTitle.className = "card-title faq-card__title";
+        cardTitle.textContent = entry.title;
+
+        const cardBody = document.createElement("div");
+        cardBody.className = "faq-card__body";
+
+        entry.details.forEach((detailText) => {
+          const detailBlock = document.createElement("div");
+          detailBlock.className = "faq-card__detail";
+
+          const paragraph = document.createElement("p");
+          paragraph.className = "faq-card__text";
+          paragraph.textContent = detailText;
+          detailBlock.append(paragraph);
+          cardBody.append(detailBlock);
+        });
+
+        card.append(cardTitle, cardBody);
+        return card;
+      });
+      faqGrid.replaceChildren(...cards);
+      return;
+    }
+
     const cards = faqEntries.map((entry) => {
       const card = document.createElement("article");
       card.className = "faq-card";
 
       const cardTitle = document.createElement("h3");
       cardTitle.className = "card-title faq-card__title";
-      cardTitle.textContent = getCurrentLanguage() === "de" ? entry.titleDe : entry.titleEn;
+      cardTitle.textContent =
+        getCurrentLanguage() === "de"
+          ? entry.titleDe
+          : getCurrentLanguage() === "es"
+            ? (entry.titleEs ?? entry.titleEn)
+            : entry.titleEn;
 
       const cardBody = document.createElement("div");
       cardBody.className = "faq-card__body";

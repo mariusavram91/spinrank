@@ -30,7 +30,7 @@ export async function handleBootstrapUser(
     const email = claims.email ? String(claims.email) : null;
     const displayName = String(claims.name ?? claims.email ?? "Google user");
     const avatarUrl = claims.picture ? String(claims.picture) : null;
-    const locale = request.payload.locale === "de" ? "de" : "en";
+    const locale = request.payload.locale === "de" || request.payload.locale === "es" ? request.payload.locale : "en";
     const nowIso = isoNow(env.runtime);
 
     await env.DB.prepare(

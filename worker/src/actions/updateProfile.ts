@@ -3,7 +3,7 @@ import { errorResponse, successResponse } from "../responses";
 import type { ApiRequest, Env, LocaleCode, UpdateProfilePayload, UserRow } from "../types";
 
 const MAX_DISPLAY_NAME_LENGTH = 80;
-const SUPPORTED_LOCALES: LocaleCode[] = ["en", "de"];
+const SUPPORTED_LOCALES: LocaleCode[] = ["en", "de", "es"];
 
 export async function handleUpdateProfile(
   request: ApiRequest<"updateProfile", UpdateProfilePayload>,

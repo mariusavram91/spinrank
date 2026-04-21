@@ -39,7 +39,7 @@ export type SegmentType = "season" | "tournament";
 export type SeasonStatus = "active" | "completed" | "deleted";
 export type TournamentStatus = "active" | "completed" | "deleted";
 export type MatchFeedFilter = "recent" | "mine" | "all";
-export type LocaleCode = "en" | "de";
+export type LocaleCode = "en" | "de" | "es";
 export type ErrorCode =
   | "BAD_REQUEST"
   | "UNAUTHORIZED"
