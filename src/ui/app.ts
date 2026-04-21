@@ -924,16 +924,14 @@ export const buildApp = (): HTMLElement => {
     if (!bracketData || !currentUserId) {
       return null;
     }
-    for (const [roundIndex, round] of bracketData.rounds.entries()) {
-      for (const [matchIndex, match] of round.matches.entries()) {
+    for (const round of bracketData.rounds) {
+      for (const match of round.matches) {
+        // Preserve the explicitly selected bracket pairing even if it became locked,
+        // so the composer can render the specific lock notice for that pairing.
         if (
           match.id !== matchId ||
-          !isTournamentBracketMatchReadyForCreation(bracketData.rounds, roundIndex, matchIndex) ||
           !match.leftPlayerId ||
           !match.rightPlayerId ||
-          match.createdMatchId ||
-          match.winnerPlayerId ||
-          match.locked ||
           ![match.leftPlayerId, match.rightPlayerId].includes(currentUserId)
         ) {
           continue;

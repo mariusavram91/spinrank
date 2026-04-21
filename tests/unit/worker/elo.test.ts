@@ -19,20 +19,20 @@ describe("elo helpers", () => {
   });
 
   it("orders leaderboard rows by elo, wins, losses, and name", () => {
-    const highElo = { elo: 1400, wins: 5, losses: 2, displayName: "Alpha" };
-    const lowElo = { elo: 1300, wins: 5, losses: 2, displayName: "Beta" };
+    const highElo = { elo: 1400, wins: 8, losses: 2, displayName: "Alpha" };
+    const lowElo = { elo: 1300, wins: 8, losses: 2, displayName: "Beta" };
     expect(compareLeaderboardRows(highElo, lowElo)).toBeLessThan(0);
 
-    const sameElo = { elo: 1400, wins: 2, losses: 2, displayName: "Alpha" };
-    const moreWins = { elo: 1400, wins: 5, losses: 2, displayName: "Beta" };
+    const sameElo = { elo: 1400, wins: 6, losses: 4, displayName: "Alpha" };
+    const moreWins = { elo: 1400, wins: 8, losses: 2, displayName: "Beta" };
     expect(compareLeaderboardRows(sameElo, moreWins)).toBeGreaterThan(0);
 
-    const fewerLosses = { elo: 1400, wins: 5, losses: 1, displayName: "Alpha" };
-    const moreLosses = { elo: 1400, wins: 5, losses: 3, displayName: "Beta" };
+    const fewerLosses = { elo: 1400, wins: 7, losses: 3, displayName: "Alpha" };
+    const moreLosses = { elo: 1400, wins: 7, losses: 5, displayName: "Beta" };
     expect(compareLeaderboardRows(fewerLosses, moreLosses)).toBeLessThan(0);
 
-    const alphabetical = { elo: 1400, wins: 5, losses: 2, displayName: "Ben" };
-    const alphabeticalOther = { elo: 1400, wins: 5, losses: 2, displayName: "Ana" };
+    const alphabetical = { elo: 1400, wins: 7, losses: 3, displayName: "Ben" };
+    const alphabeticalOther = { elo: 1400, wins: 7, losses: 3, displayName: "Ana" };
     expect(compareLeaderboardRows(alphabetical, alphabeticalOther)).toBeGreaterThan(0);
   });
 

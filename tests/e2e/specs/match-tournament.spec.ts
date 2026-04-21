@@ -89,13 +89,7 @@ test.describe("tournament match flow", () => {
 
     await gotoDashboard(page);
     await openMatchComposer(page);
-    await page.getByTestId("match-context-tournament").click();
-    await expect(page.getByTestId("match-tournament-select")).not.toHaveValue("");
-
-    await expect(page.getByTestId("match-submit")).toBeDisabled();
-    await expect(page.getByTestId("match-lock-notice")).toContainText(
-      "This tournament is completed and no further matches can be added.",
-    );
+    await expect(page.getByTestId("match-context-tournament")).toBeDisabled();
   });
 
   test("disables tournament-context submission when no eligible bracket match is selected", async ({

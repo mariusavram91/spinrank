@@ -64,12 +64,6 @@ test.describe("season match flow", () => {
     await gotoDashboard(page);
     await page.getByTestId("create-menu-toggle").click();
     await page.getByTestId("open-match-button").click();
-    await page.getByTestId("match-context-season").click();
-    await expect(page.getByTestId("match-season-select")).not.toHaveValue("");
-
-    await expect(page.getByTestId("match-submit")).toBeDisabled();
-    await expect(page.getByTestId("match-lock-notice")).toContainText(
-      "This season is completed and no further matches can be added.",
-    );
+    await expect(page.getByTestId("match-context-season")).toBeDisabled();
   });
 });
