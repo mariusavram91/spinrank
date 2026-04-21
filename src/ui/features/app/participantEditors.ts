@@ -36,6 +36,8 @@ export const createParticipantEditors = (args: {
   const pendingSeasonParticipantMatchLoads = new Set<string>();
   let seasonSearchToken = 0;
   let tournamentSearchToken = 0;
+  let seasonGuestCreateLoading = false;
+  let tournamentGuestCreateLoading = false;
 
   const setParticipantAvatarImage = (
     image: HTMLImageElement,
@@ -104,6 +106,17 @@ export const createParticipantEditors = (args: {
     }
     const fallback = args.findPlayer(userId, args.dashboardState.players);
     return fallback ? `${fallback.displayName} (${fallback.elo})` : args.t("bracketPlayerUnknown");
+  };
+
+  const hasSelectedParticipantWithName = (selectedIds: string[], displayName: string): boolean => {
+    const normalized = displayName.trim().toLowerCase();
+    if (!normalized) {
+      return false;
+    }
+    return selectedIds.some((participantId) => {
+      const participant = getKnownParticipant(participantId);
+      return participant ? participant.displayName.trim().toLowerCase() === normalized : false;
+    });
   };
 
   const isTournamentParticipantEditingLocked = (): boolean => {
@@ -200,6 +213,45 @@ export const createParticipantEditors = (args: {
     empty.className = "empty-state";
     empty.textContent = label;
     return empty;
+  };
+
+  const buildCreateGuestRow = (options: {
+    displayName: string;
+    disabled: boolean;
+    loading: boolean;
+    onCreate: () => void;
+  }): HTMLElement => {
+    const row = document.createElement("article");
+    row.className = "participant-chip participant-chip--search";
+    row.dataset.testid = "participant-create-guest-row";
+
+    const avatar = document.createElement("img");
+    avatar.className = "player-avatar player-avatar-small";
+    setParticipantAvatarImage(avatar, null);
+
+    const content = document.createElement("div");
+    content.className = "participant-chip__content";
+
+    const name = document.createElement("strong");
+    name.className = "participant-chip__name";
+    name.textContent = `${args.t("participantCreateGuest")}: ${options.displayName}`;
+
+    const meta = document.createElement("span");
+    meta.className = "participant-chip__meta";
+    meta.textContent = args.t("scoreCardAnonymousMatch");
+
+    content.append(name, meta);
+
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "primary-button participant-chip__action";
+    action.textContent = options.loading ? args.t("participantCreatingGuest") : args.t("participantCreateGuest");
+    action.disabled = options.disabled || options.loading;
+    action.dataset.testid = "participant-create-guest-button";
+    action.addEventListener("click", options.onCreate);
+
+    row.append(avatar, content, action);
+    return row;
   };
 
   const getSeasonSearchLimit = (): number => 12;
@@ -306,6 +358,11 @@ export const createParticipantEditors = (args: {
   const renderSeasonSearchResults = (): void => {
     const locked = args.isLockedSeason(args.getEditingSeason());
     const selected = new Set(args.dashboardState.editingSeasonParticipantIds);
+    const query = args.dashboardState.seasonParticipantQuery.trim();
+    const hasSelectedWithSameName = hasSelectedParticipantWithName(
+      args.dashboardState.editingSeasonParticipantIds,
+      query,
+    );
     const visibleResults = args.dashboardState.seasonParticipantResults.filter(
       (participant) => !selected.has(participant.userId),
     );
@@ -325,10 +382,55 @@ export const createParticipantEditors = (args: {
     }
 
     if (visibleResults.length === 0) {
-      const emptyKey = args.dashboardState.seasonParticipantQuery
-        ? "participantNoSearchResults"
-        : "participantNoSuggestions";
-      args.seasonParticipantResults.replaceChildren(renderEmptyState(args.t(emptyKey)));
+      if (query && !hasSelectedWithSameName) {
+        const createGuestRow = buildCreateGuestRow({
+          displayName: query,
+          disabled: locked,
+          loading: seasonGuestCreateLoading,
+          onCreate: () => {
+            if (locked || seasonGuestCreateLoading) {
+              return;
+            }
+            seasonGuestCreateLoading = true;
+            renderSeasonSearchResults();
+            void args.runAuthedAction("createGuestPlayer", {
+              displayName: query,
+              seasonId: args.dashboardState.editingSeasonId || null,
+            }).then((data) => {
+              rememberParticipants([data.participant]);
+              if (data.seasonId && data.seasonParticipantIds) {
+                const season = args.dashboardState.seasons.find((entry) => entry.id === data.seasonId);
+                if (season) {
+                  season.participantIds = [...data.seasonParticipantIds];
+                }
+              }
+              if (!args.dashboardState.editingSeasonParticipantIds.includes(data.participant.userId)) {
+                args.dashboardState.editingSeasonParticipantIds = [
+                  ...args.dashboardState.editingSeasonParticipantIds,
+                  data.participant.userId,
+                ];
+              }
+              args.dashboardState.seasonFormError = "";
+              args.dashboardState.seasonFormMessage = "";
+              args.dashboardState.seasonParticipantQuery = "";
+              args.dashboardState.seasonParticipantResults = [];
+            }).catch((error: unknown) => {
+              args.dashboardState.seasonParticipantSearchError =
+                error instanceof Error ? error.message : args.t("participantSearchError");
+            }).finally(() => {
+              seasonGuestCreateLoading = false;
+              renderSeasonEditor();
+              args.syncDashboardState();
+            });
+          },
+        });
+        args.seasonParticipantResults.replaceChildren(
+          renderEmptyState(args.t("participantNoSearchResults")),
+          createGuestRow,
+        );
+      } else {
+        args.seasonParticipantResults.replaceChildren(renderEmptyState(args.t("participantNoSuggestions")));
+      }
       return;
     }
 
@@ -358,6 +460,11 @@ export const createParticipantEditors = (args: {
   const renderTournamentSearchResults = (): void => {
     const locked = isTournamentParticipantEditingLocked();
     const selected = new Set(args.tournamentPlannerState.participantIds);
+    const query = args.tournamentPlannerState.participantQuery.trim();
+    const hasSelectedWithSameName = hasSelectedParticipantWithName(
+      args.tournamentPlannerState.participantIds,
+      query,
+    );
     const visibleResults = args.tournamentPlannerState.participantResults.filter(
       (participant) => !selected.has(participant.userId),
     );
@@ -377,10 +484,59 @@ export const createParticipantEditors = (args: {
     }
 
     if (visibleResults.length === 0) {
-      const emptyKey = args.tournamentPlannerState.participantQuery
-        ? "participantNoSearchResults"
-        : "participantNoSuggestions";
-      args.participantSearchResults.replaceChildren(renderEmptyState(args.t(emptyKey)));
+      if (query && !hasSelectedWithSameName) {
+        const createGuestRow = buildCreateGuestRow({
+          displayName: query,
+          disabled: locked,
+          loading: tournamentGuestCreateLoading,
+          onCreate: () => {
+            if (locked || tournamentGuestCreateLoading) {
+              return;
+            }
+            tournamentGuestCreateLoading = true;
+            renderTournamentSearchResults();
+            void args.runAuthedAction("createGuestPlayer", {
+              displayName: query,
+              seasonId: args.tournamentSeasonSelect.value || null,
+            }).then((data) => {
+              rememberParticipants([data.participant]);
+              if (data.seasonId && data.seasonParticipantIds) {
+                const season = args.dashboardState.seasons.find((entry) => entry.id === data.seasonId);
+                if (season) {
+                  season.participantIds = [...data.seasonParticipantIds];
+                }
+              }
+              if (!args.tournamentPlannerState.participantIds.includes(data.participant.userId)) {
+                args.tournamentPlannerState.participantIds = [
+                  ...args.tournamentPlannerState.participantIds,
+                  data.participant.userId,
+                ];
+              }
+              args.tournamentPlannerState.tournamentId = "";
+              args.setTournamentSharePanelTargetId("");
+              args.tournamentPlannerState.error = "";
+              args.tournamentPlannerState.rounds = [];
+              args.tournamentPlannerState.firstRoundMatches = [];
+              args.tournamentPlannerState.participantQuery = "";
+              args.loadTournamentSelect.value = "";
+              args.tournamentPlannerState.participantResults = [];
+            }).catch((error: unknown) => {
+              args.tournamentPlannerState.participantSearchError =
+                error instanceof Error ? error.message : args.t("participantSearchError");
+            }).finally(() => {
+              tournamentGuestCreateLoading = false;
+              renderTournamentPlanner();
+              args.syncDashboardState();
+            });
+          },
+        });
+        args.participantSearchResults.replaceChildren(
+          renderEmptyState(args.t("participantNoSearchResults")),
+          createGuestRow,
+        );
+      } else {
+        args.participantSearchResults.replaceChildren(renderEmptyState(args.t("participantNoSuggestions")));
+      }
       return;
     }
 

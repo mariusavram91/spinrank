@@ -121,4 +121,54 @@ describe("worker integration: createGuestPlayer", () => {
       await context.cleanup();
     }
   });
+
+  it("reuses an existing guest with the same display name", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "owner", displayName: "Owner" });
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("owner").first<any>();
+
+      const first = await handleCreateGuestPlayer(
+        {
+          action: "createGuestPlayer",
+          requestId: "req_create_guest_first",
+          payload: {
+            displayName: "Repeat Guest",
+          },
+        },
+        owner,
+        context.env,
+      );
+      const second = await handleCreateGuestPlayer(
+        {
+          action: "createGuestPlayer",
+          requestId: "req_create_guest_second",
+          payload: {
+            displayName: "repeat guest",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(first.ok).toBe(true);
+      expect(second.ok).toBe(true);
+      expect(second.data?.participant.userId).toBe(first.data?.participant.userId);
+
+      const duplicates = await context.env.DB.prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM users
+          WHERE provider = 'guest'
+            AND LOWER(display_name) = LOWER(?1)
+        `,
+      )
+        .bind("Repeat Guest")
+        .first<{ count: number }>();
+
+      expect(Number(duplicates?.count ?? 0)).toBe(1);
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

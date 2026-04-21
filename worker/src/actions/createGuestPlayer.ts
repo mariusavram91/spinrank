@@ -53,19 +53,42 @@ export async function handleCreateGuestPlayer(
   }
 
   const nowIso = isoNow(env.runtime);
-  const userId = randomId("user", env.runtime);
-  const providerUserId = randomId("guest", env.runtime);
+  const existingGuest = await env.DB.prepare(
+    `
+      SELECT id, display_name, avatar_url, global_elo
+      FROM users
+      WHERE provider = 'guest'
+        AND LOWER(display_name) = LOWER(?1)
+      ORDER BY created_at ASC
+      LIMIT 1
+    `,
+  )
+    .bind(displayName)
+    .first<{
+      id: string;
+      display_name: string;
+      avatar_url: string | null;
+      global_elo: number;
+    }>();
+
+  const userId = existingGuest?.id ?? randomId("user", env.runtime);
   const nextSeasonParticipantIds = seasonParticipantIds ? [...new Set([...seasonParticipantIds, userId])] : null;
 
   const statements = [
-    env.DB.prepare(
-      `
-        INSERT INTO users (
-          id, provider, provider_user_id, email, display_name, avatar_url, locale, created_at, updated_at
-        )
-        VALUES (?1, 'guest', ?2, NULL, ?3, NULL, 'en', ?4, ?4)
-      `,
-    ).bind(userId, providerUserId, displayName, nowIso),
+    ...(
+      existingGuest
+        ? []
+        : [
+            env.DB.prepare(
+              `
+                INSERT INTO users (
+                  id, provider, provider_user_id, email, display_name, avatar_url, locale, created_at, updated_at
+                )
+                VALUES (?1, 'guest', ?2, NULL, ?3, NULL, 'en', ?4, ?4)
+              `,
+            ).bind(userId, randomId("guest", env.runtime), displayName, nowIso),
+          ]
+    ),
   ];
 
   if (seasonId && nextSeasonParticipantIds) {
@@ -79,20 +102,22 @@ export async function handleCreateGuestPlayer(
       ).bind(JSON.stringify(nextSeasonParticipantIds), seasonId),
       env.DB.prepare(
         `
-          INSERT INTO season_participants (season_id, user_id)
+          INSERT OR IGNORE INTO season_participants (season_id, user_id)
           VALUES (?1, ?2)
         `,
       ).bind(seasonId, userId),
     );
   }
 
-  await env.DB.batch(statements);
+  if (statements.length > 0) {
+    await env.DB.batch(statements);
+  }
 
   const participant: ParticipantSearchEntry = {
     userId,
-    displayName,
-    avatarUrl: null,
-    elo: 1200,
+    displayName: existingGuest?.display_name ?? displayName,
+    avatarUrl: existingGuest?.avatar_url ?? null,
+    elo: Number(existingGuest?.global_elo ?? 1200),
     isSuggested: false,
   };
 

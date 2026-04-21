@@ -275,4 +275,108 @@ describe("participant editors", () => {
     });
     expect(harness.participantSearchResults.querySelectorAll("[data-testid='participant-search-result']")).toHaveLength(1);
   });
+
+  it("offers guest creation in season participant search when no results match", async () => {
+    const harness = createHarness();
+    harness.args.dashboardState.seasonParticipantQuery = "Guest Season";
+    harness.args.dashboardState.seasonParticipantResults = [];
+    vi.mocked(harness.args.runAuthedAction).mockImplementation(async (action: string) => {
+      if (action === "searchParticipants") {
+        return { participants: [] };
+      }
+      if (action === "createGuestPlayer") {
+        return {
+          participant: {
+            userId: "user_guest_season",
+            displayName: "Guest Season",
+            avatarUrl: null,
+            elo: 1200,
+            isSuggested: false,
+          },
+          seasonId: "season_1",
+          seasonParticipantIds: ["user_a", "user_b", "user_c", "user_guest_season"],
+        };
+      }
+      if (action === "getSegmentLeaderboard") {
+        return {
+          leaderboard: [],
+          stats: null,
+          updatedAt: "",
+        };
+      }
+      throw new Error(`Unexpected action ${action}`);
+    });
+
+    harness.editors.renderSeasonEditor();
+    await flush();
+
+    const createGuestButton = harness.seasonParticipantResults.querySelector(
+      "[data-testid='participant-create-guest-button']",
+    ) as HTMLButtonElement | null;
+    expect(createGuestButton).not.toBeNull();
+
+    createGuestButton?.click();
+    await flush();
+
+    expect(harness.args.runAuthedAction).toHaveBeenCalledWith("createGuestPlayer", {
+      displayName: "Guest Season",
+      seasonId: "season_1",
+    });
+    expect(harness.args.dashboardState.editingSeasonParticipantIds).toContain("user_guest_season");
+    expect(
+      harness.seasonParticipantResults.querySelector("[data-testid='participant-create-guest-button']"),
+    ).toBeNull();
+  });
+
+  it("offers guest creation in tournament participant search when no results match", async () => {
+    const harness = createHarness();
+    harness.args.tournamentPlannerState.participantQuery = "Guest Tournament";
+    harness.args.tournamentPlannerState.participantResults = [];
+    vi.mocked(harness.args.runAuthedAction).mockImplementation(async (action: string) => {
+      if (action === "searchParticipants") {
+        return { participants: [] };
+      }
+      if (action === "createGuestPlayer") {
+        return {
+          participant: {
+            userId: "user_guest_tournament",
+            displayName: "Guest Tournament",
+            avatarUrl: null,
+            elo: 1200,
+            isSuggested: false,
+          },
+          seasonId: "season_1",
+          seasonParticipantIds: ["user_a", "user_b", "user_c", "user_guest_tournament"],
+        };
+      }
+      if (action === "getSegmentLeaderboard") {
+        return {
+          leaderboard: [],
+          stats: null,
+          updatedAt: "",
+        };
+      }
+      throw new Error(`Unexpected action ${action}`);
+    });
+
+    harness.editors.renderTournamentPlanner();
+    await flush();
+
+    const createGuestButton = harness.participantSearchResults.querySelector(
+      "[data-testid='participant-create-guest-button']",
+    ) as HTMLButtonElement | null;
+    expect(createGuestButton).not.toBeNull();
+
+    createGuestButton?.click();
+    await flush();
+
+    expect(harness.args.runAuthedAction).toHaveBeenCalledWith("createGuestPlayer", {
+      displayName: "Guest Tournament",
+      seasonId: "season_1",
+    });
+    expect(harness.args.tournamentPlannerState.participantIds).toContain("user_guest_tournament");
+    expect(
+      harness.participantSearchResults.querySelector("[data-testid='participant-create-guest-button']"),
+    ).toBeNull();
+  });
 });

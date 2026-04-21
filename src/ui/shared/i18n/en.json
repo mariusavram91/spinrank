@@ -141,6 +141,8 @@
   "participantAddedLabel": "Added",
   "participantRemove": "Remove",
   "participantLockedLabel": "Required",
+  "participantCreateGuest": "Create guest player",
+  "participantCreatingGuest": "Creating guest player...",
   "points11": "11 points",
   "points21": "21 points",
   "pointsSuffix": "points",

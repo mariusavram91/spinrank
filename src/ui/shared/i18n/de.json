@@ -141,6 +141,8 @@
   "participantAddedLabel": "Hinzugefügt",
   "participantRemove": "Entfernen",
   "participantLockedLabel": "Fix",
+  "participantCreateGuest": "Gastspieler erstellen",
+  "participantCreatingGuest": "Gastspieler wird erstellt...",
   "points11": "11 Punkte",
   "points21": "21 Punkte",
   "pointsSuffix": "Punkte",
