@@ -53,7 +53,7 @@ export async function handleCreateSeason(
   const name = String(payload.name || "").trim();
   const startDate = String(payload.startDate || "").trim();
   const endDate = payload.endDate ? String(payload.endDate).trim() : "";
-  const baseEloMode = payload.baseEloMode || "carry_over";
+  const requestedBaseEloMode = payload.baseEloMode ? String(payload.baseEloMode).trim() : "";
   const participantIds = normalizeParticipantIds(payload.participantIds || [], sessionUser.id);
   const isPublic = Boolean(payload.isPublic);
 
@@ -66,7 +66,11 @@ export async function handleCreateSeason(
   if (endDate && startDate > endDate) {
     return errorResponse(request.requestId, "VALIDATION_ERROR", "Season end date cannot be earlier than the start date.");
   }
-  if (baseEloMode !== "carry_over" && baseEloMode !== "reset_1200") {
+  if (
+    requestedBaseEloMode &&
+    requestedBaseEloMode !== "carry_over" &&
+    requestedBaseEloMode !== "reset_1200"
+  ) {
     return errorResponse(request.requestId, "VALIDATION_ERROR", "Invalid base Elo mode.");
   }
   if (!(await validatePlayers(env, participantIds))) {
@@ -74,8 +78,17 @@ export async function handleCreateSeason(
   }
 
   const existing = payload.seasonId ? await getSeasonById(env, payload.seasonId) : null;
+  const baseEloMode = (existing?.base_elo_mode ??
+    (requestedBaseEloMode || "carry_over")) as SeasonRecord["baseEloMode"];
   if (existing && existing.created_by_user_id !== sessionUser.id) {
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can edit this season.");
+  }
+  if (existing && requestedBaseEloMode && requestedBaseEloMode !== existing.base_elo_mode) {
+    return errorResponse(
+      request.requestId,
+      "CONFLICT",
+      "The base Elo mode cannot be changed after a season is created.",
+    );
   }
   if (
     existing &&
@@ -104,7 +117,6 @@ export async function handleCreateSeason(
           start_date = excluded.start_date,
           end_date = excluded.end_date,
           is_active = excluded.is_active,
-          base_elo_mode = excluded.base_elo_mode,
           participant_ids_json = excluded.participant_ids_json,
           is_public = excluded.is_public
       `,

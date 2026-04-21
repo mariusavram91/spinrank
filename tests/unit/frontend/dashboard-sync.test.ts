@@ -338,6 +338,10 @@ describe("dashboard sync", () => {
     expect(dom.tournamentStatus.hidden).toBe(false);
     expect(dom.deleteSeasonButton.hidden).toBe(false);
     expect(dom.deleteTournamentButton.hidden).toBe(false);
+    expect(dom.seasonBaseEloSelect.disabled).toBe(false);
+    expect(
+      dom.seasonBaseEloToggle?.querySelector<HTMLButtonElement>('button[data-value="carry_over"]')?.disabled,
+    ).toBe(false);
     expect(dom.leaderboardStatsGroup.hidden).toBe(false);
     expect(dom.leaderboardMatchesSummaryValue.textContent).toBe("12");
     expect(dom.leaderboardStatMostActive.hidden).toBe(false);
@@ -360,6 +364,59 @@ describe("dashboard sync", () => {
     expect(helpers.renderTournamentDraftSummary).toHaveBeenCalled();
     expect(helpers.renderMatchDraftSummary).toHaveBeenCalled();
     expect(helpers.syncMatchFormLockState).toHaveBeenCalled();
+  });
+
+  it("locks base elo controls while editing an existing season", () => {
+    const dom = createDom();
+    const helpers = {
+      renderSeasonDraftSummary: vi.fn(),
+      renderTournamentDraftSummary: vi.fn(),
+      renderMatchDraftSummary: vi.fn(),
+      syncMatchFormLockState: vi.fn(),
+      scheduleFormStatusHide: vi.fn(),
+      getEditingSeason: () => createSeasonRecord(),
+      getEditingTournament: () => createTournamentRecord(),
+      hasTournamentProgress: () => false,
+      isLockedSeason: () => false,
+      isLockedTournament: () => false,
+      canSoftDelete: () => true,
+      getCurrentUserId: () => "user_1",
+    };
+
+    createDashboardSync({
+      dashboardState: createDashboardState({
+        screen: "createSeason",
+        seasonDraftMode: "edit",
+        editingSeasonId: "season_1",
+      }),
+      tournamentPlannerState: createTournamentPlannerState(),
+      dom,
+      sharePanels: {
+        season: null,
+        tournament: null,
+        getSeasonShareTargetId: () => "",
+        getTournamentShareTargetId: () => "",
+        getSeasonSharePanelRenderedUrl: () => "",
+        setSeasonSharePanelRenderedUrl: vi.fn(),
+        getTournamentSharePanelRenderedUrl: () => "",
+        setTournamentSharePanelRenderedUrl: vi.fn(),
+        updateSharePanelElements: vi.fn(),
+        updateSeasonSharePanelVisibility: vi.fn(),
+        updateTournamentSharePanelVisibility: vi.fn(),
+      },
+      renderers: {
+        leaderboard: { render: vi.fn() },
+        matches: { render: vi.fn() },
+        progress: { render: vi.fn() },
+      },
+      helpers,
+      t: (key) => key,
+    }).syncDashboardState();
+
+    expect(dom.seasonBaseEloSelect.disabled).toBe(true);
+    expect(
+      dom.seasonBaseEloToggle?.querySelector<HTMLButtonElement>('button[data-value="carry_over"]')?.disabled,
+    ).toBe(true);
   });
 
   it("disables locked season and tournament editors and hides stats in tournament mode", () => {

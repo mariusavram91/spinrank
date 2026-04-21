@@ -1416,9 +1416,21 @@ export const buildApp = (): HTMLElement => {
         button.setAttribute("aria-pressed", String(button.dataset.value === value));
       });
     };
+    const setSegmentedToggleDisabled = (toggle: HTMLElement | null, disabled: boolean): void => {
+      if (!toggle) {
+        return;
+      }
+      Array.from(toggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
+        button.disabled = disabled;
+      });
+    };
     syncSegmentedToggle(seasonBaseEloToggle, seasonBaseEloSelect.value || "carry_over");
     syncSegmentedToggle(seasonStateToggle, seasonIsActiveInput.checked ? "active" : "inactive");
     syncSegmentedToggle(seasonVisibilityToggle, seasonIsPublicInput.checked ? "public" : "private");
+    setSegmentedToggleDisabled(
+      seasonBaseEloToggle,
+      seasonBaseEloSelect.disabled || dashboardState.seasonDraftMode === "edit",
+    );
     if (dashboardState.pendingHighlightedMatchIds.length === 0) {
       resetScrollForScreenChange();
     }

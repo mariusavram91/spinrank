@@ -360,6 +360,7 @@ export const createDashboardSync = (args: {
       );
 
       const seasonEditable = !seasonLocked;
+      const seasonBaseEloEditable = seasonEditable && !isSeasonEditingDraft;
       const seasonEndDateEditable = !seasonLocked;
       args.dom.seasonLockNotice.hidden = !seasonLocked;
       if (editingSeason) {
@@ -377,7 +378,7 @@ export const createDashboardSync = (args: {
       args.dom.seasonNameInput.disabled = !seasonEditable;
       args.dom.seasonStartDateInput.disabled = !seasonEditable;
       args.dom.seasonEndDateInput.disabled = !seasonEndDateEditable;
-      args.dom.seasonBaseEloSelect.disabled = !seasonEditable;
+      args.dom.seasonBaseEloSelect.disabled = !seasonBaseEloEditable;
       args.dom.seasonIsActiveInput.disabled = !seasonEditable;
       args.dom.seasonIsPublicInput.disabled = !seasonEditable;
       args.dom.seasonSelectAllParticipantsInput.disabled = !seasonEditable;
@@ -385,7 +386,7 @@ export const createDashboardSync = (args: {
       args.dom.resetSeasonDraftButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting;
       args.dom.submitSeasonButton.disabled = args.dashboardState.loading || args.dashboardState.seasonSubmitting || seasonLocked;
       setButtonsDisabled(args.dom.seasonStateToggle, !seasonEditable);
-      setButtonsDisabled(args.dom.seasonBaseEloToggle, !seasonEditable);
+      setButtonsDisabled(args.dom.seasonBaseEloToggle, !seasonBaseEloEditable);
       setButtonsDisabled(args.dom.seasonVisibilityToggle, !seasonEditable);
       args.dom.deleteSeasonButton.disabled = seasonLocked;
 

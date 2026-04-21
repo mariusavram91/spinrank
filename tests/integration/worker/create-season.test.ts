@@ -146,7 +146,7 @@ describe("worker integration: createSeason", () => {
             startDate: "2026-04-02",
             endDate: "2026-05-15",
             isActive: false,
-            baseEloMode: "reset_1200",
+            baseEloMode: "carry_over",
             participantIds: ["user_new"],
             isPublic: true,
           },
@@ -161,7 +161,7 @@ describe("worker integration: createSeason", () => {
         name: "Spring Ladder Reloaded",
         participantIds: ["user_owner", "user_new"],
         createdByUserId: "user_owner",
-        baseEloMode: "reset_1200",
+        baseEloMode: "carry_over",
         isActive: false,
         isPublic: true,
       });
@@ -199,11 +199,91 @@ describe("worker integration: createSeason", () => {
         start_date: "2026-04-02",
         end_date: "2026-05-15",
         is_active: 0,
-        base_elo_mode: "reset_1200",
+        base_elo_mode: "carry_over",
         is_public: 1,
       });
       expect(JSON.parse(season!.participant_ids_json)).toEqual(["user_owner", "user_new"]);
       expect(participants.results.map((row) => row.user_id)).toEqual(["user_new", "user_owner"]);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("rejects attempts to change base Elo mode for existing seasons", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+
+      const createResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_create_season_mode_lock_create",
+          payload: {
+            name: "Locked Mode Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_friend"],
+            isPublic: true,
+          },
+        },
+        owner!,
+        context.env,
+      );
+
+      const seasonId = createResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      const updateResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_create_season_mode_lock_update",
+          payload: {
+            seasonId,
+            name: "Locked Mode Season Updated",
+            startDate: "2026-04-02",
+            endDate: "2026-05-15",
+            isActive: false,
+            baseEloMode: "reset_1200",
+            participantIds: ["user_friend"],
+            isPublic: true,
+          },
+        },
+        owner!,
+        context.env,
+      );
+
+      expect(updateResponse.ok).toBe(false);
+      expect(updateResponse.error?.code).toBe("CONFLICT");
+      expect(updateResponse.error?.message).toBe("The base Elo mode cannot be changed after a season is created.");
+
+      const season = await context.env.DB.prepare(
+        `
+          SELECT name, start_date, end_date, is_active, base_elo_mode
+          FROM seasons
+          WHERE id = ?1
+        `,
+      )
+        .bind(seasonId)
+        .first<{
+          name: string;
+          start_date: string;
+          end_date: string;
+          is_active: number;
+          base_elo_mode: string;
+        }>();
+
+      expect(season).toMatchObject({
+        name: "Locked Mode Season",
+        start_date: "2026-04-01",
+        end_date: "2026-05-01",
+        is_active: 1,
+        base_elo_mode: "carry_over",
+      });
     } finally {
       await context.cleanup();
     }
