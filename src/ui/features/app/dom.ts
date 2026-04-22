@@ -73,7 +73,7 @@ export const createAppDom = (args: {
 
   const brandMark = document.createElement("img");
   brandMark.className = "brand-mark";
-  brandMark.src = `${args.assetsBaseUrl}assets/logo.png`;
+  brandMark.src = `${args.assetsBaseUrl}assets/logo.svg`;
   brandMark.alt = "SpinRank logo";
 
   const providerStack = document.createElement("div");

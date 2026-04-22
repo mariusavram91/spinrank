@@ -52,7 +52,7 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
         args.authAvatar,
         currentState.session.user.id,
         currentState.session.user.avatarUrl,
-        `${args.assetsBaseUrl}assets/logo.png`,
+        `${args.assetsBaseUrl}assets/logo.svg`,
         "Signed-in user avatar",
       );
 

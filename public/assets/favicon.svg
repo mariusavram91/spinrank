@@ -1,38 +1,53 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   width="778.14209"
+   width="267.25235"
    height="226.09711"
-   viewBox="0 0 778.14209 226.09711"
+   viewBox="0 0 267.25235 226.09711"
    shape-rendering="geometricPrecision"
    version="1.1"
    id="svg20"
+   sodipodi:docname="spinrank_logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
   <defs
      id="defs24" />
+  <sodipodi:namedview
+     id="namedview22"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false" />
   <g
      fill-rule="evenodd"
      id="g18"
-     transform="translate(-10.48412,-28.510431)">
+     transform="translate(-17.702518,-21.064905)">
     <g
-       id="g1290"
-       transform="translate(-7.2183975,7.4455249)">
+       id="g1290">
       <g
          id="g1297">
         <path
            d="m 48.473859,236.53317 c -3.195872,1.0043 -8.231805,-0.0673 -11.422688,-1.08734 -5.11961,-1.63661 -9.084728,-5.06362 -13.035903,-8.7074 -2.820639,-2.6012 -6.059238,-6.19538 -6.30742,-10.0243 -0.152316,-2.3499 3.010591,-5.77228 3.010591,-5.77228 l 46.296829,-31.20342 c 0,0 7.786035,-6.36063 10.5,-10.5 3.241233,-4.94357 6.5,-16.5 6.5,-16.5 l 58.052592,42.33293 -6.2859,-2.24344 -6.0654,-1.40683 -4.70129,-0.68266 c -5.07236,-0.0151 0.16968,0.21005 -5,0 -5.10444,-0.27758 -9.63712,1.04188 -12,2 l -6.2447,2.62899 c 0,0 -10.541723,6.51464 -15.377434,10.36529 -5.1125,4.07106 -14.320803,13.39086 -14.320803,13.39086 -5.516942,6.13168 -12.643952,9.96027 -13.868118,11.44083 -2.659231,3.21618 -5.077248,6.45827 -9.730356,5.96877 z"
            style="fill:#fea11c;fill-opacity:0.988"
-           id="path8" />
+           id="path8"
+           sodipodi:nodetypes="csssccsccccccccassc" />
         <path
            d="m 52.247246,245.47585 c -3.262813,1.88379 -8.324998,2.00384 -11.231978,1.26258 -4.04715,-1.032 -7.71939,-3.41504 -11,-6 -3.707336,-2.9212 -7.359306,-6.29343 -9.5,-10.5 -2.112088,-4.15035 -2.809851,-13.57259 -2.809851,-13.57259 0,0 3.523851,7.20317 6.309851,10.07259 2.511631,2.58683 5.761078,4.4159 9,6 2.840722,1.38935 5.878555,2.49346 9,3 2.303204,0.37376 4.75972,0.65237 7,0 4.172812,-1.21513 7.504828,-4.41685 11,-7 11.979346,-8.85348 21.706445,-20.58826 34,-29 4.061784,-2.77923 8.410492,-5.22275 13.000002,-7 2.56326,-0.9926 5.27162,-1.66608 8,-2 4.96995,-0.60827 10.08881,-0.84069 15.0211,0.0212 4.35346,0.76076 12.4789,4.47879 12.4789,4.47879 0,0 -15.77985,-0.83724 -23.5,0.5 -5.19313,0.89952 -10.26546,2.68441 -15,5 -4.318563,2.11214 -8.282235,4.95216 -12.000002,8 -9.843039,8.06936 -17.339948,18.71245 -27,27 -4.705859,4.03725 -4.00795,4.6798 -12.768022,9.73743 z"
            style="fill:#ee2227;fill-opacity:0.988"
-           id="path16" />
+           id="path16"
+           sodipodi:nodetypes="sssscssssssssscsssss" />
       </g>
       <path
          id="path511"
          style="font-variation-settings:'wdth' 75, 'wght' 800;fill:#ee2227;fill-opacity:0.988235;stroke:#ff0000;stroke-width:10.3216;stroke-opacity:0"
          transform="matrix(-0.93954518,0.34242497,-0.35479855,-0.93494277,0,0)"
-         d="m -26.270065,-168.98647 c 1.411971,38.27067 -30.703885,72.221895 -77.365415,81.786734 -46.66153,9.564835 -92.24059,-5.205638 -115.14692,-38.677614 -20.12798,-29.4121 -13.91013,-78.83934 22.98228,-103.47147 36.89241,-24.63213 90.33093,-25.6966 128.73059,-2.56425" />
+         d="m -26.270065,-168.98647 c 1.411971,38.27067 -30.703885,72.221895 -77.365415,81.786734 -46.66153,9.564835 -92.24059,-5.205638 -115.14692,-38.677614 -20.12798,-29.4121 -13.91013,-78.83934 22.98228,-103.47147 36.89241,-24.63213 90.33093,-25.6966 128.73059,-2.56425"
+         sodipodi:nodetypes="csssc" />
       <circle
          style="font-variation-settings:'wdth' 75, 'wght' 800;fill:#f2f2f2;fill-rule:evenodd;stroke:#ff0000;stroke-width:9.4;stroke-opacity:0"
          id="path455"
@@ -42,31 +57,8 @@
       <path
          d="m 109.08965,144.52342 c -10.672158,0.0443 -21.612997,0.33875 -31.926234,-2.40611 -11.598548,-3.08695 -24.57709,-6.24 -32.5,-15.5 -4.235691,-4.95051 -3.865509,-11.31124 -3,-17 0.851261,-5.59511 3.356297,-9.39612 7.789729,-15.086074 4.433432,-5.689949 12.448647,-12.501822 19.710271,-17.413927 7.975733,-5.395161 25.808948,-12.976093 25.808948,-12.976093 0,0 -13.729025,9.369557 -19.808948,14.976093 -6.079923,5.606536 -13.611559,11.431936 -16.5,18.500003 -2.888441,7.068058 -3.447196,14.917938 -1.125733,19.764208 2.321464,4.84628 8.876277,8.07216 8.876277,8.07216 0,0 -3.364339,-7.68216 -3.969013,-10.99183 -0.604674,-3.30967 -0.1266,-8.49932 -0.1266,-8.49932 0,0 5.409307,9.58216 9.699558,12.77117 7.180126,5.33709 12.961393,6.58106 19.977124,8.18031 6.566313,1.49682 9.917871,2.29556 20.168381,1.2033 10.25051,-1.09226 30.93577,-2.08242 40.11693,-11.18496 0.76529,4.85422 1.74341,7.65509 4.83014,10.92762 3.63479,3.62 6.3272,5.59124 11.17279,7.29143 -4.67797,1.03753 -18.31771,5.00862 -28.28351,6.78437 -9.96579,1.77574 -20.57079,2.54475 -30.91011,2.58765 z"
          style="fill:#0b85d7;fill-opacity:0.984"
-         id="path10" />
-    </g>
-    <g
-       id="g2547"
-       transform="translate(-13.909294,12.472256)">
-      <text
-         xml:space="preserve"
-         style="font-size:42.6667px;font-family:Dyuthi;-inkscape-font-specification:'Dyuthi, @wght=800,wdth=75.0';font-variation-settings:'wdth' 75, 'wght' 800;fill:#ee2227;fill-opacity:0.988235;fill-rule:evenodd;stroke:#ff0000;stroke-width:9.4;stroke-opacity:0"
-         x="289.7731"
-         y="158.49432"
-         id="text1491-7"><tspan
-           id="tspan1489-7"
-           x="289.7731"
-           y="158.49432"
-           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:113.333px;font-family:'Noto Sans Display';-inkscape-font-specification:'Noto Sans Display, Bold ';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#0b4a8d;fill-opacity:0.988235">Spin</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-size:42.6667px;font-family:Dyuthi;-inkscape-font-specification:'Dyuthi, @wght=800,wdth=75.0';font-variation-settings:'wdth' 75, 'wght' 800;fill:#ee2227;fill-opacity:0.988235;fill-rule:evenodd;stroke:#ff0000;stroke-width:9.4;stroke-opacity:0"
-         x="522.43628"
-         y="159.30083"
-         id="text1491-6"><tspan
-           id="tspan1489-9"
-           x="522.43628"
-           y="159.30083"
-           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:113.333px;font-family:'Noto Sans Display';-inkscape-font-specification:'Noto Sans Display, Bold ';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#639a18;fill-opacity:0.988235">Rank</tspan></text>
+         id="path10"
+         sodipodi:nodetypes="aasazaccczcccsascccza" />
     </g>
   </g>
 </svg>

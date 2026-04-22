@@ -46,9 +46,9 @@ export const createParticipantEditors = (args: {
     image.alt = participant?.displayName || "Participant";
     image.onerror = () => {
       image.onerror = null;
-      image.src = `${args.assetsBaseUrl}assets/logo.png`;
+      image.src = `${args.assetsBaseUrl}assets/logo.svg`;
     };
-    image.src = participant?.avatarUrl || `${args.assetsBaseUrl}assets/logo.png`;
+    image.src = participant?.avatarUrl || `${args.assetsBaseUrl}assets/logo.svg`;
   };
 
   const syncKnownParticipants = (): void => {

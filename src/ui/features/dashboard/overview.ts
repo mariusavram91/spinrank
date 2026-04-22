@@ -418,6 +418,6 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatBestWinRatePlayer,
     leaderboardStatBestWinRateMeta,
     leaderboardList,
-    leaderboardAvatarFallback: `${baseUrl}assets/logo.png`,
+    leaderboardAvatarFallback: `${baseUrl}assets/logo.svg`,
   };
 };

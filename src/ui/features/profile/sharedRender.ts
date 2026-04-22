@@ -221,7 +221,7 @@ export const renderSharedUserProfileScreen = (args: {
     args.avatar,
     profile.user.userId,
     profile.user.avatarUrl,
-    `${args.avatarBaseUrl}assets/logo.png`,
+    `${args.avatarBaseUrl}assets/logo.svg`,
     `${profile.user.displayName} avatar`,
   );
   args.name.textContent = profile.user.displayName;

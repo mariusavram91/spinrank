@@ -132,7 +132,7 @@ const createBracketPlayerNode = (args: {
     avatar,
     player?.userId,
     player?.avatarUrl,
-    `${args.avatarBaseUrl}assets/logo.png`,
+    `${args.avatarBaseUrl}assets/logo.svg`,
     args.label,
   );
 
@@ -396,7 +396,7 @@ export const createLeaderboardRenderer = (args: {
         avatar,
         entry.userId,
         entry.avatarUrl,
-        `${args.avatarBaseUrl}assets/logo.png`,
+        `${args.avatarBaseUrl}assets/logo.svg`,
         `${entry.displayName} avatar`,
       );
 

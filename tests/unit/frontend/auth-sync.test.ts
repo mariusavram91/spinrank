@@ -93,7 +93,7 @@ describe("auth sync", () => {
       elements.authAvatar,
       "user_1",
       "https://avatars.example.test/ada.png",
-      "/assets/logo.png",
+      "/assets/logo.svg",
       "Signed-in user avatar",
     );
     expect(elements.authAvatarBadge.hidden).toBe(false);
