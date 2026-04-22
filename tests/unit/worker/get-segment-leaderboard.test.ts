@@ -348,4 +348,281 @@ describe("worker getSegmentLeaderboard action", () => {
     expect(response.data?.leaderboard.map((entry) => entry.rank)).toEqual([1, 2, 3]);
     expect(response.data?.leaderboard[0]).toMatchObject({ userId: "user_qualified", highestScore: 1335 });
   });
+
+  it("derives best singles player and best doubles pair awards from segment matches", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1200,
+      wins: 0,
+      losses: 0,
+      streak: 0,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("FROM elo_segments es")) {
+              return {
+                results: [
+                  {
+                    user_id: "user_a",
+                    elo: 1300,
+                    matches_played: 3,
+                    matches_played_equivalent: 3,
+                    wins: 3,
+                    losses: 0,
+                    streak: 3,
+                    best_win_streak: 3,
+                    highest_score: 1300,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1300,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1210,
+                    season_attended_weeks: 3,
+                    season_total_weeks: 3,
+                    season_attendance_penalty: 0,
+                    display_name: "Alice",
+                    avatar_url: null,
+                  },
+                  {
+                    user_id: "user_b",
+                    elo: 1250,
+                    matches_played: 3,
+                    matches_played_equivalent: 3,
+                    wins: 1,
+                    losses: 2,
+                    streak: -1,
+                    best_win_streak: 1,
+                    highest_score: 1260,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1250,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1160,
+                    season_attended_weeks: 3,
+                    season_total_weeks: 3,
+                    season_attendance_penalty: 0,
+                    display_name: "Bob",
+                    avatar_url: null,
+                  },
+                  {
+                    user_id: "user_c",
+                    elo: 1210,
+                    matches_played: 2,
+                    matches_played_equivalent: 2,
+                    wins: 1,
+                    losses: 1,
+                    streak: 1,
+                    best_win_streak: 1,
+                    highest_score: 1210,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1210,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1120,
+                    season_attended_weeks: 2,
+                    season_total_weeks: 3,
+                    season_attendance_penalty: 0,
+                    display_name: "Cara",
+                    avatar_url: null,
+                  },
+                  {
+                    user_id: "user_d",
+                    elo: 1190,
+                    matches_played: 2,
+                    matches_played_equivalent: 2,
+                    wins: 0,
+                    losses: 2,
+                    streak: -2,
+                    best_win_streak: 0,
+                    highest_score: 1200,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1190,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1100,
+                    season_attended_weeks: 2,
+                    season_total_weeks: 3,
+                    season_attendance_penalty: 0,
+                    display_name: "Dina",
+                    avatar_url: null,
+                  },
+                ],
+              };
+            }
+            if (statementSql.includes("COUNT(*) AS total_matches")) {
+              return { total_matches: 20 };
+            }
+            if (statementSql.includes("SELECT m.match_type")) {
+              const singles = Array.from({ length: 10 }, (_, index) => ({
+                match_type: "singles" as const,
+                team_a_player_ids_json: JSON.stringify(["user_a"]),
+                team_b_player_ids_json: JSON.stringify(["user_b"]),
+                winner_team: (index < 8 ? "A" : "B") as "A" | "B",
+              }));
+              const doubles = Array.from({ length: 10 }, (_, index) => ({
+                match_type: "doubles" as const,
+                team_a_player_ids_json: JSON.stringify(["user_a", "user_b"]),
+                team_b_player_ids_json: JSON.stringify(["user_c", "user_d"]),
+                winner_team: (index < 7 ? "A" : "B") as "A" | "B",
+              }));
+              return {
+                results: [...singles, ...doubles],
+              };
+            }
+            return { results: [] };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetSegmentLeaderboard(
+      {
+        action: "getSegmentLeaderboard",
+        requestId: "req_segment_awards",
+        payload: { segmentType: "season", segmentId: "season_1" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.stats.bestSinglesPlayer).toMatchObject({
+      userId: "user_a",
+      displayName: "Alice",
+      wins: 8,
+      losses: 2,
+    });
+    expect(response.data?.stats.bestDoublesPair).toMatchObject({
+      playerIds: ["user_a", "user_b"],
+      displayName: "Alice & Bob",
+      wins: 7,
+      losses: 3,
+    });
+  });
+
+  it("does not assign singles or doubles awards below the ten-match threshold", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1200,
+      wins: 0,
+      losses: 0,
+      streak: 0,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("FROM elo_segments es")) {
+              return {
+                results: [
+                  {
+                    user_id: "user_a",
+                    elo: 1300,
+                    matches_played: 2,
+                    matches_played_equivalent: 2,
+                    wins: 2,
+                    losses: 0,
+                    streak: 2,
+                    best_win_streak: 2,
+                    highest_score: 1300,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1300,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1210,
+                    season_attended_weeks: 1,
+                    season_total_weeks: 1,
+                    season_attendance_penalty: 0,
+                    display_name: "Alice",
+                    avatar_url: null,
+                  },
+                  {
+                    user_id: "user_b",
+                    elo: 1200,
+                    matches_played: 2,
+                    matches_played_equivalent: 2,
+                    wins: 0,
+                    losses: 2,
+                    streak: -2,
+                    best_win_streak: 0,
+                    highest_score: 1200,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1200,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1110,
+                    season_attended_weeks: 1,
+                    season_total_weeks: 1,
+                    season_attendance_penalty: 0,
+                    display_name: "Bob",
+                    avatar_url: null,
+                  },
+                ],
+              };
+            }
+            if (statementSql.includes("COUNT(*) AS total_matches")) {
+              return { total_matches: 2 };
+            }
+            if (statementSql.includes("SELECT m.match_type")) {
+              return {
+                results: [
+                  {
+                    match_type: "singles",
+                    team_a_player_ids_json: JSON.stringify(["user_a"]),
+                    team_b_player_ids_json: JSON.stringify(["user_b"]),
+                    winner_team: "A",
+                  },
+                  {
+                    match_type: "doubles",
+                    team_a_player_ids_json: JSON.stringify(["user_a", "user_b"]),
+                    team_b_player_ids_json: JSON.stringify(["user_c", "user_d"]),
+                    winner_team: "A",
+                  },
+                ],
+              };
+            }
+            return { results: [] };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetSegmentLeaderboard(
+      {
+        action: "getSegmentLeaderboard",
+        requestId: "req_segment_awards_threshold",
+        payload: { segmentType: "season", segmentId: "season_1" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.stats.bestSinglesPlayer).toBeNull();
+    expect(response.data?.stats.bestDoublesPair).toBeNull();
+  });
 });

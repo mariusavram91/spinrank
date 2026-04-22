@@ -84,6 +84,12 @@ type DashboardSyncDom = {
   leaderboardStatMostWins: HTMLElement;
   leaderboardStatMostWinsPlayer: HTMLElement;
   leaderboardStatMostWinsMeta: HTMLElement;
+  leaderboardStatBestSingles: HTMLElement;
+  leaderboardStatBestSinglesPlayer: HTMLElement;
+  leaderboardStatBestSinglesMeta: HTMLElement;
+  leaderboardStatBestDoubles: HTMLElement;
+  leaderboardStatBestDoublesPlayer: HTMLElement;
+  leaderboardStatBestDoublesMeta: HTMLElement;
   leaderboardStatBestWinRate: HTMLElement;
   leaderboardStatBestWinRatePlayer: HTMLElement;
   leaderboardStatBestWinRateMeta: HTMLElement;
@@ -426,6 +432,8 @@ export const createDashboardSync = (args: {
       const isTournamentMode = args.dashboardState.segmentMode === "tournament";
       const busiestPlayer = !isTournamentMode ? leaderboardStats?.mostMatchesPlayer ?? null : null;
       const mostWinsPlayer = !isTournamentMode ? leaderboardStats?.mostWinsPlayer ?? null : null;
+      const bestSinglesPlayer = !isTournamentMode ? leaderboardStats?.bestSinglesPlayer ?? null : null;
+      const bestDoublesPair = !isTournamentMode ? leaderboardStats?.bestDoublesPair ?? null : null;
       const bestWinRatePlayer = !isTournamentMode ? getBestWinRatePlayer() : null;
       const longestStreakPlayer = !isTournamentMode ? getLongestStreakPlayer() : null;
       const highestPeakPlayer = !isTournamentMode ? getHighestPeakPlayer() : null;
@@ -434,6 +442,8 @@ export const createDashboardSync = (args: {
         Boolean(leaderboardStats?.totalMatches) ||
         Boolean(busiestPlayer) ||
         Boolean(mostWinsPlayer) ||
+        Boolean(bestSinglesPlayer) ||
+        Boolean(bestDoublesPair) ||
         Boolean(highestPeakPlayer) ||
         Boolean(bestWinRatePlayer) ||
         Boolean(longestStreakPlayer);
@@ -492,6 +502,26 @@ export const createDashboardSync = (args: {
         args.dom.leaderboardStatMostWins.hidden = false;
       } else {
         args.dom.leaderboardStatMostWins.hidden = true;
+      }
+
+      if (!isTournamentMode && bestSinglesPlayer) {
+        args.dom.leaderboardStatBestSinglesPlayer.textContent = bestSinglesPlayer.displayName;
+        args.dom.leaderboardStatBestSinglesMeta.textContent = ` • 🥇 ${formatCount(
+          bestSinglesPlayer.wins,
+        )} ${args.t("leaderboardWins")} / ${formatCount(bestSinglesPlayer.losses)} ${args.t("leaderboardLosses")}`;
+        args.dom.leaderboardStatBestSingles.hidden = false;
+      } else {
+        args.dom.leaderboardStatBestSingles.hidden = true;
+      }
+
+      if (!isTournamentMode && bestDoublesPair) {
+        args.dom.leaderboardStatBestDoublesPlayer.textContent = bestDoublesPair.displayName;
+        args.dom.leaderboardStatBestDoublesMeta.textContent = ` • 🤝 ${formatCount(
+          bestDoublesPair.wins,
+        )} ${args.t("leaderboardWins")} / ${formatCount(bestDoublesPair.losses)} ${args.t("leaderboardLosses")}`;
+        args.dom.leaderboardStatBestDoubles.hidden = false;
+      } else {
+        args.dom.leaderboardStatBestDoubles.hidden = true;
       }
 
       if (bestWinRatePlayer) {

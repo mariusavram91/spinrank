@@ -38,6 +38,12 @@ export interface DashboardOverviewElements {
   leaderboardStatMostWins: HTMLDivElement;
   leaderboardStatMostWinsPlayer: HTMLSpanElement;
   leaderboardStatMostWinsMeta: HTMLSpanElement;
+  leaderboardStatBestSingles: HTMLDivElement;
+  leaderboardStatBestSinglesPlayer: HTMLSpanElement;
+  leaderboardStatBestSinglesMeta: HTMLSpanElement;
+  leaderboardStatBestDoubles: HTMLDivElement;
+  leaderboardStatBestDoublesPlayer: HTMLSpanElement;
+  leaderboardStatBestDoublesMeta: HTMLSpanElement;
   leaderboardStatBestWinRate: HTMLDivElement;
   leaderboardStatBestWinRatePlayer: HTMLSpanElement;
   leaderboardStatBestWinRateMeta: HTMLSpanElement;
@@ -273,6 +279,54 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   leaderboardStatMostWinsDetails.append(leaderboardStatMostWinsLabel, leaderboardStatMostWinsName);
   leaderboardStatMostWins.append(leaderboardStatMostWinsDetails);
 
+  const leaderboardStatBestSingles = document.createElement("div");
+  leaderboardStatBestSingles.className = "leaderboard-stat";
+  leaderboardStatBestSingles.hidden = true;
+
+  const leaderboardStatBestSinglesDetails = document.createElement("div");
+  leaderboardStatBestSinglesDetails.className = "leaderboard-stat__details";
+
+  const leaderboardStatBestSinglesLabel = document.createElement("span");
+  leaderboardStatBestSinglesLabel.className = "leaderboard-stat__label";
+  bindLocalizedText(leaderboardStatBestSinglesLabel, "leaderboardBestSinglesLabel");
+
+  const leaderboardStatBestSinglesName = document.createElement("p");
+  leaderboardStatBestSinglesName.className = "leaderboard-stat__name";
+
+  const leaderboardStatBestSinglesPlayer = document.createElement("span");
+  leaderboardStatBestSinglesPlayer.className = "leaderboard-stat__player";
+
+  const leaderboardStatBestSinglesMeta = document.createElement("span");
+  leaderboardStatBestSinglesMeta.className = "leaderboard-stat__meta";
+
+  leaderboardStatBestSinglesName.append(leaderboardStatBestSinglesPlayer, leaderboardStatBestSinglesMeta);
+  leaderboardStatBestSinglesDetails.append(leaderboardStatBestSinglesLabel, leaderboardStatBestSinglesName);
+  leaderboardStatBestSingles.append(leaderboardStatBestSinglesDetails);
+
+  const leaderboardStatBestDoubles = document.createElement("div");
+  leaderboardStatBestDoubles.className = "leaderboard-stat";
+  leaderboardStatBestDoubles.hidden = true;
+
+  const leaderboardStatBestDoublesDetails = document.createElement("div");
+  leaderboardStatBestDoublesDetails.className = "leaderboard-stat__details";
+
+  const leaderboardStatBestDoublesLabel = document.createElement("span");
+  leaderboardStatBestDoublesLabel.className = "leaderboard-stat__label";
+  bindLocalizedText(leaderboardStatBestDoublesLabel, "leaderboardBestDoublesLabel");
+
+  const leaderboardStatBestDoublesName = document.createElement("p");
+  leaderboardStatBestDoublesName.className = "leaderboard-stat__name";
+
+  const leaderboardStatBestDoublesPlayer = document.createElement("span");
+  leaderboardStatBestDoublesPlayer.className = "leaderboard-stat__player";
+
+  const leaderboardStatBestDoublesMeta = document.createElement("span");
+  leaderboardStatBestDoublesMeta.className = "leaderboard-stat__meta";
+
+  leaderboardStatBestDoublesName.append(leaderboardStatBestDoublesPlayer, leaderboardStatBestDoublesMeta);
+  leaderboardStatBestDoublesDetails.append(leaderboardStatBestDoublesLabel, leaderboardStatBestDoublesName);
+  leaderboardStatBestDoubles.append(leaderboardStatBestDoublesDetails);
+
   const leaderboardStatBestWinRate = document.createElement("div");
   leaderboardStatBestWinRate.className = "leaderboard-stat";
   leaderboardStatBestWinRate.hidden = true;
@@ -301,6 +355,8 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardMatchesSummary,
     leaderboardStatMostActive,
     leaderboardStatMostWins,
+    leaderboardStatBestSingles,
+    leaderboardStatBestDoubles,
     leaderboardStatLongestStreak,
     leaderboardStatHighestPeak,
     leaderboardStatBestWinRate,
@@ -352,6 +408,12 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatMostWins,
     leaderboardStatMostWinsPlayer,
     leaderboardStatMostWinsMeta,
+    leaderboardStatBestSingles,
+    leaderboardStatBestSinglesPlayer,
+    leaderboardStatBestSinglesMeta,
+    leaderboardStatBestDoubles,
+    leaderboardStatBestDoublesPlayer,
+    leaderboardStatBestDoublesMeta,
     leaderboardStatBestWinRate,
     leaderboardStatBestWinRatePlayer,
     leaderboardStatBestWinRateMeta,

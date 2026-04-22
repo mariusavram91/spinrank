@@ -1,4 +1,4 @@
-import { isoNow } from "../db";
+import { isoNow, parseJsonArray } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
 import { getBracketRounds } from "../services/brackets";
@@ -19,6 +19,15 @@ type TournamentPlacementMetrics = {
   bracketLosses: Record<string, number>;
   championIds: Set<string>;
 };
+
+type SegmentMatchRow = {
+  match_type: "singles" | "doubles";
+  team_a_player_ids_json: string;
+  team_b_player_ids_json: string;
+  winner_team: "A" | "B";
+};
+
+const MIN_AWARD_MATCHES = 10;
 
 function buildTournamentPlacementMetrics(rounds: TournamentBracketRound[]): TournamentPlacementMetrics {
   const metrics: TournamentPlacementMetrics = {
@@ -92,6 +101,126 @@ function getTournamentPlacementLabel(
     key: "leaderboardPlacementRoundOf",
     count: matchCount * 2,
   };
+}
+
+function chooseBestSinglesPlayer(
+  matches: SegmentMatchRow[],
+  playerProfiles: Map<string, { displayName: string; avatarUrl: string | null }>,
+) {
+  const records = new Map<string, { wins: number; losses: number }>();
+  matches.forEach((match) => {
+    if (match.match_type !== "singles") {
+      return;
+    }
+    const teamA = parseJsonArray<string>(match.team_a_player_ids_json);
+    const teamB = parseJsonArray<string>(match.team_b_player_ids_json);
+    const playerA = teamA[0];
+    const playerB = teamB[0];
+    if (!playerA || !playerB) {
+      return;
+    }
+    const winnerId = match.winner_team === "A" ? playerA : playerB;
+    const loserId = winnerId === playerA ? playerB : playerA;
+    const winner = records.get(winnerId) ?? { wins: 0, losses: 0 };
+    winner.wins += 1;
+    records.set(winnerId, winner);
+    const loser = records.get(loserId) ?? { wins: 0, losses: 0 };
+    loser.losses += 1;
+    records.set(loserId, loser);
+  });
+
+  const rankedSingles = [...records.entries()]
+    .map(([userId, record]) => {
+      const profile = playerProfiles.get(userId);
+      return {
+        userId,
+        displayName: profile?.displayName ?? userId,
+        avatarUrl: profile?.avatarUrl ?? null,
+        wins: record.wins,
+        losses: record.losses,
+      };
+    })
+    .filter((entry) => entry.wins + entry.losses >= MIN_AWARD_MATCHES)
+    .sort((left, right) => {
+      if (right.wins !== left.wins) {
+        return right.wins - left.wins;
+      }
+      if (left.losses !== right.losses) {
+        return left.losses - right.losses;
+      }
+      const leftMatches = left.wins + left.losses;
+      const rightMatches = right.wins + right.losses;
+      if (rightMatches !== leftMatches) {
+        return rightMatches - leftMatches;
+      }
+      return left.displayName.localeCompare(right.displayName);
+    });
+
+  return rankedSingles[0] ?? null;
+}
+
+function chooseBestDoublesPair(
+  matches: SegmentMatchRow[],
+  playerProfiles: Map<string, { displayName: string; avatarUrl: string | null }>,
+) {
+  const records = new Map<string, { playerIds: [string, string]; wins: number; losses: number }>();
+  const upsertTeamRecord = (playerIds: string[], didWin: boolean): void => {
+    if (playerIds.length < 2) {
+      return;
+    }
+    const normalizedPair = [...playerIds].sort((left, right) => left.localeCompare(right)).slice(0, 2) as [string, string];
+    const pairKey = normalizedPair.join("|");
+    const record = records.get(pairKey) ?? { playerIds: normalizedPair, wins: 0, losses: 0 };
+    if (didWin) {
+      record.wins += 1;
+    } else {
+      record.losses += 1;
+    }
+    records.set(pairKey, record);
+  };
+
+  matches.forEach((match) => {
+    if (match.match_type !== "doubles") {
+      return;
+    }
+    const teamA = parseJsonArray<string>(match.team_a_player_ids_json);
+    const teamB = parseJsonArray<string>(match.team_b_player_ids_json);
+    if (teamA.length < 2 || teamB.length < 2) {
+      return;
+    }
+    upsertTeamRecord(teamA, match.winner_team === "A");
+    upsertTeamRecord(teamB, match.winner_team === "B");
+  });
+
+  const rankedPairs = [...records.values()]
+    .map((record) => {
+      const pairNames = record.playerIds
+        .map((playerId) => playerProfiles.get(playerId)?.displayName ?? playerId)
+        .sort((left, right) => left.localeCompare(right));
+      return {
+        playerIds: record.playerIds,
+        displayName: pairNames.join(" & "),
+        wins: record.wins,
+        losses: record.losses,
+      };
+    })
+    .filter((entry) => entry.wins + entry.losses >= MIN_AWARD_MATCHES)
+    .sort((left, right) => {
+      if (right.wins !== left.wins) {
+        return right.wins - left.wins;
+      }
+      if (left.losses !== right.losses) {
+        return left.losses - right.losses;
+      }
+      const leftMatches = left.wins + left.losses;
+      const rightMatches = right.wins + right.losses;
+      if (rightMatches !== leftMatches) {
+        return rightMatches - leftMatches;
+      }
+      return left.displayName.localeCompare(right.displayName);
+    });
+
+  return rankedPairs[0] ?? null;
 }
 
 export async function handleGetSegmentLeaderboard(
@@ -170,6 +299,20 @@ export async function handleGetSegmentLeaderboard(
   )
     .bind(segmentType, segmentId)
     .first<{ total_matches: number }>();
+  const segmentMatches = await env.DB.prepare(
+    `
+      SELECT m.match_type, m.team_a_player_ids_json, m.team_b_player_ids_json, m.winner_team
+      FROM matches m
+      LEFT JOIN tournaments t ON t.id = m.tournament_id
+      WHERE m.status = 'active'
+        AND (
+          (?1 = 'season' AND (m.season_id = ?2 OR t.season_id = ?2))
+          OR (?1 = 'tournament' AND m.tournament_id = ?2)
+        )
+    `,
+  )
+    .bind(segmentType, segmentId)
+    .all<SegmentMatchRow>();
 
   const leaderboard = rows.results
     .map<LeaderboardEntry>((row) => {
@@ -385,6 +528,18 @@ export async function handleGetSegmentLeaderboard(
           losses: topWinsPlayer.losses,
         }
       : null,
+    bestSinglesPlayer: chooseBestSinglesPlayer(
+      segmentMatches.results,
+      new Map(
+        leaderboard.map((entry) => [entry.userId, { displayName: entry.displayName, avatarUrl: entry.avatarUrl }] as const),
+      ),
+    ),
+    bestDoublesPair: chooseBestDoublesPair(
+      segmentMatches.results,
+      new Map(
+        leaderboard.map((entry) => [entry.userId, { displayName: entry.displayName, avatarUrl: entry.avatarUrl }] as const),
+      ),
+    ),
     tournamentWinnerPlayer: tournamentWinnerRow
       ? {
           userId: tournamentWinnerRow.user_id,

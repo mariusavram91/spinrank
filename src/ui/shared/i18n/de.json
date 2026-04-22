@@ -117,6 +117,8 @@
   "leaderboardMatchesLabel": "Ausgetragene Matches",
   "leaderboardMostGamesLabel": "Die meisten Matches",
   "leaderboardMostWinsLabel": "Die meisten Siege",
+  "leaderboardBestSinglesLabel": "Bestes Einzel",
+  "leaderboardBestDoublesLabel": "Bestes Doppel",
   "leaderboardBestWinRateLabel": "Beste Siegquote",
   "leaderboardHighestEloLabel": "Höchste Elo",
   "leaderboardHighestScoreLabel": "Höchster Score",

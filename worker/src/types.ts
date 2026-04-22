@@ -179,10 +179,27 @@ export interface SegmentTournamentWinner {
   avatarUrl: string | null;
 }
 
+export interface SegmentBestSinglesPlayer {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  wins: number;
+  losses: number;
+}
+
+export interface SegmentBestDoublesPair {
+  playerIds: [string, string];
+  displayName: string;
+  wins: number;
+  losses: number;
+}
+
 export interface SegmentLeaderboardStats {
   totalMatches: number;
   mostMatchesPlayer: SegmentMostMatchesPlayer | null;
   mostWinsPlayer: SegmentMostWinsPlayer | null;
+  bestSinglesPlayer?: SegmentBestSinglesPlayer | null;
+  bestDoublesPair?: SegmentBestDoublesPair | null;
   tournamentWinnerPlayer: SegmentTournamentWinner | null;
 }
 

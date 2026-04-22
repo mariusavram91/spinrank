@@ -117,6 +117,8 @@
   "leaderboardMatchesLabel": "Partidos jugados",
   "leaderboardMostGamesLabel": "Más partidos esta temporada",
   "leaderboardMostWinsLabel": "Más victorias esta temporada",
+  "leaderboardBestSinglesLabel": "Mejor jugador individual",
+  "leaderboardBestDoublesLabel": "Mejor pareja de dobles",
   "leaderboardBestWinRateLabel": "Mejor porcentaje de victorias",
   "leaderboardHighestEloLabel": "Highest Elo",
   "leaderboardHighestScoreLabel": "Puntuación más alta",

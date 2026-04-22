@@ -117,6 +117,8 @@
   "leaderboardMatchesLabel": "Matches played",
   "leaderboardMostGamesLabel": "Most games this season",
   "leaderboardMostWinsLabel": "Most wins this season",
+  "leaderboardBestSinglesLabel": "Best singles player",
+  "leaderboardBestDoublesLabel": "Best doubles pair",
   "leaderboardBestWinRateLabel": "Best win rate",
   "leaderboardHighestEloLabel": "Highest Elo",
   "leaderboardHighestScoreLabel": "Highest score",

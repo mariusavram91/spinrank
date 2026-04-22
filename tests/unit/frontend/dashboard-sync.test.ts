@@ -160,6 +160,12 @@ const createDom = () => ({
   leaderboardStatMostWins: makeDiv(),
   leaderboardStatMostWinsPlayer: makeDiv(),
   leaderboardStatMostWinsMeta: makeDiv(),
+  leaderboardStatBestSingles: makeDiv(),
+  leaderboardStatBestSinglesPlayer: makeDiv(),
+  leaderboardStatBestSinglesMeta: makeDiv(),
+  leaderboardStatBestDoubles: makeDiv(),
+  leaderboardStatBestDoublesPlayer: makeDiv(),
+  leaderboardStatBestDoublesMeta: makeDiv(),
   leaderboardStatBestWinRate: makeDiv(),
   leaderboardStatBestWinRatePlayer: makeDiv(),
   leaderboardStatBestWinRateMeta: makeDiv(),
@@ -251,6 +257,19 @@ const createDashboardState = (overrides?: Partial<DashboardState>) =>
         avatarUrl: null,
         matchesPlayed: 8,
         wins: 7,
+        losses: 1,
+      },
+      bestSinglesPlayer: {
+        userId: "user_1",
+        displayName: "Ada",
+        avatarUrl: null,
+        wins: 6,
+        losses: 1,
+      },
+      bestDoublesPair: {
+        playerIds: ["user_1", "user_2"],
+        displayName: "Ada & Bob",
+        wins: 2,
         losses: 1,
       },
       tournamentWinnerPlayer: null,
@@ -346,6 +365,12 @@ describe("dashboard sync", () => {
     expect(dom.leaderboardMatchesSummaryValue.textContent).toBe("12");
     expect(dom.leaderboardStatMostActive.hidden).toBe(false);
     expect(dom.leaderboardStatMostWins.hidden).toBe(false);
+    expect(dom.leaderboardStatBestSingles.hidden).toBe(false);
+    expect(dom.leaderboardStatBestSinglesPlayer.textContent).toBe("Ada");
+    expect(dom.leaderboardStatBestSinglesMeta.textContent).toContain("leaderboardWins");
+    expect(dom.leaderboardStatBestSinglesMeta.textContent).toContain("leaderboardLosses");
+    expect(dom.leaderboardStatBestDoubles.hidden).toBe(false);
+    expect(dom.leaderboardStatBestDoublesPlayer.textContent).toBe("Ada & Bob");
     expect(dom.leaderboardStatLongestStreak.hidden).toBe(false);
     expect(dom.leaderboardStatHighestPeak.hidden).toBe(false);
     expect(dom.leaderboardStatHighestPeakPlayer.textContent).toBe("Ada");
@@ -460,6 +485,19 @@ describe("dashboard sync", () => {
             wins: 4,
             losses: 1,
           },
+          bestSinglesPlayer: {
+            userId: "user_1",
+            displayName: "Ada",
+            avatarUrl: null,
+            wins: 3,
+            losses: 1,
+          },
+          bestDoublesPair: {
+            playerIds: ["user_1", "user_2"],
+            displayName: "Ada & Bob",
+            wins: 1,
+            losses: 1,
+          },
           tournamentWinnerPlayer: null,
         },
       }),
@@ -499,6 +537,8 @@ describe("dashboard sync", () => {
     expect(dom.deleteTournamentButton.hidden).toBe(true);
     expect(dom.leaderboardStatMostActive.hidden).toBe(true);
     expect(dom.leaderboardStatMostWins.hidden).toBe(true);
+    expect(dom.leaderboardStatBestSingles.hidden).toBe(true);
+    expect(dom.leaderboardStatBestDoubles.hidden).toBe(true);
     expect(dom.leaderboardStatHighestPeak.hidden).toBe(true);
     expect(dom.leaderboardStatBestWinRate.hidden).toBe(true);
   });
