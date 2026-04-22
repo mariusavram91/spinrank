@@ -134,6 +134,7 @@ const createBracketPlayerNode = (args: {
     player?.avatarUrl,
     `${args.avatarBaseUrl}assets/logo.svg`,
     args.label,
+    player?.displayName,
   );
 
   const nameBlock = document.createElement("div");
@@ -398,6 +399,7 @@ export const createLeaderboardRenderer = (args: {
         entry.avatarUrl,
         `${args.avatarBaseUrl}assets/logo.svg`,
         `${entry.displayName} avatar`,
+        entry.displayName,
       );
 
       const summary = document.createElement("div");

@@ -95,6 +95,7 @@ describe("auth sync", () => {
       "https://avatars.example.test/ada.png",
       "/assets/logo.svg",
       "Signed-in user avatar",
+      "Ada",
     );
     expect(elements.authAvatarBadge.hidden).toBe(false);
     expect(elements.authAvatarButton.getAttribute("aria-label")).toContain("new achievements");

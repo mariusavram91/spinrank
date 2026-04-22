@@ -223,6 +223,7 @@ export const renderSharedUserProfileScreen = (args: {
     profile.user.avatarUrl,
     `${args.avatarBaseUrl}assets/logo.svg`,
     `${profile.user.displayName} avatar`,
+    profile.user.displayName,
   );
   args.name.textContent = profile.user.displayName;
   args.rank.textContent = profile.user.currentRank

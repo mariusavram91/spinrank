@@ -54,6 +54,7 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
         currentState.session.user.avatarUrl,
         `${args.assetsBaseUrl}assets/logo.svg`,
         "Signed-in user avatar",
+        currentState.session.user.displayName,
       );
 
       if (args.authMenu.children.length === 0) {
