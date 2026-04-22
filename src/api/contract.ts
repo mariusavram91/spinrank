@@ -251,6 +251,12 @@ export interface ActivityHeatmapData {
   days: ActivityHeatmapDay[];
 }
 
+export interface MatchTypeRecord {
+  matches: number;
+  wins: number;
+  losses: number;
+}
+
 export interface GetUserProgressData {
   currentRank: number | null;
   currentElo: number;
@@ -260,6 +266,8 @@ export interface GetUserProgressData {
   bestStreak: number;
   wins: number;
   losses: number;
+  singles: MatchTypeRecord;
+  doubles: MatchTypeRecord;
   points: UserProgressPoint[];
   activityHeatmap: ActivityHeatmapData | null;
 }
@@ -434,6 +442,7 @@ export interface GetMatchesPayload {
   cursor?: string;
   limit?: number;
   filter?: MatchFeedFilter;
+  matchType?: MatchType;
   targetMatchIds?: string[];
   mode?: "default" | "dashboard_preview";
 }

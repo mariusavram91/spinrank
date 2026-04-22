@@ -223,6 +223,7 @@ async function loadDashboardPreviewMatches(
   env: Env,
   sessionUserId: string,
   filter: GetMatchesPayload["filter"],
+  matchType: MatchRecord["matchType"] | null,
   limit: number,
 ): Promise<MatchRow[]> {
   const viewerJoin =
@@ -236,11 +237,12 @@ async function loadDashboardPreviewMatches(
       ${viewerJoin}
       ${buildVisibilityJoins("?1")}
       WHERE ${buildVisibilityPredicate("?1")}
+        AND (?2 IS NULL OR m.match_type = ?2)
       ORDER BY m.played_at DESC, m.created_at DESC, m.id DESC
-      LIMIT ?2
+      LIMIT ?3
     `,
   )
-    .bind(sessionUserId, limit + 1)
+    .bind(sessionUserId, matchType, limit + 1)
     .all<MatchRow>();
 
   return result.results;
@@ -250,6 +252,7 @@ async function loadRecentOrAllMatches(
   env: Env,
   sessionUserId: string,
   cursor: MatchCursor,
+  matchType: MatchRecord["matchType"] | null,
   limit: number,
 ): Promise<MatchRow[]> {
   const result = await env.DB.prepare(
@@ -259,12 +262,13 @@ async function loadRecentOrAllMatches(
       FROM matches m
       ${buildVisibilityJoins("?1")}
       WHERE ${buildVisibilityPredicate("?1")}
+        AND (?5 IS NULL OR m.match_type = ?5)
         AND (${buildCursorPredicate("m")})
       ORDER BY m.played_at DESC, m.created_at DESC, m.id DESC
-      LIMIT ?5
+      LIMIT ?6
     `,
   )
-    .bind(sessionUserId, cursor?.playedAt ?? null, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1)
+    .bind(sessionUserId, cursor?.playedAt ?? null, cursor?.createdAt ?? null, cursor?.id ?? null, matchType, limit + 1)
     .all<MatchRow>();
 
   return result.results;
@@ -274,6 +278,7 @@ async function loadMineMatches(
   env: Env,
   sessionUserId: string,
   cursor: MatchCursor,
+  matchType: MatchRecord["matchType"] | null,
   limit: number,
 ): Promise<MatchRow[]> {
   const result = await env.DB.prepare(
@@ -285,12 +290,13 @@ async function loadMineMatches(
         ON viewer_mp.match_id = m.id AND viewer_mp.user_id = ?1
       ${buildVisibilityJoins("?1")}
       WHERE ${buildVisibilityPredicate("?1")}
+        AND (?5 IS NULL OR m.match_type = ?5)
         AND (${buildCursorPredicate("m")})
       ORDER BY m.played_at DESC, m.created_at DESC, m.id DESC
-      LIMIT ?5
+      LIMIT ?6
     `,
   )
-    .bind(sessionUserId, cursor?.playedAt ?? null, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1)
+    .bind(sessionUserId, cursor?.playedAt ?? null, cursor?.createdAt ?? null, cursor?.id ?? null, matchType, limit + 1)
     .all<MatchRow>();
 
   return result.results;
@@ -304,6 +310,13 @@ function normalizeMatchFilter(value: unknown): GetMatchesPayload["filter"] {
   return "recent";
 }
 
+function normalizeMatchType(value: unknown): MatchRecord["matchType"] | null {
+  if (value === "singles" || value === "doubles") {
+    return value;
+  }
+  return null;
+}
+
 export async function handleGetMatches(
   request: ApiRequest<"getMatches", GetMatchesPayload>,
   sessionUser: UserRow,
@@ -311,6 +324,7 @@ export async function handleGetMatches(
 ) {
   const filter = normalizeMatchFilter(request.payload?.filter);
   const limit = Math.min(Math.max(request.payload?.limit ?? (filter === "recent" ? 4 : 20), 1), 50);
+  const matchType = normalizeMatchType(request.payload?.matchType);
   const cursor = decodeCursor(request.payload?.cursor);
   const targetMatchIds = [...new Set((request.payload?.targetMatchIds ?? []).filter((value): value is string => Boolean(value)))].slice(0, 10);
   const dashboardPreview = isDashboardPreviewMode(request.payload) && !cursor;
@@ -321,14 +335,14 @@ export async function handleGetMatches(
   }
 
   if (dashboardPreview) {
-    const rows = await loadDashboardPreviewMatches(env, sessionUser.id, filter, limit);
+    const rows = await loadDashboardPreviewMatches(env, sessionUser.id, filter, matchType, limit);
     return buildMatchPageResponse(request.requestId, env, rows, limit);
   }
 
   const rows =
     filter === "mine"
-      ? await loadMineMatches(env, sessionUser.id, cursor, limit)
-      : await loadRecentOrAllMatches(env, sessionUser.id, cursor, limit);
+    ? await loadMineMatches(env, sessionUser.id, cursor, matchType, limit)
+    : await loadRecentOrAllMatches(env, sessionUser.id, cursor, matchType, limit);
 
   return buildMatchPageResponse(request.requestId, env, rows, limit);
 }

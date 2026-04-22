@@ -40,6 +40,7 @@ export const createDashboardState = (): DashboardState => ({
   matchesLoading: false,
   profileMatches: [],
   profileMatchesCursor: null,
+  profileMatchesFilter: "all",
   profileLoading: false,
   profileMatchesLoading: false,
   profileSubmitting: false,

@@ -230,6 +230,8 @@
   "profileCreatedTournaments": "Von dir erstellte Turniere",
   "profileParticipatingTournaments": "Turniere mit deiner Teilnahme",
   "profileMatches": "Deine Matches",
+  "profileEmptySinglesMatches": "Noch keine Einzel-Matches in dieser Liste.",
+  "profileEmptyDoublesMatches": "Noch keine Doppel-Matches in dieser Liste.",
   "sharedProfileTitle": "Spieler",
   "sharedProfileMeta": "Nur gemeinsame Saisons, Turniere und Matches.",
   "sharedProfileActivityTitle": "Gemeinsame Aktivität",

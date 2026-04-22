@@ -104,6 +104,46 @@ export async function handleGetUserProgress(
       winner_team: MatchRecord["winnerTeam"];
       player_team: MatchRecord["winnerTeam"];
     }>();
+  const matchTypeTotals = await env.DB.prepare(
+    `
+      SELECT
+        SUM(CASE WHEN m.match_type = 'singles' THEN 1 ELSE 0 END) AS singles_matches,
+        SUM(CASE WHEN m.match_type = 'singles' AND mp.team = m.winner_team THEN 1 ELSE 0 END) AS singles_wins,
+        SUM(CASE WHEN m.match_type = 'singles' AND mp.team != m.winner_team THEN 1 ELSE 0 END) AS singles_losses,
+        SUM(CASE WHEN m.match_type = 'doubles' THEN 1 ELSE 0 END) AS doubles_matches,
+        SUM(CASE WHEN m.match_type = 'doubles' AND mp.team = m.winner_team THEN 1 ELSE 0 END) AS doubles_wins,
+        SUM(CASE WHEN m.match_type = 'doubles' AND mp.team != m.winner_team THEN 1 ELSE 0 END) AS doubles_losses
+      FROM match_players mp
+      JOIN matches m
+        ON m.id = mp.match_id
+      LEFT JOIN seasons s
+        ON s.id = m.season_id
+      LEFT JOIN season_participants sp
+        ON sp.season_id = m.season_id AND sp.user_id = ?1
+      LEFT JOIN tournaments t
+        ON t.id = m.tournament_id
+      LEFT JOIN tournament_participants tp
+        ON tp.tournament_id = m.tournament_id AND tp.user_id = ?1
+      WHERE mp.user_id = ?1
+        AND m.status = 'active'
+        AND (
+          (m.season_id IS NULL AND m.tournament_id IS NULL)
+          OR (m.tournament_id IS NOT NULL AND (t.created_by_user_id = ?1 OR tp.user_id IS NOT NULL))
+          OR (m.tournament_id IS NULL AND m.season_id IS NOT NULL AND (
+            s.is_public = 1 OR s.created_by_user_id = ?1 OR sp.user_id IS NOT NULL
+          ))
+        )
+    `,
+  )
+    .bind(sessionUser.id)
+    .first<{
+      singles_matches: number | null;
+      singles_wins: number | null;
+      singles_losses: number | null;
+      doubles_matches: number | null;
+      doubles_wins: number | null;
+      doubles_losses: number | null;
+    }>();
 
   const deltas = progressRows.results.map((row) => {
     const deltaMap = parseJsonObject<Record<string, number>>(row.global_elo_delta_json, {});
@@ -170,6 +210,16 @@ export async function handleGetUserProgress(
     bestStreak,
     wins: Number(sessionUser.wins || 0),
     losses: Number(sessionUser.losses || 0),
+    singles: {
+      matches: Number(matchTypeTotals?.singles_matches ?? 0),
+      wins: Number(matchTypeTotals?.singles_wins ?? 0),
+      losses: Number(matchTypeTotals?.singles_losses ?? 0),
+    },
+    doubles: {
+      matches: Number(matchTypeTotals?.doubles_matches ?? 0),
+      wins: Number(matchTypeTotals?.doubles_wins ?? 0),
+      losses: Number(matchTypeTotals?.doubles_losses ?? 0),
+    },
     points: finalPoints,
     activityHeatmap,
   });

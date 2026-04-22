@@ -44,7 +44,7 @@ describe("worker getMatches action", () => {
             expect(statementSql).not.toContain("EXISTS (");
             expect(statementSql).not.toContain("visible_matches.played_at");
             expect(statementSql).toContain("ORDER BY m.played_at DESC, m.created_at DESC, m.id DESC");
-            expect(args).toEqual(["user_a", 5]);
+            expect(args).toEqual(["user_a", null, 5]);
 
             return { results: [] };
           }),
@@ -95,6 +95,7 @@ describe("worker getMatches action", () => {
               "2026-04-05T10:00:00.000Z",
               "2026-04-05T10:05:00.000Z",
               "match_9",
+              null,
               21,
             ]);
 

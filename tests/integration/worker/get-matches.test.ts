@@ -195,4 +195,90 @@ describe("worker integration: getMatches", () => {
       await context.cleanup();
     }
   });
+
+  it("supports filtering personal history by match type", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+      await seedUser(context.env, { id: "user_c", displayName: "Cara" });
+      await seedUser(context.env, { id: "user_d", displayName: "Dora" });
+
+      const owner = await context.env.DB.prepare(
+        `
+          SELECT *
+          FROM users
+          WHERE id = ?1
+        `,
+      )
+        .bind("user_a")
+        .first<UserRow>();
+
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_match_doubles_old",
+          payload: {
+            matchType: "doubles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a", "user_b"],
+            teamBPlayerIds: ["user_c", "user_d"],
+            score: [{ teamA: 11, teamB: 8 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T09:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_match_singles_new",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 6 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const filtered = await handleGetMatches(
+        {
+          action: "getMatches",
+          requestId: "req_get_matches_mine_doubles_only",
+          payload: {
+            filter: "mine",
+            matchType: "doubles",
+            limit: 8,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(filtered.ok).toBe(true);
+      expect(filtered.data?.matches).toHaveLength(1);
+      expect(filtered.data?.matches[0]).toMatchObject({
+        matchType: "doubles",
+        playedAt: "2026-04-05T09:00:00.000Z",
+      });
+      expect(filtered.data?.nextCursor).toBeNull();
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

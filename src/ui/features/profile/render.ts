@@ -6,7 +6,7 @@ import type {
   SeasonRecord,
   TournamentRecord,
 } from "../../../api/contract";
-import type { DashboardState, ProfileSegmentSummary } from "../../shared/types/app";
+import type { DashboardState, ProfileMatchesFilter, ProfileSegmentSummary } from "../../shared/types/app";
 import type { TextKey } from "../../shared/i18n/translations";
 import { isLockedSeason, isLockedTournament } from "../app/helpers";
 import { renderActivityHeatmap } from "./activityHeatmap";
@@ -361,6 +361,10 @@ export const renderProfileScreen = (args: {
   currentUserId: string;
   seasonsList: HTMLElement;
   tournamentsList: HTMLElement;
+  matchesSummary: HTMLElement;
+  matchFilterAllButton: HTMLButtonElement;
+  matchFilterSinglesButton: HTMLButtonElement;
+  matchFilterDoublesButton: HTMLButtonElement;
   matchesList: HTMLElement;
   status: HTMLElement;
   loadMoreButton: HTMLButtonElement;
@@ -378,6 +382,7 @@ export const renderProfileScreen = (args: {
   onOpenSeason: (seasonId: string) => void;
   onOpenTournament: (tournamentId: string) => void;
   onLoadMoreMatches: () => void;
+  onProfileMatchFilterChange: (filter: ProfileMatchesFilter) => void;
   locale: string;
 }): void => {
   const profileFormMessage = args.dashboardState.profileFormMessage ?? "";
@@ -518,6 +523,38 @@ export const renderProfileScreen = (args: {
     onOpen: args.onOpenTournament,
   });
 
+  const singles = args.dashboardState.userProgress?.singles ?? { matches: 0, wins: 0, losses: 0 };
+  const doubles = args.dashboardState.userProgress?.doubles ?? { matches: 0, wins: 0, losses: 0 };
+  const buildTypeSummaryCard = (
+    title: string,
+    values: { matches: number; wins: number; losses: number },
+  ): HTMLDivElement => {
+    const card = document.createElement("div");
+    card.className = "profile-match-type-summary__card";
+
+    const heading = document.createElement("p");
+    heading.className = "profile-match-type-summary__title";
+    heading.textContent = title;
+
+    const body = document.createElement("p");
+    body.className = "profile-match-type-summary__values";
+    body.textContent = `${args.t("progressMatchesLabel")} ${values.matches} • ${args.t("leaderboardWins")} ${values.wins} • ${args.t("leaderboardLosses")} ${values.losses}`;
+    card.append(heading, body);
+    return card;
+  };
+  args.matchesSummary.replaceChildren(
+    buildTypeSummaryCard(args.t("matchTypeSingles"), singles),
+    buildTypeSummaryCard(args.t("matchTypeDoubles"), doubles),
+  );
+
+  const selectedFilter: ProfileMatchesFilter = args.dashboardState.profileMatchesFilter ?? "all";
+  args.matchFilterAllButton.setAttribute("aria-pressed", String(selectedFilter === "all"));
+  args.matchFilterSinglesButton.setAttribute("aria-pressed", String(selectedFilter === "singles"));
+  args.matchFilterDoublesButton.setAttribute("aria-pressed", String(selectedFilter === "doubles"));
+  args.matchFilterAllButton.onclick = () => args.onProfileMatchFilterChange("all");
+  args.matchFilterSinglesButton.onclick = () => args.onProfileMatchFilterChange("singles");
+  args.matchFilterDoublesButton.onclick = () => args.onProfileMatchFilterChange("doubles");
+
   if (args.dashboardState.profileMatches.length === 0) {
     args.loadMoreButton.hidden = true;
     const emptyMessage = args.t("matchFilterEmptyMine");
@@ -525,7 +562,18 @@ export const renderProfileScreen = (args: {
     return;
   }
 
-  const matchNodes = args.dashboardState.profileMatches.map((match) => {
+  const filteredMatches = selectedFilter === "all"
+    ? args.dashboardState.profileMatches
+    : args.dashboardState.profileMatches.filter((match) => match.matchType === selectedFilter);
+  if (filteredMatches.length === 0) {
+    const emptyKey = selectedFilter === "singles" ? "profileEmptySinglesMatches" : "profileEmptyDoublesMatches";
+    args.matchesList.replaceChildren(createEmptyState(args.t(emptyKey)));
+    args.loadMoreButton.hidden = !args.dashboardState.profileMatchesCursor;
+    args.loadMoreButton.disabled = args.dashboardState.profileMatchesLoading;
+    return;
+  }
+
+  const matchNodes = filteredMatches.map((match) => {
     const card = document.createElement("article");
     const userWon =
       (match.winnerTeam === "A" && match.teamAPlayerIds.includes(args.currentUserId)) ||

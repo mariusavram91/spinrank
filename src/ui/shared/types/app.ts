@@ -24,6 +24,7 @@ export type ViewState =
   | { status: "authenticated"; message: string; session: AppSession };
 
 export type SegmentMode = "global" | "season" | "tournament";
+export type ProfileMatchesFilter = "all" | "singles" | "doubles";
 
 export type SeasonDraftMode = "create" | "edit";
 
@@ -73,6 +74,7 @@ export interface DashboardState {
   matchesLoading: boolean;
   profileMatches: MatchRecord[];
   profileMatchesCursor: string | null;
+  profileMatchesFilter: ProfileMatchesFilter;
   profileLoading: boolean;
   profileMatchesLoading: boolean;
   profileSubmitting: boolean;

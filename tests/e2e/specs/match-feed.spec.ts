@@ -65,6 +65,8 @@ const emptyProgress: GetUserProgressData = {
   bestStreak: 0,
   wins: 0,
   losses: 0,
+  singles: { matches: 0, wins: 0, losses: 0 },
+  doubles: { matches: 0, wins: 0, losses: 0 },
   points: [],
   activityHeatmap: null,
 };

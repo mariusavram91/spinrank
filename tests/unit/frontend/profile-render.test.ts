@@ -45,6 +45,10 @@ describe("profile render", () => {
     const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
+    const matchesSummary = document.createElement("div");
+    const matchFilterAllButton = document.createElement("button");
+    const matchFilterSinglesButton = document.createElement("button");
+    const matchFilterDoublesButton = document.createElement("button");
     const matchesList = document.createElement("div");
     const status = document.createElement("p");
     const loadMoreButton = document.createElement("button");
@@ -91,6 +95,10 @@ describe("profile render", () => {
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
+      matchesSummary,
+      matchFilterAllButton,
+      matchFilterSinglesButton,
+      matchFilterDoublesButton,
       matchesList,
       status,
       loadMoreButton,
@@ -102,6 +110,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      onProfileMatchFilterChange: () => undefined,
       locale: "en",
     });
 
@@ -124,6 +133,10 @@ describe("profile render", () => {
     const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
+    const matchesSummary = document.createElement("div");
+    const matchFilterAllButton = document.createElement("button");
+    const matchFilterSinglesButton = document.createElement("button");
+    const matchFilterDoublesButton = document.createElement("button");
     const matchesList = document.createElement("div");
     const status = document.createElement("p");
     const loadMoreButton = document.createElement("button");
@@ -172,6 +185,10 @@ describe("profile render", () => {
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
+      matchesSummary,
+      matchFilterAllButton,
+      matchFilterSinglesButton,
+      matchFilterDoublesButton,
       matchesList,
       status,
       loadMoreButton,
@@ -183,6 +200,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      onProfileMatchFilterChange: () => undefined,
       locale: "en",
     });
 
@@ -207,6 +225,10 @@ describe("profile render", () => {
     const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
+    const matchesSummary = document.createElement("div");
+    const matchFilterAllButton = document.createElement("button");
+    const matchFilterSinglesButton = document.createElement("button");
+    const matchFilterDoublesButton = document.createElement("button");
     const matchesList = document.createElement("div");
     const status = document.createElement("p");
     const loadMoreButton = document.createElement("button");
@@ -253,6 +275,10 @@ describe("profile render", () => {
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
+      matchesSummary,
+      matchFilterAllButton,
+      matchFilterSinglesButton,
+      matchFilterDoublesButton,
       matchesList,
       status,
       loadMoreButton,
@@ -264,6 +290,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      onProfileMatchFilterChange: () => undefined,
       locale: "en",
     });
 
@@ -287,6 +314,10 @@ describe("profile render", () => {
     const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
+    const matchesSummary = document.createElement("div");
+    const matchFilterAllButton = document.createElement("button");
+    const matchFilterSinglesButton = document.createElement("button");
+    const matchFilterDoublesButton = document.createElement("button");
     const matchesList = document.createElement("div");
     const status = document.createElement("p");
     const loadMoreButton = document.createElement("button");
@@ -322,6 +353,10 @@ describe("profile render", () => {
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
+      matchesSummary,
+      matchFilterAllButton,
+      matchFilterSinglesButton,
+      matchFilterDoublesButton,
       matchesList,
       status,
       loadMoreButton,
@@ -333,6 +368,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      onProfileMatchFilterChange: () => undefined,
       locale: "en",
     });
 
@@ -355,6 +391,10 @@ describe("profile render", () => {
     const activityHeatmap = document.createElement("div");
     const seasonsList = document.createElement("div");
     const tournamentsList = document.createElement("div");
+    const matchesSummary = document.createElement("div");
+    const matchFilterAllButton = document.createElement("button");
+    const matchFilterSinglesButton = document.createElement("button");
+    const matchFilterDoublesButton = document.createElement("button");
     const matchesList = document.createElement("div");
     const status = document.createElement("p");
     const loadMoreButton = document.createElement("button");
@@ -390,6 +430,10 @@ describe("profile render", () => {
       currentUserId: "user_1",
       seasonsList,
       tournamentsList,
+      matchesSummary,
+      matchFilterAllButton,
+      matchFilterSinglesButton,
+      matchFilterDoublesButton,
       matchesList,
       status,
       loadMoreButton,
@@ -401,6 +445,7 @@ describe("profile render", () => {
       onOpenSeason: () => undefined,
       onOpenTournament: () => undefined,
       onLoadMoreMatches: () => undefined,
+      onProfileMatchFilterChange: () => undefined,
       locale: "en",
     });
 

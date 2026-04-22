@@ -248,13 +248,36 @@ export const createAppDom = (args: {
   const profileMatchesTitle = document.createElement("h4");
   profileMatchesTitle.className = "card-title profile-section__title";
   bindLocalizedText(profileMatchesTitle, "profileMatches");
+  const profileMatchesSummary = document.createElement("div");
+  profileMatchesSummary.className = "profile-match-type-summary";
+  const profileMatchesFilter = document.createElement("div");
+  profileMatchesFilter.className = "segment-toggle profile-match-type-toggle";
+  const profileMatchesFilterAll = document.createElement("button");
+  profileMatchesFilterAll.type = "button";
+  bindLocalizedText(profileMatchesFilterAll, "matchFiltersAll");
+  profileMatchesFilterAll.setAttribute("aria-pressed", "true");
+  const profileMatchesFilterSingles = document.createElement("button");
+  profileMatchesFilterSingles.type = "button";
+  bindLocalizedText(profileMatchesFilterSingles, "matchTypeSingles");
+  profileMatchesFilterSingles.setAttribute("aria-pressed", "false");
+  const profileMatchesFilterDoubles = document.createElement("button");
+  profileMatchesFilterDoubles.type = "button";
+  bindLocalizedText(profileMatchesFilterDoubles, "matchTypeDoubles");
+  profileMatchesFilterDoubles.setAttribute("aria-pressed", "false");
+  profileMatchesFilter.append(profileMatchesFilterAll, profileMatchesFilterSingles, profileMatchesFilterDoubles);
   const profileMatchesList = document.createElement("div");
   profileMatchesList.className = "profile-match-list";
   const profileLoadMoreButton = document.createElement("button");
   profileLoadMoreButton.type = "button";
   profileLoadMoreButton.className = "secondary-button matches-load-more-button";
   bindLocalizedText(profileLoadMoreButton, "loadMore");
-  profileMatchesSection.append(profileMatchesTitle, profileMatchesList, profileLoadMoreButton);
+  profileMatchesSection.append(
+    profileMatchesTitle,
+    profileMatchesSummary,
+    profileMatchesFilter,
+    profileMatchesList,
+    profileLoadMoreButton,
+  );
 
   const profileAchievementsSection = document.createElement("section");
   profileAchievementsSection.className = "profile-section";
@@ -1002,6 +1025,10 @@ export const createAppDom = (args: {
     profileActivityHeatmap,
     profileSeasonsList,
     profileTournamentsList,
+    profileMatchesSummary,
+    profileMatchesFilterAll,
+    profileMatchesFilterSingles,
+    profileMatchesFilterDoubles,
     profileMatchesList,
     profileLoadMoreButton,
     closeSharedUserProfileButton,

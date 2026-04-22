@@ -1542,6 +1542,40 @@ select.text-input {
   gap: 0.75rem;
 }
 
+.profile-match-type-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.profile-match-type-summary__card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.profile-match-type-summary__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(15, 23, 42, 0.62);
+}
+
+.profile-match-type-summary__values {
+  font-size: 0.9rem;
+  color: rgba(15, 23, 42, 0.8);
+}
+
+.profile-match-type-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .profile-segment-card-shell {
   position: relative;
 }
@@ -1727,6 +1761,12 @@ select.text-input {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .profile-match-type-summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {

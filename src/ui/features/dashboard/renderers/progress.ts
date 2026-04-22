@@ -43,6 +43,7 @@ export const createProgressRenderer = (args: {
 
     const progress = args.dashboardState.userProgress;
     const totalMatches = progress.wins + progress.losses;
+    const singlesMatches = progress.singles.matches;
 
     const rankLabelText =
       progress.currentRank === null ? args.t("progressUnranked") : args.t("progressRanked");
@@ -237,15 +238,15 @@ export const createProgressRenderer = (args: {
     const statsColumn = document.createElement("div");
     statsColumn.className = "progress-donut-stats";
     statsColumn.append(
-      createStatRow(args.t("progressMatchesLabel"), String(totalMatches)),
+      createStatRow(args.t("progressMatchesLabel"), `${totalMatches} (${singlesMatches})`),
       createStatRow(
         args.t("leaderboardWins"),
-        String(progress.wins),
+        `${progress.wins} (${progress.singles.wins})`,
         "progress-donut-legend-indicator--wins",
       ),
       createStatRow(
         args.t("leaderboardLosses"),
-        String(progress.losses),
+        `${progress.losses} (${progress.singles.losses})`,
         "progress-donut-legend-indicator--losses",
       ),
     );

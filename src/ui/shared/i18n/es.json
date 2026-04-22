@@ -230,6 +230,8 @@
   "profileCreatedTournaments": "Torneos que creaste",
   "profileParticipatingTournaments": "Torneos en los que participas",
   "profileMatches": "Tus partidos",
+  "profileEmptySinglesMatches": "Aún no hay partidos individuales en esta lista.",
+  "profileEmptyDoublesMatches": "Aún no hay partidos de dobles en esta lista.",
   "sharedProfileTitle": "Jugador",
   "sharedProfileMeta": "Solo temporadas, torneos y partidos compartidos.",
   "sharedProfileActivityTitle": "Actividad compartida",

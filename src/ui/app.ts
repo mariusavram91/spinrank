@@ -215,6 +215,10 @@ export const buildApp = (): HTMLElement => {
     profileActivityHeatmap,
     profileSeasonsList,
     profileTournamentsList,
+    profileMatchesSummary,
+    profileMatchesFilterAll,
+    profileMatchesFilterSingles,
+    profileMatchesFilterDoubles,
     profileMatchesList,
     profileLoadMoreButton,
     closeSharedUserProfileButton,
@@ -1315,6 +1319,10 @@ export const buildApp = (): HTMLElement => {
         currentUserId,
         seasonsList: profileSeasonsList,
         tournamentsList: profileTournamentsList,
+        matchesSummary: profileMatchesSummary,
+        matchFilterAllButton: profileMatchesFilterAll,
+        matchFilterSinglesButton: profileMatchesFilterSingles,
+        matchFilterDoublesButton: profileMatchesFilterDoubles,
         matchesList: profileMatchesList,
         status: profileStatus,
         loadMoreButton: profileLoadMoreButton,
@@ -1328,6 +1336,10 @@ export const buildApp = (): HTMLElement => {
         onOpenTournament: openTournamentEditor,
         onLoadMoreMatches: () => {
           void loadProfileMatches(false);
+        },
+        onProfileMatchFilterChange: (filter) => {
+          dashboardState.profileMatchesFilter = filter;
+          void loadProfileMatches(true);
         },
         locale: getCurrentLanguage(),
       });
@@ -1728,8 +1740,12 @@ export const buildApp = (): HTMLElement => {
     syncDashboardState();
 
     try {
+      const matchType = dashboardState.profileMatchesFilter === "all"
+        ? undefined
+        : dashboardState.profileMatchesFilter;
       const data = await runAuthedAction("getMatches", {
         filter: "mine",
+        matchType,
         limit: 8,
         cursor: reset ? undefined : dashboardState.profileMatchesCursor ?? undefined,
       });

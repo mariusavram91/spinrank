@@ -48,6 +48,16 @@ describe("worker getUserProgress action", () => {
               expect(args).toEqual(["user_a"]);
               return { rank: 4 };
             }
+            if (statementSql.includes("SUM(CASE WHEN m.match_type = 'singles'")) {
+              return {
+                singles_matches: 2,
+                singles_wins: 2,
+                singles_losses: 0,
+                doubles_matches: 2,
+                doubles_wins: 1,
+                doubles_losses: 1,
+              };
+            }
 
             expect(statementSql).toContain("LIMIT 20");
             return {
@@ -91,6 +101,8 @@ describe("worker getUserProgress action", () => {
       bestStreak: 7,
       wins: 3,
       losses: 1,
+      singles: { matches: 2, wins: 2, losses: 0 },
+      doubles: { matches: 2, wins: 1, losses: 1 },
       points: [
         { playedAt: "2026-04-04T10:00:00.000Z", elo: 1212, delta: 12 },
         { playedAt: "2026-04-05T10:00:00.000Z", elo: 1230, delta: 18 },
