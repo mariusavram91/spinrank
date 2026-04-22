@@ -128,19 +128,49 @@ export const buildHelpScreens = (): HelpScreenElements => {
   };
 
   const renderFaqCards = (): void => {
+    let cardIndex = 0;
+    const createFaqCard = (
+      title: string,
+      details: string[],
+      renderDetail: (detailText: string, cardBody: HTMLDivElement) => void,
+    ): HTMLElement => {
+      const card = document.createElement("article");
+      card.className = "faq-card";
+
+      const cardTitle = document.createElement("h3");
+      cardTitle.className = "card-title faq-card__title";
+
+      const cardToggle = document.createElement("button");
+      cardToggle.type = "button";
+      cardToggle.className = "faq-card__toggle";
+      cardToggle.textContent = title;
+      cardToggle.setAttribute("aria-expanded", "false");
+
+      const cardBody = document.createElement("div");
+      cardBody.className = "faq-card__body";
+      cardBody.hidden = true;
+      cardIndex += 1;
+      const bodyId = `faq-card-body-${cardIndex}`;
+      cardBody.id = bodyId;
+      cardToggle.setAttribute("aria-controls", bodyId);
+
+      cardToggle.addEventListener("click", () => {
+        const nextExpanded = cardBody.hidden;
+        cardBody.hidden = !nextExpanded;
+        cardToggle.setAttribute("aria-expanded", String(nextExpanded));
+        card.classList.toggle("faq-card--expanded", nextExpanded);
+      });
+
+      details.forEach((detailText) => renderDetail(detailText, cardBody));
+
+      cardTitle.append(cardToggle);
+      card.append(cardTitle, cardBody);
+      return card;
+    };
+
     if (getCurrentLanguage() === "es") {
       const cards = faqEntriesEs.map((entry) => {
-        const card = document.createElement("article");
-        card.className = "faq-card";
-
-        const cardTitle = document.createElement("h3");
-        cardTitle.className = "card-title faq-card__title";
-        cardTitle.textContent = entry.title;
-
-        const cardBody = document.createElement("div");
-        cardBody.className = "faq-card__body";
-
-        entry.details.forEach((detailText) => {
+        return createFaqCard(entry.title, entry.details, (detailText, cardBody) => {
           const detailBlock = document.createElement("div");
           detailBlock.className = "faq-card__detail";
 
@@ -150,44 +180,31 @@ export const buildHelpScreens = (): HelpScreenElements => {
           detailBlock.append(paragraph);
           cardBody.append(detailBlock);
         });
-
-        card.append(cardTitle, cardBody);
-        return card;
       });
       faqGrid.replaceChildren(...cards);
       return;
     }
 
     const cards = faqEntries.map((entry) => {
-      const card = document.createElement("article");
-      card.className = "faq-card";
-
-      const cardTitle = document.createElement("h3");
-      cardTitle.className = "card-title faq-card__title";
-      cardTitle.textContent =
+      const title =
         getCurrentLanguage() === "de"
           ? entry.titleDe
           : getCurrentLanguage() === "es"
             ? (entry.titleEs ?? entry.titleEn)
             : entry.titleEn;
 
-      const cardBody = document.createElement("div");
-      cardBody.className = "faq-card__body";
-
-      entry.details.forEach((detail) => {
+      const details = entry.details.map((detail) => getLocalizedText(detail));
+      return createFaqCard(title, details, (detailText, cardBody) => {
         const detailBlock = document.createElement("div");
         detailBlock.className = "faq-card__detail";
 
         const paragraph = document.createElement("p");
         paragraph.className = "faq-card__text";
-        paragraph.append(renderInlineFaqText(getLocalizedText(detail)));
+        paragraph.append(renderInlineFaqText(detailText));
 
         detailBlock.append(paragraph);
         cardBody.append(detailBlock);
       });
-
-      card.append(cardTitle, cardBody);
-      return card;
     });
     faqGrid.replaceChildren(...cards);
   };
