@@ -2,7 +2,7 @@ import type { GetUserProgressData } from "../../../api/contract";
 import type { ProgressGeometry } from "../../shared/types/app";
 import { formatDate } from "../../shared/utils/format";
 
-export const MAX_PROGRESS_DISPLAY_POINTS = 10;
+export const MAX_PROGRESS_DISPLAY_POINTS = 48;
 
 export const createInitialProgressPoint = (
   reference?: GetUserProgressData["points"][number],
@@ -30,6 +30,95 @@ export const sampleProgressPoints = <T>(points: T[], maxPoints: number): T[] => 
   }
   sampled.push(points[points.length - 1]);
   return sampled;
+};
+
+export const sampleProgressPointsByExtrema = <T extends { elo: number }>(
+  points: T[],
+  maxPoints: number,
+): T[] => {
+  if (points.length <= maxPoints || maxPoints <= 0) {
+    return [...points];
+  }
+  if (maxPoints === 1) {
+    return [points[points.length - 1]];
+  }
+  if (maxPoints === 2) {
+    return [points[0], points[points.length - 1]];
+  }
+
+  const first = points[0];
+  const last = points[points.length - 1];
+  const interior = points.slice(1, -1);
+  const interiorBudget = maxPoints - 2;
+  if (interior.length <= interiorBudget) {
+    return [first, ...interior, last];
+  }
+
+  const pickByBaseline = (pool: Array<{ point: T; index: number }>, limit: number): number[] => {
+    const slope = (last.elo - first.elo) / Math.max(points.length - 1, 1);
+    return [...pool]
+      .sort((left, right) => {
+        const leftExpected = first.elo + slope * (left.index + 1);
+        const rightExpected = first.elo + slope * (right.index + 1);
+        const leftScore = Math.abs(left.point.elo - leftExpected);
+        const rightScore = Math.abs(right.point.elo - rightExpected);
+        if (leftScore !== rightScore) {
+          return rightScore - leftScore;
+        }
+        return left.index - right.index;
+      })
+      .slice(0, limit)
+      .map((entry) => entry.index);
+  };
+
+  if (interiorBudget === 1) {
+    const [index] = pickByBaseline(interior.map((point, index) => ({ point, index })), 1);
+    return [first, interior[index], last];
+  }
+
+  const selectedInterior = new Set<number>();
+  const bucketCount = Math.max(1, Math.floor(interiorBudget / 2));
+  for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+    const start = Math.floor((bucket * interior.length) / bucketCount);
+    const end = Math.floor(((bucket + 1) * interior.length) / bucketCount);
+    if (end <= start) {
+      continue;
+    }
+
+    let minIndex = start;
+    let maxIndex = start;
+    for (let cursor = start + 1; cursor < end; cursor += 1) {
+      if (interior[cursor].elo < interior[minIndex].elo) {
+        minIndex = cursor;
+      }
+      if (interior[cursor].elo > interior[maxIndex].elo) {
+        maxIndex = cursor;
+      }
+    }
+
+    selectedInterior.add(minIndex);
+    selectedInterior.add(maxIndex);
+  }
+
+  if (selectedInterior.size > interiorBudget) {
+    const narrowed = pickByBaseline(
+      [...selectedInterior].map((index) => ({ point: interior[index], index })),
+      interiorBudget,
+    );
+    selectedInterior.clear();
+    narrowed.forEach((index) => selectedInterior.add(index));
+  }
+
+  if (selectedInterior.size < interiorBudget) {
+    const remaining = interior
+      .map((point, index) => ({ point, index }))
+      .filter((entry) => !selectedInterior.has(entry.index));
+    const fill = pickByBaseline(remaining, interiorBudget - selectedInterior.size);
+    fill.forEach((index) => selectedInterior.add(index));
+  }
+
+  const orderedInterior = [...selectedInterior].sort((left, right) => left - right).map((index) => interior[index]);
+  return [first, ...orderedInterior, last];
 };
 
 export const buildProgressGeometry = (

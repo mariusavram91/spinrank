@@ -4,7 +4,7 @@ import {
   buildProgressGeometry,
   createInitialProgressPoint,
   MAX_PROGRESS_DISPLAY_POINTS,
-  sampleProgressPoints,
+  sampleProgressPointsByExtrema,
 } from "../../progress/utils";
 import { formatDate } from "../../../shared/utils/format";
 
@@ -65,10 +65,13 @@ export const createProgressRenderer = (args: {
     const svgNamespace = "http://www.w3.org/2000/svg";
     const initialPoint = createInitialProgressPoint(progress.points[0]);
     const basePoints = [initialPoint, ...progress.points];
-    const displayPoints = sampleProgressPoints(basePoints, MAX_PROGRESS_DISPLAY_POINTS);
+    const displayPoints = sampleProgressPointsByExtrema(basePoints, MAX_PROGRESS_DISPLAY_POINTS);
 
-    const eloValues =
-      progress.points.length > 0 ? progress.points.map((point) => point.elo) : [progress.currentElo];
+    const eloValues = [
+      ...(progress.points.length > 0 ? progress.points.map((point) => point.elo) : [progress.currentElo]),
+      progress.currentElo,
+      progress.bestElo,
+    ];
     const actualMin = Math.min(...eloValues);
     const actualMax = Math.max(...eloValues);
     const axisHalfRange = Math.max(

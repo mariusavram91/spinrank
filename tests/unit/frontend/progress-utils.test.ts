@@ -2,6 +2,7 @@ import {
   buildProgressGeometry,
   createInitialProgressPoint,
   sampleProgressPoints,
+  sampleProgressPointsByExtrema,
 } from "../../../src/ui/features/progress/utils";
 
 describe("progress utils", () => {
@@ -24,6 +25,26 @@ describe("progress utils", () => {
 
   it("samples the first and last points while reducing the series", () => {
     expect(sampleProgressPoints([1, 2, 3, 4, 5, 6], 4)).toEqual([1, 2, 4, 6]);
+  });
+
+  it("preserves major highs and lows when sampling elo progress", () => {
+    const sampled = sampleProgressPointsByExtrema(
+      [
+        { elo: 1200 },
+        { elo: 1210 },
+        { elo: 1280 },
+        { elo: 1220 },
+        { elo: 1160 },
+        { elo: 1240 },
+        { elo: 1230 },
+      ],
+      5,
+    );
+
+    expect(sampled[0]?.elo).toBe(1200);
+    expect(sampled[sampled.length - 1]?.elo).toBe(1230);
+    expect(sampled.map((point) => point.elo)).toContain(1280);
+    expect(sampled.map((point) => point.elo)).toContain(1160);
   });
 
   it("builds a centered fallback geometry when no points are present", () => {

@@ -32,6 +32,7 @@ describe("worker getUserProgress action", () => {
       display_name: "Alice",
       avatar_url: null,
       global_elo: 1230,
+      highest_global_elo: 1253,
       wins: 3,
       losses: 1,
       streak: 2,
@@ -59,7 +60,7 @@ describe("worker getUserProgress action", () => {
               };
             }
 
-            expect(statementSql).toContain("LIMIT 20");
+            expect(statementSql).toContain("ORDER BY m.played_at ASC");
             return {
               results: [
                 {
@@ -98,6 +99,7 @@ describe("worker getUserProgress action", () => {
     expect(response.data).toMatchObject({
       currentRank: 4,
       currentElo: 1230,
+      bestElo: 1253,
       bestStreak: 7,
       wins: 3,
       losses: 1,
@@ -171,6 +173,74 @@ describe("worker getUserProgress action", () => {
         },
       ],
     });
+  });
+
+  it("samples summary progress points from full history to keep payloads bounded", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1450,
+      highest_global_elo: 1505,
+      wins: 200,
+      losses: 100,
+      streak: 1,
+      best_win_streak: 12,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const matchRows = Array.from({ length: 300 }, (_, index) => ({
+      played_at: new Date(Date.UTC(2025, 0, 1 + index)).toISOString(),
+      global_elo_delta_json: JSON.stringify({ user_a: index % 2 === 0 ? 4 : -3 }),
+      winner_team: "A" as const,
+      player_team: "A" as const,
+    }));
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("ROW_NUMBER() OVER")) {
+              return { rank: 2 };
+            }
+            if (statementSql.includes("SUM(CASE WHEN m.match_type = 'singles'")) {
+              return {
+                singles_matches: 300,
+                singles_wins: 300,
+                singles_losses: 0,
+                doubles_matches: 0,
+                doubles_wins: 0,
+                doubles_losses: 0,
+              };
+            }
+
+            return { results: matchRows };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetUserProgress(
+      {
+        action: "getUserProgress",
+        requestId: "req_progress_summary_sampling_unit",
+        payload: { mode: "summary" },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.points).toHaveLength(120);
+    expect(response.data?.points[0]?.playedAt).toBe(matchRows[0].played_at);
+    expect(response.data?.points[response.data.points.length - 1]?.playedAt).toBe(matchRows[matchRows.length - 1].played_at);
   });
 
   it("optionally returns a bounded activity heatmap summary", async () => {
