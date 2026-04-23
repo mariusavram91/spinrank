@@ -20,12 +20,105 @@ const authState: ViewState = {
 
 const createDashboardState = (): DashboardState =>
   ({
+    seasons: [
+      {
+        id: "season_1",
+        name: "Season 1",
+        startDate: "2026-04-01",
+        endDate: "2026-05-01",
+        participantIds: ["user_a", "user_b"],
+        createdByUserId: "user_a",
+        isActive: true,
+        status: "active",
+      },
+      {
+        id: "season_completed",
+        name: "Completed Season",
+        startDate: "2026-01-01",
+        endDate: "2026-02-01",
+        participantIds: ["user_a", "user_b"],
+        createdByUserId: "user_a",
+        isActive: false,
+        status: "completed",
+      },
+    ],
     players: [
       { userId: "user_a", displayName: "Alice", avatarUrl: null, elo: 1200, rank: 1 },
       { userId: "user_b", displayName: "Bob", avatarUrl: null, elo: 1180, rank: 2 },
       { userId: "user_c", displayName: "Cara", avatarUrl: null, elo: 1160, rank: 3 },
     ],
-    tournaments: [{ id: "tournament_1", seasonId: "season_1", status: "active" }],
+    tournaments: [
+      {
+        id: "tournament_1",
+        seasonId: "season_1",
+        status: "active",
+        bracketStatus: "draft",
+        participantIds: ["user_a", "user_b"],
+        createdByUserId: "user_a",
+      },
+      {
+        id: "tournament_completed",
+        seasonId: "season_1",
+        status: "completed",
+        bracketStatus: "completed",
+        participantIds: ["user_a", "user_b"],
+        createdByUserId: "user_a",
+      },
+    ],
+    segmentMode: "global",
+    selectedSeasonId: "",
+    selectedTournamentId: "",
+    sharedUserProfileSourceContext: null,
+    sharedUserProfile: {
+      user: {
+        userId: "user_b",
+        displayName: "Bob",
+        avatarUrl: null,
+        currentRank: 2,
+        currentElo: 1180,
+        bestWinStreak: 4,
+      },
+      achievements: [],
+      activityHeatmap: {
+        startDate: "2026-04-01",
+        endDate: "2026-04-10",
+        totalMatches: 0,
+        totalWins: 0,
+        totalLosses: 0,
+        activeDays: 0,
+        days: [],
+      },
+      sharedUserProgressPoints: [],
+      seasons: [],
+      tournaments: [
+        {
+          tournament: {
+            id: "tournament_1",
+            name: "Cup",
+            date: "2026-04-06",
+            seasonId: "season_1",
+            seasonName: "Season 1",
+            status: "active",
+            createdByUserId: "user_a",
+            createdAt: "2026-04-06T00:00:00.000Z",
+            completedAt: null,
+            participantCount: 2,
+            participantIds: ["user_a", "user_b"],
+            bracketStatus: "draft",
+          },
+          summary: {
+            wins: 0,
+            losses: 0,
+            rank: null,
+            participantCount: 2,
+          },
+        },
+      ],
+      matches: [],
+      nextCursor: null,
+      players: [],
+      matchBracketContextByMatchId: {},
+    },
     matchFormError: "",
     matchFormMessage: "",
     screen: "dashboard",
@@ -123,6 +216,7 @@ const createHarness = () => {
     renderTournamentPlanner: vi.fn(),
     syncAuthState: vi.fn(),
     syncDashboardState: vi.fn(),
+    setMatchContextMode: vi.fn(),
     saveTournament: vi.fn().mockResolvedValue(undefined),
     setActiveTournamentBracketMatchId: vi.fn(),
     getSuggestedMatchPlayers: vi.fn().mockResolvedValue([
@@ -233,11 +327,86 @@ describe("composer actions", () => {
     expect(args.formTournamentSelect.value).toBe("");
     expect(args.winnerTeamSelect.value).toBe("A");
     expect(args.dashboardState.screen).toBe("createMatch");
+    expect(args.setMatchContextMode).toHaveBeenCalledWith("open");
     expect(args.resetScoreInputs).toHaveBeenCalled();
     expect(args.setActiveTournamentBracketMatchId).toHaveBeenCalledWith(null);
     expect(args.populateMatchFormOptions).toHaveBeenCalled();
     expect(args.syncMatchBracketOptions).toHaveBeenCalled();
     expect(args.syncAuthState).toHaveBeenCalled();
     expect(args.syncDashboardState).toHaveBeenCalled();
+  });
+
+  it("prefills the current active season context for shared-profile create match", () => {
+    const { args, actions } = createHarness();
+    args.dashboardState.sharedUserProfileSourceContext = {
+      segmentMode: "season",
+      seasonId: "season_1",
+      tournamentId: "",
+    };
+
+    actions.prefillMatchWithUsers("user_a", "user_b");
+
+    expect(args.formSeasonSelect.value).toBe("season_1");
+    expect(args.formTournamentSelect.value).toBe("");
+    expect(args.setMatchContextMode).toHaveBeenCalledWith("season");
+  });
+
+  it("prefills the current active tournament context for shared-profile create match", () => {
+    const { args, actions } = createHarness();
+    args.dashboardState.sharedUserProfileSourceContext = {
+      segmentMode: "tournament",
+      seasonId: "season_1",
+      tournamentId: "tournament_1",
+    };
+
+    actions.prefillMatchWithUsers("user_a", "user_b");
+
+    expect(args.formSeasonSelect.value).toBe("season_1");
+    expect(args.formTournamentSelect.value).toBe("tournament_1");
+    expect(args.setMatchContextMode).toHaveBeenCalledWith("tournament");
+  });
+
+  it("falls back to open context when the source season or tournament is completed", () => {
+    const { args, actions } = createHarness();
+    args.dashboardState.sharedUserProfileSourceContext = {
+      segmentMode: "season",
+      seasonId: "season_completed",
+      tournamentId: "",
+    };
+
+    actions.prefillMatchWithUsers("user_a", "user_b");
+    expect(args.formSeasonSelect.value).toBe("");
+    expect(args.formTournamentSelect.value).toBe("");
+    expect(args.setMatchContextMode).toHaveBeenLastCalledWith("open");
+
+    args.dashboardState.sharedUserProfileSourceContext = {
+      segmentMode: "tournament",
+      seasonId: "season_1",
+      tournamentId: "tournament_completed",
+    };
+    actions.prefillMatchWithUsers("user_a", "user_b");
+
+    expect(args.formSeasonSelect.value).toBe("");
+    expect(args.formTournamentSelect.value).toBe("");
+    expect(args.setMatchContextMode).toHaveBeenLastCalledWith("open");
+  });
+
+  it("falls back to open context when the shared user is not in the source tournament", () => {
+    const { args, actions } = createHarness();
+    args.dashboardState.sharedUserProfile = {
+      ...args.dashboardState.sharedUserProfile,
+      tournaments: [],
+    } as DashboardState["sharedUserProfile"];
+    args.dashboardState.sharedUserProfileSourceContext = {
+      segmentMode: "tournament",
+      seasonId: "season_1",
+      tournamentId: "tournament_1",
+    };
+
+    actions.prefillMatchWithUsers("user_a", "user_b");
+
+    expect(args.formSeasonSelect.value).toBe("");
+    expect(args.formTournamentSelect.value).toBe("");
+    expect(args.setMatchContextMode).toHaveBeenLastCalledWith("open");
   });
 });

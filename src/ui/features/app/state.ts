@@ -55,6 +55,7 @@ export const createDashboardState = (): DashboardState => ({
   sharedUserProfileUserId: "",
   sharedUserProfileLoading: false,
   sharedUserProfileMatchesLoading: false,
+  sharedUserProfileSourceContext: null,
   matchBracketContextByMatchId: {},
   matchSubmitting: false,
   matchFormError: "",

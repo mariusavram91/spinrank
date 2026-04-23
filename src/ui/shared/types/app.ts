@@ -28,6 +28,12 @@ export type ProfileMatchesFilter = "all" | "singles" | "doubles";
 
 export type SeasonDraftMode = "create" | "edit";
 
+export interface SharedUserProfileSourceContext {
+  segmentMode: SegmentMode;
+  seasonId: string;
+  tournamentId: string;
+}
+
 export interface ProfileSegmentSummary {
   segmentType: SegmentType;
   segmentId: string;
@@ -89,6 +95,7 @@ export interface DashboardState {
   sharedUserProfileUserId: string;
   sharedUserProfileLoading: boolean;
   sharedUserProfileMatchesLoading: boolean;
+  sharedUserProfileSourceContext: SharedUserProfileSourceContext | null;
   matchBracketContextByMatchId: Record<string, { roundTitle: string; isFinal: boolean }>;
   matchSubmitting: boolean;
   matchFormError: string;

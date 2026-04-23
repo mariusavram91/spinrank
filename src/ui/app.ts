@@ -492,6 +492,7 @@ export const buildApp = (): HTMLElement => {
     dashboardState.sharedUserProfileSelectedAchievementKey = "";
     dashboardState.sharedUserProfileLoading = false;
     dashboardState.sharedUserProfileMatchesLoading = false;
+    dashboardState.sharedUserProfileSourceContext = null;
   };
 
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
@@ -1737,6 +1738,9 @@ export const buildApp = (): HTMLElement => {
     renderTournamentPlanner,
     syncAuthState,
     syncDashboardState,
+    setMatchContextMode: (mode) => {
+      matchScreenRefs.contextToggle?.setAttribute("data-mode", mode);
+    },
     saveTournament,
     setActiveTournamentBracketMatchId: (value) => {
       activeTournamentBracketMatchId = value;
@@ -1902,6 +1906,13 @@ export const buildApp = (): HTMLElement => {
     const cursor = appendMatches ? dashboardState.sharedUserProfile?.nextCursor ?? undefined : undefined;
     if (appendMatches && !cursor) {
       return;
+    }
+    if (!appendMatches) {
+      dashboardState.sharedUserProfileSourceContext = {
+        segmentMode: dashboardState.segmentMode,
+        seasonId: dashboardState.selectedSeasonId,
+        tournamentId: dashboardState.selectedTournamentId,
+      };
     }
     const requestKey = `${userId}::${appendMatches ? cursor ?? "" : "initial"}`;
     if (sharedUserProfileRequestKey === requestKey && sharedUserProfileRequestPromise) {
@@ -2109,6 +2120,15 @@ export const buildApp = (): HTMLElement => {
         },
       ];
     }
+    rememberMatchParticipants([
+      {
+        userId: profile.user.userId,
+        displayName: profile.user.displayName,
+        avatarUrl: profile.user.avatarUrl,
+        elo: profile.user.currentElo,
+        isSuggested: false,
+      },
+    ]);
 
     prefillMatchWithUsers(currentUserId, profile.user.userId);
   });

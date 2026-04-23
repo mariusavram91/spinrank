@@ -1,6 +1,13 @@
-import type { DashboardState, TournamentPlannerMatch, TournamentPlannerState, ViewState } from "../../shared/types/app";
+import type {
+  DashboardState,
+  SharedUserProfileSourceContext,
+  TournamentPlannerMatch,
+  TournamentPlannerState,
+  ViewState,
+} from "../../shared/types/app";
 import type { MatchType } from "../../../api/contract";
 import type { FairMatchCandidate } from "../matches/utils";
+import { isLockedSeason, isLockedTournament } from "./helpers";
 
 export const createComposerActions = (args: {
   dashboardState: DashboardState;
@@ -24,6 +31,7 @@ export const createComposerActions = (args: {
   renderTournamentPlanner: () => void;
   syncAuthState: () => void;
   syncDashboardState: () => void;
+  setMatchContextMode: (mode: "open" | "season" | "tournament") => void;
   saveTournament: () => Promise<void>;
   setActiveTournamentBracketMatchId: (value: string | null) => void;
   getSuggestedMatchPlayers: () => Promise<FairMatchCandidate[]>;
@@ -178,6 +186,29 @@ export const createComposerActions = (args: {
   };
 
   const prefillMatchWithUsers = (currentUserId: string, opponentUserId: string): void => {
+    const season = args.dashboardState.seasons.find(
+      (entry) => entry.id === args.dashboardState.sharedUserProfileSourceContext?.seasonId,
+    );
+    const tournament = args.dashboardState.tournaments.find(
+      (entry) => entry.id === args.dashboardState.sharedUserProfileSourceContext?.tournamentId,
+    );
+    const sharedProfileTournamentIds = new Set(
+      (args.dashboardState.sharedUserProfile?.tournaments ?? []).map((entry) => entry.tournament.id),
+    );
+    let sourceContext: SharedUserProfileSourceContext | null = args.dashboardState.sharedUserProfileSourceContext;
+    if (sourceContext?.segmentMode === "season" && isLockedSeason(season)) {
+      sourceContext = null;
+    }
+    if (
+      sourceContext?.segmentMode === "tournament" &&
+      (isLockedTournament(tournament) || !sharedProfileTournamentIds.has(sourceContext.tournamentId))
+    ) {
+      sourceContext = null;
+    }
+    const contextMode = sourceContext?.segmentMode === "season" || sourceContext?.segmentMode === "tournament"
+      ? sourceContext.segmentMode
+      : "open";
+
     if (!currentUserId || !opponentUserId || currentUserId === opponentUserId) {
       return;
     }
@@ -193,12 +224,18 @@ export const createComposerActions = (args: {
     args.teamA2Select.value = "";
     args.teamB1Select.value = opponentUserId;
     args.teamB2Select.value = "";
-    args.formSeasonSelect.value = "";
-    args.formTournamentSelect.value = "";
+    args.formSeasonSelect.value =
+      contextMode === "season"
+        ? sourceContext?.seasonId || ""
+        : contextMode === "tournament"
+          ? tournament?.seasonId || ""
+          : "";
+    args.formTournamentSelect.value = contextMode === "tournament" ? sourceContext?.tournamentId || "" : "";
     args.winnerTeamSelect.value = "A";
     args.resetScoreInputs();
     args.setActiveTournamentBracketMatchId(null);
     args.dashboardState.screen = "createMatch";
+    args.setMatchContextMode(contextMode);
     args.populateMatchFormOptions();
     args.syncMatchBracketOptions();
     args.syncAuthState();
