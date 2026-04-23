@@ -1,7 +1,7 @@
 import { isoNow, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { applyIncrementalGlobalRollbackForDeletedMatches } from "../services/incrementalRankingRollback";
-import { recomputeAllRankings } from "../services/elo";
+import { invalidateUserMatchImpactCache, recomputeAllRankings } from "../services/elo";
 import type { ApiRequest, DeactivateEntityPayload, Env, UserRow } from "../types";
 
 export async function handleDeactivateTournament(
@@ -97,6 +97,7 @@ export async function handleDeactivateTournament(
     if (!tournament.season_id) {
       const appliedIncrementalDelete = await applyIncrementalGlobalRollbackForDeletedMatches(env, activeMatches, nowIso);
       if (appliedIncrementalDelete) {
+        invalidateUserMatchImpactCache();
         return successResponse(request.requestId, {
           id,
           status: "deleted",
@@ -107,6 +108,7 @@ export async function handleDeactivateTournament(
 
     await recomputeAllRankings(env);
   }
+  invalidateUserMatchImpactCache();
 
   return successResponse(request.requestId, {
     id,

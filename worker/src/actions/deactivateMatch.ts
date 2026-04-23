@@ -1,7 +1,7 @@
 import { isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { rebuildTournamentBracket } from "../services/brackets";
-import { createBlankRatingState, recomputeAllRankings } from "../services/elo";
+import { createBlankRatingState, invalidateUserMatchImpactCache, recomputeAllRankings } from "../services/elo";
 import { computeDeleteLockedAt, isMatchDeletionAllowed } from "../services/matchGuards";
 import type { ApiRequest, DeactivateEntityPayload, Env, UserRow } from "../types";
 
@@ -367,6 +367,7 @@ export async function handleDeactivateMatch(
   if (!appliedIncrementalDelete) {
     await recomputeAllRankings(env);
   }
+  invalidateUserMatchImpactCache();
 
   return successResponse(request.requestId, {
     id,

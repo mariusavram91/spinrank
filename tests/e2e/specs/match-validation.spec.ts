@@ -101,7 +101,9 @@ test.describe("match validation", () => {
     await page.getByTestId("match-score-0-team-b").fill("7");
     await page.getByTestId("match-submit").click();
 
-    await expect(page.getByTestId("match-status")).toContainText("Each selected player must be unique across both teams.");
+    await expect(page.getByTestId("match-status")).toContainText(
+      "You can only create a match if you are one of the participants.",
+    );
   });
 
   test("blocks submission when the signed-in user is not a participant", async ({ page, request }) => {

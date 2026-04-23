@@ -28,7 +28,10 @@ type PickerControl = {
   ignoreBlur: boolean;
   searchToken: number;
   creatingGuest: boolean;
+  debounceHandle: number | null;
 };
+
+const SEARCH_DEBOUNCE_MS = 160;
 
 export const createMatchPlayerSearchInputs = (args: {
   dashboardState: DashboardState;
@@ -38,6 +41,7 @@ export const createMatchPlayerSearchInputs = (args: {
   getMatchPlayerEntries: () => MatchPlayerEntry[];
   searchPlayers?: (query: string) => Promise<MatchPlayerEntry[]>;
   createGuestPlayer?: (displayName: string) => Promise<MatchPlayerEntry | null>;
+  ensurePlayerPoolLoaded?: () => Promise<void>;
   formSeasonSelect: HTMLSelectElement;
   formTournamentSelect: HTMLSelectElement;
   teamA1Field: HTMLElement;
@@ -64,6 +68,34 @@ export const createMatchPlayerSearchInputs = (args: {
   };
 
   const rememberedPlayers = new Map<string, MatchPlayerEntry>();
+  const emptyRemoteQueryPrefixesByScope = new Map<string, Set<string>>();
+
+  const getSearchScopeKey = (): string =>
+    args.formTournamentSelect.value ? "tournament" : `season:${args.formSeasonSelect.value || "open"}`;
+
+  const hasKnownEmptyRemotePrefix = (scopeKey: string, query: string): boolean => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return false;
+    }
+    return [...(emptyRemoteQueryPrefixesByScope.get(scopeKey) ?? new Set<string>())].some((prefix) =>
+      normalizedQuery.startsWith(prefix)
+    );
+  };
+
+  const rememberEmptyRemotePrefix = (scopeKey: string, query: string): void => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return;
+    }
+    const prefixes = emptyRemoteQueryPrefixesByScope.get(scopeKey) ?? new Set<string>();
+    prefixes.add(normalizedQuery);
+    emptyRemoteQueryPrefixesByScope.set(scopeKey, prefixes);
+  };
+
+  const clearEmptyRemotePrefixes = (scopeKey: string): void => {
+    emptyRemoteQueryPrefixesByScope.delete(scopeKey);
+  };
 
   const rememberPlayers = (players: MatchPlayerEntry[]): void => {
     players.forEach((player) => {
@@ -204,6 +236,7 @@ export const createMatchPlayerSearchInputs = (args: {
             if (!createdPlayer) {
               return;
             }
+            clearEmptyRemotePrefixes(getSearchScopeKey());
             rememberPlayers([createdPlayer]);
             ensureSelectHasPlayerOption(slot, createdPlayer);
             const label = getPlayerOptionLabel(createdPlayer, currentUserId);
@@ -286,23 +319,62 @@ export const createMatchPlayerSearchInputs = (args: {
     const populateOptions = async (query: string): Promise<void> => {
       renderOptions(control, slot, getVisiblePlayers(slot, query));
 
-      if (!args.searchPlayers || !query.trim() || args.formTournamentSelect.value) {
+      if (control.debounceHandle !== null) {
+        window.clearTimeout(control.debounceHandle);
+        control.debounceHandle = null;
+      }
+
+      const normalizedQuery = query.trim();
+      if (!normalizedQuery) {
+        if (!args.ensurePlayerPoolLoaded || args.formTournamentSelect.value) {
+          return;
+        }
+
+        const requestToken = ++control.searchToken;
+        try {
+          await args.ensurePlayerPoolLoaded();
+          if (requestToken !== control.searchToken) {
+            return;
+          }
+          renderOptions(control, slot, getVisiblePlayers(slot, query));
+        } catch {
+          if (requestToken !== control.searchToken) {
+            return;
+          }
+        }
+        return;
+      }
+
+      if (!args.searchPlayers || args.formTournamentSelect.value) {
+        return;
+      }
+
+      const scopeKey = getSearchScopeKey();
+      if (hasKnownEmptyRemotePrefix(scopeKey, normalizedQuery)) {
         return;
       }
 
       const requestToken = ++control.searchToken;
-      try {
-        const remotePlayers = await args.searchPlayers(query.trim());
-        if (requestToken !== control.searchToken) {
-          return;
+      control.debounceHandle = window.setTimeout(async () => {
+        control.debounceHandle = null;
+        try {
+          const remotePlayers = await args.searchPlayers?.(normalizedQuery) ?? [];
+          if (requestToken !== control.searchToken) {
+            return;
+          }
+          if (remotePlayers.length === 0) {
+            rememberEmptyRemotePrefix(scopeKey, normalizedQuery);
+          } else {
+            clearEmptyRemotePrefixes(scopeKey);
+          }
+          rememberPlayers(remotePlayers);
+          renderOptions(control, slot, getVisiblePlayers(slot, query));
+        } catch {
+          if (requestToken !== control.searchToken) {
+            return;
+          }
         }
-        rememberPlayers(remotePlayers);
-        renderOptions(control, slot, getVisiblePlayers(slot, query));
-      } catch {
-        if (requestToken !== control.searchToken) {
-          return;
-        }
-      }
+      }, SEARCH_DEBOUNCE_MS);
     };
 
     const syncInputValue = (): void => {
@@ -399,6 +471,7 @@ export const createMatchPlayerSearchInputs = (args: {
       ignoreBlur: false,
       searchToken: 0,
       creatingGuest: false,
+      debounceHandle: null,
     };
 
     updateClearButtonVisibility();

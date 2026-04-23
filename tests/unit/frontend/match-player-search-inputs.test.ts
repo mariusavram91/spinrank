@@ -2,6 +2,11 @@ import { createFormOrchestration } from "../../../src/ui/features/app/formOrches
 import { createMatchPlayerSearchInputs } from "../../../src/ui/features/app/matchPlayerSearchInputs";
 import type { DashboardState, TournamentPlannerState, ViewState } from "../../../src/ui/shared/types/app";
 
+const flushPromises = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+};
+
 const createDashboardStateStub = (): DashboardState =>
   ({
     players: [],
@@ -613,6 +618,7 @@ describe("match player search inputs", () => {
   });
 
   it("searches remote players for open matches and keeps selected players in later slots", async () => {
+    vi.useFakeTimers();
     const dashboardState = createDashboardStateStub();
     const teamA1Field = document.createElement("div");
     const teamA2Field = document.createElement("div");
@@ -666,24 +672,29 @@ describe("match player search inputs", () => {
     const input = teamB1Field.querySelector<HTMLInputElement>('[data-testid="match-player-search-team-b-1"]');
     expect(input).not.toBeNull();
 
-    input!.dispatchEvent(new Event("focus"));
-    input!.value = "car";
-    input!.dispatchEvent(new Event("input", { bubbles: true }));
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    try {
+      input!.dispatchEvent(new Event("focus"));
+      input!.value = "car";
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(200);
 
-    const optionButton = teamB1Field.querySelector<HTMLButtonElement>('[data-testid="match-player-search-option"]');
-    expect(optionButton?.textContent).toBe("Carla (1175)");
+      const optionButton = teamB1Field.querySelector<HTMLButtonElement>('[data-testid="match-player-search-option"]');
+      expect(optionButton?.textContent).toBe("Carla (1175)");
 
-    optionButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-    optionButton?.click();
+      optionButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      optionButton?.click();
 
-    expect(teamB1Select.value).toBe("user_c");
-    expect(Array.from(teamB1Select.options).some((option) => option.value === "user_c")).toBe(true);
-    sync();
-    expect(input?.value).toBe("Carla (1175)");
+      expect(teamB1Select.value).toBe("user_c");
+      expect(Array.from(teamB1Select.options).some((option) => option.value === "user_c")).toBe(true);
+      sync();
+      expect(input?.value).toBe("Carla (1175)");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("offers guest creation when no players are found and selects the created guest", async () => {
+    vi.useFakeTimers();
     const dashboardState = createDashboardStateStub();
     const teamA1Field = document.createElement("div");
     const teamA2Field = document.createElement("div");
@@ -740,22 +751,90 @@ describe("match player search inputs", () => {
     const input = teamB1Field.querySelector<HTMLInputElement>('[data-testid="match-player-search-team-b-1"]');
     expect(input).not.toBeNull();
 
-    input!.dispatchEvent(new Event("focus"));
-    input!.value = "Guest Nora";
-    input!.dispatchEvent(new Event("input", { bubbles: true }));
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    try {
+      input!.dispatchEvent(new Event("focus"));
+      input!.value = "Guest Nora";
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(200);
 
-    const createGuestButton = teamB1Field.querySelector<HTMLButtonElement>(
-      '[data-testid="match-player-search-create-guest"]',
-    );
-    expect(createGuestButton?.textContent).toContain("Create guest player");
+      const createGuestButton = teamB1Field.querySelector<HTMLButtonElement>(
+        '[data-testid="match-player-search-create-guest"]',
+      );
+      expect(createGuestButton?.textContent).toContain("Create guest player");
 
-    createGuestButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-    createGuestButton?.click();
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+      createGuestButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      createGuestButton?.click();
+      await flushPromises();
 
-    expect(createGuestPlayer).toHaveBeenCalledWith("Guest Nora");
-    expect(teamB1Select.value).toBe("user_guest");
-    expect(input?.value).toBe("Guest Nora (1200)");
+      expect(createGuestPlayer).toHaveBeenCalledWith("Guest Nora");
+      expect(teamB1Select.value).toBe("user_guest");
+      expect(input?.value).toBe("Guest Nora (1200)");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("skips narrower remote match searches after an empty prefix result", async () => {
+    vi.useFakeTimers();
+    const dashboardState = createDashboardStateStub();
+    const teamA1Field = document.createElement("div");
+    const teamA2Field = document.createElement("div");
+    const teamB1Field = document.createElement("div");
+    const teamB2Field = document.createElement("div");
+    const teamA1Select = document.createElement("select");
+    const teamA2Select = document.createElement("select");
+    const teamB1Select = document.createElement("select");
+    const teamB2Select = document.createElement("select");
+    const searchPlayers = vi.fn(async () => []);
+
+    [teamA1Select, teamA2Select, teamB1Select, teamB2Select].forEach((select) => {
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "empty";
+      select.append(emptyOption);
+    });
+
+    const sync = createMatchPlayerSearchInputs({
+      dashboardState,
+      getCurrentUserId: () => "user_a",
+      getAllowedMatchPlayerIds: () => null,
+      getMatchPlayerEntries: () => [],
+      searchPlayers,
+      formSeasonSelect: document.createElement("select"),
+      formTournamentSelect: document.createElement("select"),
+      teamA1Field,
+      teamA2Field,
+      teamB1Field,
+      teamB2Field,
+      teamA1Select,
+      teamA2Select,
+      teamB1Select,
+      teamB2Select,
+    }).sync;
+
+    sync();
+
+    const input = teamB1Field.querySelector<HTMLInputElement>('[data-testid="match-player-search-team-b-1"]');
+    expect(input).not.toBeNull();
+
+    try {
+      input!.dispatchEvent(new Event("focus"));
+      input!.value = "ma";
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(200);
+      await flushPromises();
+
+      expect(searchPlayers).toHaveBeenCalledTimes(1);
+      expect(searchPlayers).toHaveBeenCalledWith("ma");
+
+      input!.value = "mar";
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(200);
+      await flushPromises();
+
+      expect(searchPlayers).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

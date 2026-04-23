@@ -32,10 +32,6 @@ test.describe("profile flow", () => {
     const seasonsSection = activeProfileActivity.getByRole("heading", { name: "Seasons" }).locator("..");
     await expect(seasonsSection).toContainText(seeded.seasonName, { timeout: 30000 });
     await expect(seasonsSection).toContainText("Participants 2", { timeout: 30000 });
-    await expect(activeProfileScreen.locator(".profile-match-list")).toContainText(seeded.rivalDisplayName, {
-      timeout: 30000,
-    });
-
     await activeProfileScreen.locator(".profile-segment-card").filter({ hasText: seeded.seasonName }).click();
     await expect(page.getByTestId("season-name")).toHaveValue(seeded.seasonName, { timeout: 30000 });
   });

@@ -1,5 +1,6 @@
 vi.mock("../../../worker/src/services/elo", () => ({
   recomputeAllRankings: vi.fn(async () => undefined),
+  invalidateUserMatchImpactCache: vi.fn(),
 }));
 
 import { handleDeactivateSeason } from "../../../worker/src/actions/deactivateSeason";

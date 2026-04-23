@@ -595,22 +595,43 @@ export const buildApp = (): HTMLElement => {
 
     return [...entries.values()];
   };
-  const refreshMatchPlayerPool = async (): Promise<void> => {
+  let matchParticipantPoolRequestKey = "";
+  let matchParticipantPoolRequestPromise: Promise<void> | null = null;
+  const ensureMatchPlayerPoolLoaded = async (options?: { force?: boolean }): Promise<void> => {
     if (!isAuthedState(state.current) || formTournamentSelect.value) {
       return;
     }
     const seasonId = formSeasonSelect.value || null;
     const cacheKey = seasonId ? `season:${seasonId}` : "open";
-    const data = await runAuthedAction("searchParticipants", {
-      segmentType: "season",
-      seasonId,
-      limit: 100,
+    if (!options?.force && matchParticipantCache.has(cacheKey)) {
+      return;
+    }
+    if (matchParticipantPoolRequestKey === cacheKey && matchParticipantPoolRequestPromise) {
+      await matchParticipantPoolRequestPromise;
+      return;
+    }
+
+    const requestPromise = (async () => {
+      const data = await runAuthedAction("searchParticipants", {
+        segmentType: "season",
+        seasonId,
+        limit: 100,
+      });
+      matchParticipantCache.set(cacheKey, data.participants);
+      rememberMatchParticipants(data.participants);
+      populateMatchFormOptions();
+      syncMatchPlayerSearchInputs();
+      syncDashboardState();
+    })().finally(() => {
+      if (matchParticipantPoolRequestKey === cacheKey) {
+        matchParticipantPoolRequestKey = "";
+        matchParticipantPoolRequestPromise = null;
+      }
     });
-    matchParticipantCache.set(cacheKey, data.participants);
-    rememberMatchParticipants(data.participants);
-    populateMatchFormOptions();
-    syncMatchPlayerSearchInputs();
-    syncDashboardState();
+
+    matchParticipantPoolRequestKey = cacheKey;
+    matchParticipantPoolRequestPromise = requestPromise;
+    await requestPromise;
   };
   const findMatchPlayer = (playerId: string | null | undefined) =>
     getMatchPlayerEntries().find((player) => player.userId === playerId);
@@ -624,15 +645,12 @@ export const buildApp = (): HTMLElement => {
     const stateValue = state.current;
     const sessionUserId = getCurrentUserId(stateValue);
     const seasonId = formSeasonSelect.value || null;
+    if (!formTournamentSelect.value) {
+      await ensureMatchPlayerPoolLoaded();
+    }
     const relatedParticipants: ParticipantSearchEntry[] = formTournamentSelect.value
       ? []
-      : (
-          await runAuthedAction("searchParticipants", {
-            segmentType: "season",
-            seasonId,
-            limit: 100,
-          })
-        ).participants;
+      : (matchParticipantCache.get(seasonId ? `season:${seasonId}` : "open") ?? []);
     rememberMatchParticipants(relatedParticipants);
 
     const leaderboardById = new Map(
@@ -2009,18 +2027,31 @@ export const buildApp = (): HTMLElement => {
     const visibleTournaments = dashboardState.tournaments.filter(
       (tournament) => tournament.status !== "deleted" && tournament.participantIds.includes(currentUserId),
     );
+    const cachedUserProgress = dashboardState.userProgress;
+    const loadUserProgress = async (): Promise<void> => {
+      const data = await runAuthedAction("getUserProgress", { mode: "summary", includeActivityHeatmap: true });
+      dashboardState.userProgress = data as GetUserProgressData;
+      syncDashboardState();
+    };
 
     try {
-      await Promise.all([
-        runAuthedAction("getUserProgress", { mode: "summary", includeActivityHeatmap: true }).then((data) => {
-          dashboardState.userProgress = data as GetUserProgressData;
-        }),
+      const blockingTasks: Promise<void>[] = [
         loadProfileMatches(true),
         loadProfileSegmentSummaries(
           visibleSeasons.map((season) => season.id),
           visibleTournaments.map((tournament) => tournament.id),
         ),
-      ]);
+      ];
+
+      if (cachedUserProgress) {
+        void loadUserProgress().catch(() => {
+          // Keep the existing progress visible if the background refresh fails.
+        });
+      } else {
+        blockingTasks.push(loadUserProgress());
+      }
+
+      await Promise.all(blockingTasks);
     } catch (error) {
       dashboardState.error = error instanceof Error ? error.message : "Failed to load profile.";
     } finally {
@@ -2638,6 +2669,9 @@ export const buildApp = (): HTMLElement => {
         rank: Number.MAX_SAFE_INTEGER,
       }));
     },
+    ensurePlayerPoolLoaded: async () => {
+      await ensureMatchPlayerPoolLoaded();
+    },
     createGuestPlayer: async (displayName) => {
       if (!isAuthedState(state.current) || formTournamentSelect.value) {
         return null;
@@ -2675,15 +2709,11 @@ export const buildApp = (): HTMLElement => {
   matchBracketSelect.disabled = true;
   formTournamentSelect.addEventListener("change", () => {
     activeTournamentBracketMatchId = null;
-    if (!formTournamentSelect.value) {
-      void refreshMatchPlayerPool();
-    }
+    syncMatchPlayerSearchInputs();
     void syncMatchBracketOptions();
   });
   formSeasonSelect.addEventListener("change", () => {
-    if (!formTournamentSelect.value) {
-      void refreshMatchPlayerPool();
-    }
+    syncMatchPlayerSearchInputs();
   });
   matchBracketSelect.addEventListener("change", () => {
     activeTournamentBracketMatchId = matchBracketSelect.value || null;
@@ -2760,7 +2790,6 @@ export const buildApp = (): HTMLElement => {
       if (pendingSharedUserProfileRouteUserId) {
         openSharedUserProfile(pendingSharedUserProfileRouteUserId);
       }
-      void refreshMatchPlayerPool();
     });
   }
 

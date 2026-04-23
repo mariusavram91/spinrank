@@ -32,11 +32,15 @@ export const createParticipantEditors = (args: {
   assetsBaseUrl: string;
   t: (key: TextKey) => string;
 }) => {
+  const SEARCH_DEBOUNCE_MS = 160;
   const knownParticipants = new Map<string, ParticipantSearchEntry>();
   const seasonParticipantsWithMatchesBySeasonId = new Map<string, Set<string>>();
   const pendingSeasonParticipantMatchLoads = new Set<string>();
+  const emptyParticipantQueryPrefixesByScope = new Map<string, Set<string>>();
   let seasonSearchToken = 0;
   let tournamentSearchToken = 0;
+  let seasonSearchDebounceHandle: number | null = null;
+  let tournamentSearchDebounceHandle: number | null = null;
   let seasonGuestCreateLoading = false;
   let tournamentGuestCreateLoading = false;
 
@@ -261,8 +265,66 @@ export const createParticipantEditors = (args: {
 
   const getTournamentSearchLimit = (): number => 12;
 
+  const getSeasonSearchScopeKey = (): string => "season-editor";
+
+  const getTournamentSearchScopeKey = (): string => `tournament:${args.tournamentSeasonSelect.value || "open"}`;
+
+  const hasKnownEmptyParticipantPrefix = (scopeKey: string, query: string): boolean => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return false;
+    }
+    return [...(emptyParticipantQueryPrefixesByScope.get(scopeKey) ?? new Set<string>())].some((prefix) =>
+      normalizedQuery.startsWith(prefix)
+    );
+  };
+
+  const rememberEmptyParticipantPrefix = (scopeKey: string, query: string): void => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return;
+    }
+    const prefixes = emptyParticipantQueryPrefixesByScope.get(scopeKey) ?? new Set<string>();
+    prefixes.add(normalizedQuery);
+    emptyParticipantQueryPrefixesByScope.set(scopeKey, prefixes);
+  };
+
+  const clearEmptyParticipantPrefixes = (scopeKey: string): void => {
+    emptyParticipantQueryPrefixesByScope.delete(scopeKey);
+  };
+
+  const scheduleSeasonParticipantSearch = (): void => {
+    if (seasonSearchDebounceHandle !== null) {
+      window.clearTimeout(seasonSearchDebounceHandle);
+    }
+    seasonSearchDebounceHandle = window.setTimeout(() => {
+      seasonSearchDebounceHandle = null;
+      void refreshSeasonParticipantResults();
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const scheduleTournamentParticipantSearch = (): void => {
+    if (tournamentSearchDebounceHandle !== null) {
+      window.clearTimeout(tournamentSearchDebounceHandle);
+    }
+    tournamentSearchDebounceHandle = window.setTimeout(() => {
+      tournamentSearchDebounceHandle = null;
+      void refreshTournamentParticipantResults();
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
   const refreshSeasonParticipantResults = async (): Promise<void> => {
     const requestToken = ++seasonSearchToken;
+    const scopeKey = getSeasonSearchScopeKey();
+    const query = args.dashboardState.seasonParticipantQuery;
+    if (hasKnownEmptyParticipantPrefix(scopeKey, query)) {
+      args.dashboardState.seasonParticipantSearchLoading = false;
+      args.dashboardState.seasonParticipantSearchError = "";
+      args.dashboardState.seasonParticipantResults = [];
+      renderSeasonSearchResults();
+      args.syncDashboardState();
+      return;
+    }
     args.dashboardState.seasonParticipantSearchLoading = true;
     args.dashboardState.seasonParticipantSearchError = "";
     renderSeasonSearchResults();
@@ -278,6 +340,11 @@ export const createParticipantEditors = (args: {
         return;
       }
       rememberParticipants(data.participants);
+      if (data.participants.length === 0) {
+        rememberEmptyParticipantPrefix(scopeKey, query);
+      } else {
+        clearEmptyParticipantPrefixes(scopeKey);
+      }
       args.dashboardState.seasonParticipantResults = data.participants;
       args.dashboardState.seasonParticipantSearchError = "";
     } catch (error) {
@@ -324,6 +391,16 @@ export const createParticipantEditors = (args: {
 
   const refreshTournamentParticipantResults = async (): Promise<void> => {
     const requestToken = ++tournamentSearchToken;
+    const scopeKey = getTournamentSearchScopeKey();
+    const query = args.tournamentPlannerState.participantQuery;
+    if (hasKnownEmptyParticipantPrefix(scopeKey, query)) {
+      args.tournamentPlannerState.participantSearchLoading = false;
+      args.tournamentPlannerState.participantSearchError = "";
+      args.tournamentPlannerState.participantResults = [];
+      renderTournamentSearchResults();
+      args.syncDashboardState();
+      return;
+    }
     args.tournamentPlannerState.participantSearchLoading = true;
     args.tournamentPlannerState.participantSearchError = "";
     renderTournamentSearchResults();
@@ -340,6 +417,11 @@ export const createParticipantEditors = (args: {
         return;
       }
       rememberParticipants(data.participants);
+      if (data.participants.length === 0) {
+        rememberEmptyParticipantPrefix(scopeKey, query);
+      } else {
+        clearEmptyParticipantPrefixes(scopeKey);
+      }
       args.tournamentPlannerState.participantResults = data.participants;
       args.tournamentPlannerState.participantSearchError = "";
     } catch (error) {
@@ -400,6 +482,7 @@ export const createParticipantEditors = (args: {
               displayName: query,
               seasonId: args.dashboardState.editingSeasonId || null,
             }).then((data) => {
+              clearEmptyParticipantPrefixes(getSeasonSearchScopeKey());
               rememberParticipants([data.participant]);
               if (data.seasonId && data.seasonParticipantIds) {
                 const season = args.dashboardState.seasons.find((entry) => entry.id === data.seasonId);
@@ -502,6 +585,7 @@ export const createParticipantEditors = (args: {
               displayName: query,
               seasonId: args.tournamentSeasonSelect.value || null,
             }).then((data) => {
+              clearEmptyParticipantPrefixes(getTournamentSearchScopeKey());
               rememberParticipants([data.participant]);
               if (data.seasonId && data.seasonParticipantIds) {
                 const season = args.dashboardState.seasons.find((entry) => entry.id === data.seasonId);
@@ -871,28 +955,42 @@ export const createParticipantEditors = (args: {
 
   args.seasonParticipantSearchInput.addEventListener("input", () => {
     seasonSearchToken += 1;
+    if (seasonSearchDebounceHandle !== null) {
+      window.clearTimeout(seasonSearchDebounceHandle);
+      seasonSearchDebounceHandle = null;
+    }
     args.dashboardState.seasonParticipantQuery = args.seasonParticipantSearchInput.value.trim();
     args.dashboardState.seasonParticipantResults = [];
     args.dashboardState.seasonParticipantSearchLoading = false;
     args.dashboardState.seasonParticipantSearchError = "";
-    renderSeasonEditor();
+    renderSeasonSearchResults();
+    scheduleSeasonParticipantSearch();
   });
 
   args.participantSearchInput.addEventListener("input", () => {
     tournamentSearchToken += 1;
+    if (tournamentSearchDebounceHandle !== null) {
+      window.clearTimeout(tournamentSearchDebounceHandle);
+      tournamentSearchDebounceHandle = null;
+    }
     args.tournamentPlannerState.participantQuery = args.participantSearchInput.value.trim();
     args.tournamentPlannerState.participantResults = [];
     args.tournamentPlannerState.participantSearchLoading = false;
     args.tournamentPlannerState.participantSearchError = "";
     renderTournamentSearchResults();
-    void refreshTournamentParticipantResults();
+    scheduleTournamentParticipantSearch();
   });
 
   args.tournamentSeasonSelect.addEventListener("change", () => {
     tournamentSearchToken += 1;
+    if (tournamentSearchDebounceHandle !== null) {
+      window.clearTimeout(tournamentSearchDebounceHandle);
+      tournamentSearchDebounceHandle = null;
+    }
     args.tournamentPlannerState.participantResults = [];
     args.tournamentPlannerState.participantSearchLoading = false;
     args.tournamentPlannerState.participantSearchError = "";
+    clearEmptyParticipantPrefixes(getTournamentSearchScopeKey());
     renderTournamentPlanner();
   });
 

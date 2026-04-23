@@ -2,7 +2,7 @@ import { dateOnly, isoNow, parseJsonArray, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { createEnqueueAchievementTriggerStatement } from "../services/achievements";
 import { applyBracketResult, getBracketRounds, isTournamentBracketCompleted, saveTournamentBracket } from "../services/brackets";
-import { computeEloDeltaForTeams, createBlankRatingState, recomputeAllRankings } from "../services/elo";
+import { computeEloDeltaForTeams, createBlankRatingState, invalidateUserMatchImpactCache, recomputeAllRankings } from "../services/elo";
 import { buildMatchupKey, computeDeleteLockedAt, findDuplicateMatches } from "../services/matchGuards";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
 import type {
@@ -405,6 +405,7 @@ export async function handleCreateMatch(
     }
 
     await recomputeAllRankings(env);
+    invalidateUserMatchImpactCache();
 
     return successResponse(request.requestId, {
       match: {

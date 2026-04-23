@@ -257,23 +257,69 @@ describe("participant editors", () => {
   });
 
   it("refreshes tournament search results when the query changes", async () => {
+    vi.useFakeTimers();
     const harness = createHarness();
 
-    harness.editors.renderTournamentPlanner();
-    await flush();
-    vi.mocked(harness.args.runAuthedAction).mockClear();
+    try {
+      harness.editors.renderTournamentPlanner();
+      await flush();
+      vi.mocked(harness.args.runAuthedAction).mockClear();
 
-    harness.participantSearchInput.value = "Cara";
-    harness.participantSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
-    await flush();
+      harness.participantSearchInput.value = "Cara";
+      harness.participantSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(200);
+      await flush();
 
-    expect(harness.args.runAuthedAction).toHaveBeenCalledWith("searchParticipants", {
-      segmentType: "tournament",
-      query: "Cara",
-      seasonId: "season_1",
-      limit: 12,
+      expect(harness.args.runAuthedAction).toHaveBeenCalledWith("searchParticipants", {
+        segmentType: "tournament",
+        query: "Cara",
+        seasonId: "season_1",
+        limit: 12,
+      });
+      expect(harness.participantSearchResults.querySelectorAll("[data-testid='participant-search-result']")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("skips narrower tournament searches after an empty prefix result", async () => {
+    vi.useFakeTimers();
+    const harness = createHarness();
+    vi.mocked(harness.args.runAuthedAction).mockImplementation(async (action: string) => {
+      if (action === "searchParticipants") {
+        return { participants: [] };
+      }
+      if (action === "getSegmentLeaderboard") {
+        return {
+          leaderboard: [],
+          stats: null,
+          updatedAt: "",
+        };
+      }
+      throw new Error(`Unexpected action ${action}`);
     });
-    expect(harness.participantSearchResults.querySelectorAll("[data-testid='participant-search-result']")).toHaveLength(1);
+
+    try {
+      harness.editors.renderTournamentPlanner();
+      await flush();
+      vi.mocked(harness.args.runAuthedAction).mockClear();
+
+      harness.participantSearchInput.value = "ma";
+      harness.participantSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(200);
+      await flush();
+
+      expect(harness.args.runAuthedAction).toHaveBeenCalledTimes(1);
+
+      harness.participantSearchInput.value = "mar";
+      harness.participantSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(200);
+      await flush();
+
+      expect(harness.args.runAuthedAction).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("offers guest creation in season participant search when no results match", async () => {

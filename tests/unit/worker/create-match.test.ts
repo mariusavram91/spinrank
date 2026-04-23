@@ -13,6 +13,7 @@ vi.mock("../../../worker/src/services/elo", () => ({
     globalState: {},
     segmentStates: new Map(),
   })),
+  invalidateUserMatchImpactCache: vi.fn(),
 }));
 
 vi.mock("../../../worker/src/services/achievements", () => ({
@@ -121,7 +122,7 @@ describe("worker createMatch action", () => {
       },
       runtime: {
         nowIso: () => "2026-04-06T12:00:00.000Z",
-        randomId: (() => {
+        randomUUID: (() => {
           let index = 0;
           return () => `generated_${++index}`;
         })(),
@@ -227,7 +228,7 @@ describe("worker createMatch action", () => {
       },
       runtime: {
         nowIso: () => "2026-04-06T12:00:00.000Z",
-        randomId: (() => {
+        randomUUID: (() => {
           let index = 0;
           return () => `generated_${++index}`;
         })(),
