@@ -1755,6 +1755,52 @@ export const buildApp = (): HTMLElement => {
     }
   };
 
+  const loadProfileSegmentSummaries = async (
+    seasonIds: string[],
+    tournamentIds: string[],
+  ): Promise<void> => {
+    if (!isAuthedState(state.current)) {
+      return;
+    }
+
+    const seasonIdSet = new Set(seasonIds.filter(Boolean));
+    const tournamentIdSet = new Set(tournamentIds.filter(Boolean));
+    const pendingKeys = [
+      ...[...seasonIdSet].map((segmentId) => buildProfileSummaryKey("season", segmentId)),
+      ...[...tournamentIdSet].map((segmentId) => buildProfileSummaryKey("tournament", segmentId)),
+    ].filter(
+      (key) =>
+        !dashboardState.profileSegmentSummaries[key] && !dashboardState.profileSegmentSummaryLoadingKeys.includes(key),
+    );
+
+    if (pendingKeys.length === 0) {
+      return;
+    }
+
+    dashboardState.profileSegmentSummaryLoadingKeys = [
+      ...new Set([...dashboardState.profileSegmentSummaryLoadingKeys, ...pendingKeys]),
+    ];
+    syncDashboardState();
+
+    try {
+      const data = await runAuthedAction("getProfileSegmentSummaries", {
+        seasonIds: [...seasonIdSet],
+        tournamentIds: [...tournamentIdSet],
+      });
+
+      data.summaries.forEach((summary) => {
+        dashboardState.profileSegmentSummaries[buildProfileSummaryKey(summary.segmentType, summary.segmentId)] = summary;
+      });
+    } catch {
+      // Keep the cards interactive even if batch stats fail to load.
+    } finally {
+      dashboardState.profileSegmentSummaryLoadingKeys = dashboardState.profileSegmentSummaryLoadingKeys.filter(
+        (entry) => !pendingKeys.includes(entry),
+      );
+      syncDashboardState();
+    }
+  };
+
   const loadProfileMatches = async (reset = false): Promise<void> => {
     if (!isAuthedState(state.current)) {
       return;
@@ -1934,8 +1980,10 @@ export const buildApp = (): HTMLElement => {
           dashboardState.userProgress = data as GetUserProgressData;
         }),
         loadProfileMatches(true),
-        ...visibleSeasons.map((season) => ensureProfileSegmentSummary("season", season.id)),
-        ...visibleTournaments.map((tournament) => ensureProfileSegmentSummary("tournament", tournament.id)),
+        loadProfileSegmentSummaries(
+          visibleSeasons.map((season) => season.id),
+          visibleTournaments.map((tournament) => tournament.id),
+        ),
       ]);
     } catch (error) {
       dashboardState.error = error instanceof Error ? error.message : "Failed to load profile.";

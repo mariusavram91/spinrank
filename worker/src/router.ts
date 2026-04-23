@@ -14,6 +14,7 @@ import { handleGetDashboard } from "./actions/getDashboard";
 import { handleGetLeaderboard } from "./actions/getLeaderboard";
 import { handleGetMatches } from "./actions/getMatches";
 import { handleGetSharedUserProfile } from "./actions/getSharedUserProfile";
+import { handleGetProfileSegmentSummaries } from "./actions/getProfileSegmentSummaries";
 import { handleSearchParticipants } from "./actions/searchParticipants";
 import { handleCreateGuestPlayer } from "./actions/createGuestPlayer";
 import { handleGetSeasons } from "./actions/getSeasons";
@@ -37,6 +38,7 @@ import type {
   CreateTournamentPayload,
   DeactivateEntityPayload,
   GetMatchesPayload,
+  GetProfileSegmentSummariesPayload,
   GetLeaderboardPayload,
   GetSharedUserProfilePayload,
   SearchParticipantsPayload,
@@ -119,6 +121,12 @@ export async function routeApiRequest(apiRequest: ApiRequest<ApiAction>, env: En
     case "getSharedUserProfile":
       return handleGetSharedUserProfile(
         apiRequest as ApiRequest<"getSharedUserProfile", GetSharedUserProfilePayload>,
+        sessionUser,
+        env,
+      );
+    case "getProfileSegmentSummaries":
+      return handleGetProfileSegmentSummaries(
+        apiRequest as ApiRequest<"getProfileSegmentSummaries", GetProfileSegmentSummariesPayload>,
         sessionUser,
         env,
       );

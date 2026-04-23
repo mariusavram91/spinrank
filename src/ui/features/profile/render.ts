@@ -634,7 +634,11 @@ export const renderProfileScreen = (args: {
     weightLine.textContent = `${args.t("profileMatchImpactWeight")} ${formatOneDecimal(matchWeight)} (${matchTypeLabel})`;
 
     const globalGroup = document.createElement("section");
-    globalGroup.className = "profile-match-impact__group profile-match-impact__group--global";
+    globalGroup.className = [
+      "profile-match-impact__group",
+      "profile-match-impact__group--global",
+      userWon ? "profile-match-impact__group--won" : "profile-match-impact__group--lost",
+    ].join(" ");
     const globalTitle = document.createElement("h5");
     globalTitle.className = "profile-match-impact__group-title";
     globalTitle.textContent = args.t("profileMatchImpactGlobal");
@@ -688,7 +692,11 @@ export const renderProfileScreen = (args: {
     const seasonBreakdown = match.ratingImpact?.seasonBreakdown;
     if (seasonBreakdown && typeof seasonDelta === "number" && match.seasonId) {
       const seasonGroup = document.createElement("section");
-      seasonGroup.className = "profile-match-impact__group profile-match-impact__group--season";
+      seasonGroup.className = [
+        "profile-match-impact__group",
+        "profile-match-impact__group--season",
+        userWon ? "profile-match-impact__group--won" : "profile-match-impact__group--lost",
+      ].join(" ");
       const seasonTitle = document.createElement("h5");
       seasonTitle.className = "profile-match-impact__group-title";
       seasonTitle.textContent = args.t("profileMatchImpactSeason");

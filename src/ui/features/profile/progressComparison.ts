@@ -30,7 +30,7 @@ const filterPointsToToday = (points: UserProgressPoint[], nowMs: number): UserPr
   points.filter((point) => toTimestamp(point.playedAt) <= nowMs);
 
 const buildSeriesPoints = (series: Series, nowMs: number): UserProgressPoint[] => {
-  const sampled = sampleProgressPointsByExtrema(filterPointsToToday(series.points, nowMs), MAX_PROGRESS_DISPLAY_POINTS);
+  const sampled = sampleProgressPointsByExtrema(series.points, MAX_PROGRESS_DISPLAY_POINTS);
   if (sampled.length > 0) {
     return [createInitialProgressPoint(sampled[0]), ...sampled];
   }
@@ -49,19 +49,15 @@ const buildSeriesPoints = (series: Series, nowMs: number): UserProgressPoint[] =
 };
 
 const buildCacheKey = (current: Series, shared: Series): string => {
-  const lastCurrent = current.points[current.points.length - 1];
-  const lastShared = shared.points[shared.points.length - 1];
+  const serializePoints = (points: UserProgressPoint[]): string =>
+    points.map((point) => `${point.playedAt}:${point.elo}:${point.delta}`).join(",");
   return [
     current.name,
     current.currentElo,
-    current.points.length,
-    lastCurrent?.playedAt ?? "",
-    lastCurrent?.elo ?? "",
+    serializePoints(current.points),
     shared.name,
     shared.currentElo,
-    shared.points.length,
-    lastShared?.playedAt ?? "",
-    lastShared?.elo ?? "",
+    serializePoints(shared.points),
   ].join("|");
 };
 

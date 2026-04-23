@@ -132,7 +132,7 @@ export async function handleGetUserProgress(
   const progressRows = await env.DB.prepare(
     mode === "summary"
       ? `
-          SELECT m.played_at, m.global_elo_delta_json, m.winner_team, mp.team AS player_team
+          SELECT m.played_at, m.global_elo_delta_json, m.winner_team, mp.team AS player_team, m.match_type
           FROM match_players mp
           JOIN matches m
             ON m.id = mp.match_id
@@ -156,7 +156,7 @@ export async function handleGetUserProgress(
           ORDER BY m.played_at ASC, m.created_at ASC, m.id ASC
         `
       : `
-          SELECT m.played_at, m.global_elo_delta_json, m.winner_team, mp.team AS player_team
+          SELECT m.played_at, m.global_elo_delta_json, m.winner_team, mp.team AS player_team, m.match_type
           FROM match_players mp
           JOIN matches m
             ON m.id = mp.match_id
@@ -186,46 +186,7 @@ export async function handleGetUserProgress(
       global_elo_delta_json: string;
       winner_team: MatchRecord["winnerTeam"];
       player_team: MatchRecord["winnerTeam"];
-    }>();
-  const matchTypeTotals = await env.DB.prepare(
-    `
-      SELECT
-        SUM(CASE WHEN m.match_type = 'singles' THEN 1 ELSE 0 END) AS singles_matches,
-        SUM(CASE WHEN m.match_type = 'singles' AND mp.team = m.winner_team THEN 1 ELSE 0 END) AS singles_wins,
-        SUM(CASE WHEN m.match_type = 'singles' AND mp.team != m.winner_team THEN 1 ELSE 0 END) AS singles_losses,
-        SUM(CASE WHEN m.match_type = 'doubles' THEN 1 ELSE 0 END) AS doubles_matches,
-        SUM(CASE WHEN m.match_type = 'doubles' AND mp.team = m.winner_team THEN 1 ELSE 0 END) AS doubles_wins,
-        SUM(CASE WHEN m.match_type = 'doubles' AND mp.team != m.winner_team THEN 1 ELSE 0 END) AS doubles_losses
-      FROM match_players mp
-      JOIN matches m
-        ON m.id = mp.match_id
-      LEFT JOIN seasons s
-        ON s.id = m.season_id
-      LEFT JOIN season_participants sp
-        ON sp.season_id = m.season_id AND sp.user_id = ?1
-      LEFT JOIN tournaments t
-        ON t.id = m.tournament_id
-      LEFT JOIN tournament_participants tp
-        ON tp.tournament_id = m.tournament_id AND tp.user_id = ?1
-      WHERE mp.user_id = ?1
-        AND m.status = 'active'
-        AND (
-          (m.season_id IS NULL AND m.tournament_id IS NULL)
-          OR (m.tournament_id IS NOT NULL AND (t.created_by_user_id = ?1 OR tp.user_id IS NOT NULL))
-          OR (m.tournament_id IS NULL AND m.season_id IS NOT NULL AND (
-            s.is_public = 1 OR s.created_by_user_id = ?1 OR sp.user_id IS NOT NULL
-          ))
-        )
-    `,
-  )
-    .bind(sessionUser.id)
-    .first<{
-      singles_matches: number | null;
-      singles_wins: number | null;
-      singles_losses: number | null;
-      doubles_matches: number | null;
-      doubles_wins: number | null;
-      doubles_losses: number | null;
+      match_type: MatchRecord["matchType"];
     }>();
 
   const deltas = progressRows.results.map((row) => {
@@ -243,6 +204,10 @@ export async function handleGetUserProgress(
   let bestElo = Math.max(Number(sessionUser.highest_global_elo ?? 0), Number(sessionUser.global_elo));
   let bestStreak = Number(sessionUser.best_win_streak ?? 0);
   let streakRunning = 0;
+  const matchTypeTotals = {
+    singles: { matches: 0, wins: 0, losses: 0 },
+    doubles: { matches: 0, wins: 0, losses: 0 },
+  };
   const progressPoints: UserProgressPoint[] = [];
 
   const resolvedRank = rankRow?.rank ? Number(rankRow.rank) : null;
@@ -252,6 +217,13 @@ export async function handleGetUserProgress(
     bestElo = Math.max(bestElo, elo);
 
     const isWin = row.player_team === row.winner_team;
+    const totals = row.match_type === "singles" ? matchTypeTotals.singles : matchTypeTotals.doubles;
+    totals.matches += 1;
+    if (isWin) {
+      totals.wins += 1;
+    } else {
+      totals.losses += 1;
+    }
     if (isWin) {
       streakRunning = Math.max(streakRunning, 0) + 1;
       bestStreak = Math.max(bestStreak, streakRunning);
@@ -296,14 +268,14 @@ export async function handleGetUserProgress(
     wins: Number(sessionUser.wins || 0),
     losses: Number(sessionUser.losses || 0),
     singles: {
-      matches: Number(matchTypeTotals?.singles_matches ?? 0),
-      wins: Number(matchTypeTotals?.singles_wins ?? 0),
-      losses: Number(matchTypeTotals?.singles_losses ?? 0),
+      matches: matchTypeTotals.singles.matches,
+      wins: matchTypeTotals.singles.wins,
+      losses: matchTypeTotals.singles.losses,
     },
     doubles: {
-      matches: Number(matchTypeTotals?.doubles_matches ?? 0),
-      wins: Number(matchTypeTotals?.doubles_wins ?? 0),
-      losses: Number(matchTypeTotals?.doubles_losses ?? 0),
+      matches: matchTypeTotals.doubles.matches,
+      wins: matchTypeTotals.doubles.wins,
+      losses: matchTypeTotals.doubles.losses,
     },
     points: responsePoints,
     activityHeatmap,

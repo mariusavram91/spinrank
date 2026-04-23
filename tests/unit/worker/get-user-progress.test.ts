@@ -49,17 +49,6 @@ describe("worker getUserProgress action", () => {
               expect(args).toEqual(["user_a"]);
               return { rank: 4 };
             }
-            if (statementSql.includes("SUM(CASE WHEN m.match_type = 'singles'")) {
-              return {
-                singles_matches: 2,
-                singles_wins: 2,
-                singles_losses: 0,
-                doubles_matches: 2,
-                doubles_wins: 1,
-                doubles_losses: 1,
-              };
-            }
-
             expect(statementSql).toContain("ORDER BY m.played_at ASC");
             return {
               results: [
@@ -68,12 +57,28 @@ describe("worker getUserProgress action", () => {
                   global_elo_delta_json: JSON.stringify({ user_a: 12 }),
                   winner_team: "A",
                   player_team: "A",
+                  match_type: "singles",
                 },
                 {
                   played_at: "2026-04-05T10:00:00.000Z",
                   global_elo_delta_json: JSON.stringify({ user_a: 18 }),
                   winner_team: "A",
                   player_team: "A",
+                  match_type: "singles",
+                },
+                {
+                  played_at: "2026-04-05T11:00:00.000Z",
+                  global_elo_delta_json: JSON.stringify({ user_a: -5 }),
+                  winner_team: "B",
+                  player_team: "A",
+                  match_type: "doubles",
+                },
+                {
+                  played_at: "2026-04-05T12:00:00.000Z",
+                  global_elo_delta_json: JSON.stringify({ user_a: 5 }),
+                  winner_team: "A",
+                  player_team: "A",
+                  match_type: "doubles",
                 },
               ],
             };
@@ -108,6 +113,8 @@ describe("worker getUserProgress action", () => {
       points: [
         { playedAt: "2026-04-04T10:00:00.000Z", elo: 1212, delta: 12 },
         { playedAt: "2026-04-05T10:00:00.000Z", elo: 1230, delta: 18 },
+        { playedAt: "2026-04-05T11:00:00.000Z", elo: 1225, delta: -5 },
+        { playedAt: "2026-04-05T12:00:00.000Z", elo: 1230, delta: 5 },
       ],
     });
   });

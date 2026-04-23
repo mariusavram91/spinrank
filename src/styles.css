@@ -1844,6 +1844,14 @@ select.text-input {
   background: rgba(255, 247, 237, 0.74);
 }
 
+.profile-match-impact__group--won {
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.88), rgba(220, 252, 231, 0.84));
+}
+
+.profile-match-impact__group--lost {
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.88), rgba(254, 226, 226, 0.84));
+}
+
 .profile-match-impact__group-title {
   margin: 0 0 0.1rem;
   font-size: 0.78rem;

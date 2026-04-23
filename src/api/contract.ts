@@ -7,6 +7,7 @@ export const apiActions = [
   "searchParticipants",
   "createGuestPlayer",
   "getUserProgress",
+  "getProfileSegmentSummaries",
   "getSharedUserProfile",
   "getSegmentLeaderboard",
   "getMatches",
@@ -287,6 +288,26 @@ export interface GetUserProgressData {
   doubles: MatchTypeRecord;
   points: UserProgressPoint[];
   activityHeatmap: ActivityHeatmapData | null;
+}
+
+export interface ProfileSegmentSummaryRecord {
+  segmentType: SegmentType;
+  segmentId: string;
+  wins: number;
+  losses: number;
+  rank: number | null;
+  participantCount: number;
+  placementLabelKey?: LeaderboardEntry["placementLabelKey"];
+  placementLabelCount?: number | null;
+}
+
+export interface GetProfileSegmentSummariesPayload {
+  seasonIds?: string[];
+  tournamentIds?: string[];
+}
+
+export interface GetProfileSegmentSummariesData {
+  summaries: ProfileSegmentSummaryRecord[];
 }
 
 export interface GetSharedUserProfilePayload {
@@ -781,6 +802,10 @@ export interface ApiActionMap {
   getUserProgress: {
     payload: GetUserProgressPayload;
     data: GetUserProgressData;
+  };
+  getProfileSegmentSummaries: {
+    payload: GetProfileSegmentSummariesPayload;
+    data: GetProfileSegmentSummariesData;
   };
   getSharedUserProfile: {
     payload: GetSharedUserProfilePayload;
