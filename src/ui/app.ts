@@ -136,6 +136,8 @@ export const buildApp = (): HTMLElement => {
   let dashboardState: DashboardState = createDashboardState();
   let dashboardExitArmed = false;
   let suppressHashSync = false;
+  let sharedUserProfileRequestKey = "";
+  let sharedUserProfileRequestPromise: Promise<void> | null = null;
   const getHashRoute = (): string => window.location.hash.replace(/^#/, "");
   const buildUserProfileHashRoute = (userId: string): string =>
     `${USER_PROFILE_HASH_PREFIX}${encodeURIComponent(userId)}`;
@@ -467,6 +469,9 @@ export const buildApp = (): HTMLElement => {
   const applyScreenRoute = (screen: DashboardState["screen"]): void => {
     dismissExitOverlay();
     hideScoreCardIfVisible();
+    if (dashboardState.screen === "userProfile" && screen !== "userProfile") {
+      resetSharedUserProfileState();
+    }
     if (dashboardState.screen !== screen) {
       dashboardState.screen = screen;
       syncAuthState();
@@ -476,6 +481,17 @@ export const buildApp = (): HTMLElement => {
 
   const navigateToDashboard = (): void => {
     applyScreenRoute("dashboard");
+  };
+
+  const resetSharedUserProfileState = (): void => {
+    pendingSharedUserProfileRouteUserId = null;
+    sharedUserProfileRequestKey = "";
+    sharedUserProfileRequestPromise = null;
+    dashboardState.sharedUserProfile = null;
+    dashboardState.sharedUserProfileUserId = "";
+    dashboardState.sharedUserProfileSelectedAchievementKey = "";
+    dashboardState.sharedUserProfileLoading = false;
+    dashboardState.sharedUserProfileMatchesLoading = false;
   };
 
   const tournamentPlannerState: TournamentPlannerState = createTournamentPlannerState();
@@ -1360,40 +1376,46 @@ export const buildApp = (): HTMLElement => {
         },
         locale: getCurrentLanguage(),
       });
-      renderSharedUserProfileScreen({
-        sharedUserProfile: dashboardState.sharedUserProfile,
-        currentUserId,
-        meta: sharedUserProfileMeta,
-        avatar: sharedUserProfileAvatar,
-        name: sharedUserProfileName,
-        rank: sharedUserProfileRank,
-        elo: sharedUserProfileElo,
-        achievementsSubtitle: sharedUserProfileAchievementsSubtitle,
-        achievementsSummary: sharedUserProfileAchievementsSummary,
-        achievementsPreview: sharedUserProfileAchievementsPreview,
-        activityHeatmap: sharedUserProfileActivityHeatmap,
-        progressComparison: sharedUserProfileProgressComparison,
-        currentUserDisplayName: state.current.session.user.displayName,
-        currentUserElo: dashboardState.userProgress?.currentElo ?? 1200,
-        currentUserProgressPoints: dashboardState.userProgress?.points ?? [],
-        currentUserHasMatches: (dashboardState.userProgress?.wins ?? 0) + (dashboardState.userProgress?.losses ?? 0) > 0,
-        selectedAchievementKey: dashboardState.sharedUserProfileSelectedAchievementKey,
-        seasonsList: sharedUserProfileSeasonsList,
-        tournamentsList: sharedUserProfileTournamentsList,
-        matchesList: sharedUserProfileMatchesList,
-        loadMoreButton: sharedUserProfileLoadMoreButton,
-        matchesLoading: dashboardState.sharedUserProfileMatchesLoading,
-        avatarBaseUrl: import.meta.env.BASE_URL,
-        t: (key) => t(key),
-        renderMatchScore,
-        renderPlayerNames,
-        renderMatchContext: (match, seasons, tournaments, bracketContext, options) =>
-          renderMatchContext(match, seasons, tournaments, bracketContext, t, options),
-        formatDateTime,
-        onOpenSeason: openSeasonEditor,
-        onOpenTournament: openTournamentEditor,
-        locale: getCurrentLanguage(),
-      });
+      if (
+        dashboardState.screen === "userProfile" ||
+        dashboardState.sharedUserProfileLoading ||
+        dashboardState.sharedUserProfileMatchesLoading
+      ) {
+        renderSharedUserProfileScreen({
+          sharedUserProfile: dashboardState.sharedUserProfile,
+          currentUserId,
+          meta: sharedUserProfileMeta,
+          avatar: sharedUserProfileAvatar,
+          name: sharedUserProfileName,
+          rank: sharedUserProfileRank,
+          elo: sharedUserProfileElo,
+          achievementsSubtitle: sharedUserProfileAchievementsSubtitle,
+          achievementsSummary: sharedUserProfileAchievementsSummary,
+          achievementsPreview: sharedUserProfileAchievementsPreview,
+          activityHeatmap: sharedUserProfileActivityHeatmap,
+          progressComparison: sharedUserProfileProgressComparison,
+          currentUserDisplayName: state.current.session.user.displayName,
+          currentUserElo: dashboardState.userProgress?.currentElo ?? 1200,
+          currentUserProgressPoints: dashboardState.userProgress?.points ?? [],
+          currentUserHasMatches: (dashboardState.userProgress?.wins ?? 0) + (dashboardState.userProgress?.losses ?? 0) > 0,
+          selectedAchievementKey: dashboardState.sharedUserProfileSelectedAchievementKey,
+          seasonsList: sharedUserProfileSeasonsList,
+          tournamentsList: sharedUserProfileTournamentsList,
+          matchesList: sharedUserProfileMatchesList,
+          loadMoreButton: sharedUserProfileLoadMoreButton,
+          matchesLoading: dashboardState.sharedUserProfileMatchesLoading,
+          avatarBaseUrl: import.meta.env.BASE_URL,
+          t: (key) => t(key),
+          renderMatchScore,
+          renderPlayerNames,
+          renderMatchContext: (match, seasons, tournaments, bracketContext, options) =>
+            renderMatchContext(match, seasons, tournaments, bracketContext, t, options),
+          formatDateTime,
+          onOpenSeason: openSeasonEditor,
+          onOpenTournament: openTournamentEditor,
+          locale: getCurrentLanguage(),
+        });
+      }
       scheduleFormStatusHide("profile", Boolean(dashboardState.profileFormMessage));
 
       if (!profileDisplayNameDirty && document.activeElement !== profileDisplayNameInput) {
@@ -1863,6 +1885,11 @@ export const buildApp = (): HTMLElement => {
     if (appendMatches && !cursor) {
       return;
     }
+    const requestKey = `${userId}::${appendMatches ? cursor ?? "" : "initial"}`;
+    if (sharedUserProfileRequestKey === requestKey && sharedUserProfileRequestPromise) {
+      await sharedUserProfileRequestPromise;
+      return;
+    }
 
     dashboardState.screen = "userProfile";
     dashboardState.sharedUserProfileUserId = userId;
@@ -1877,44 +1904,53 @@ export const buildApp = (): HTMLElement => {
     syncAuthState();
     syncDashboardState();
 
-    try {
-      const data = await runAuthedAction("getSharedUserProfile", {
-        userId,
-        limit: 8,
-        cursor,
-      });
-      if (dashboardState.sharedUserProfileUserId !== userId) {
-        return;
-      }
+    const requestPromise = (async () => {
+      try {
+        const data = await runAuthedAction("getSharedUserProfile", {
+          userId,
+          limit: 8,
+          cursor,
+        });
+        if (dashboardState.sharedUserProfileUserId !== userId) {
+          return;
+        }
 
-      dashboardState.sharedUserProfile = appendMatches && dashboardState.sharedUserProfile
-        ? {
-            ...data,
-            matches: [...dashboardState.sharedUserProfile.matches, ...data.matches],
-            players: [
-              ...new Map(
-                [...dashboardState.sharedUserProfile.players, ...data.players].map((player) => [player.userId, player]),
-              ).values(),
-            ],
-            matchBracketContextByMatchId: {
-              ...dashboardState.sharedUserProfile.matchBracketContextByMatchId,
-              ...data.matchBracketContextByMatchId,
-            },
-          }
-        : data;
-      pendingSharedUserProfileRouteUserId = null;
-    } catch (error) {
-      dashboardState.error = error instanceof Error ? error.message : "Failed to load profile.";
-      if (!appendMatches) {
-        dashboardState.screen = "dashboard";
+        dashboardState.sharedUserProfile = appendMatches && dashboardState.sharedUserProfile
+          ? {
+              ...data,
+              matches: [...dashboardState.sharedUserProfile.matches, ...data.matches],
+              players: [
+                ...new Map(
+                  [...dashboardState.sharedUserProfile.players, ...data.players].map((player) => [player.userId, player]),
+                ).values(),
+              ],
+              matchBracketContextByMatchId: {
+                ...dashboardState.sharedUserProfile.matchBracketContextByMatchId,
+                ...data.matchBracketContextByMatchId,
+              },
+            }
+          : data;
+        pendingSharedUserProfileRouteUserId = null;
+      } catch (error) {
+        dashboardState.error = error instanceof Error ? error.message : "Failed to load profile.";
+        if (!appendMatches) {
+          dashboardState.screen = "dashboard";
+        }
+      } finally {
+        if (sharedUserProfileRequestKey === requestKey) {
+          sharedUserProfileRequestKey = "";
+          sharedUserProfileRequestPromise = null;
+        }
+        dashboardState.sharedUserProfileLoading = false;
+        dashboardState.sharedUserProfileMatchesLoading = false;
+        setGlobalLoading(false);
+        syncAuthState();
+        syncDashboardState();
       }
-    } finally {
-      dashboardState.sharedUserProfileLoading = false;
-      dashboardState.sharedUserProfileMatchesLoading = false;
-      setGlobalLoading(false);
-      syncAuthState();
-      syncDashboardState();
-    }
+    })();
+    sharedUserProfileRequestKey = requestKey;
+    sharedUserProfileRequestPromise = requestPromise;
+    await requestPromise;
   };
 
   const openSharedUserProfile = (userId: string): void => {
@@ -1956,7 +1992,7 @@ export const buildApp = (): HTMLElement => {
       return;
     }
 
-    pendingSharedUserProfileRouteUserId = null;
+    resetSharedUserProfileState();
     dashboardState.profileRecentlySeenAchievementKeys = getUnreadAchievementKeys(dashboardState.achievements);
     markAchievementsAsSeen(dashboardState.achievements);
     dashboardState.hasNewAchievements = false;
@@ -2007,7 +2043,7 @@ export const buildApp = (): HTMLElement => {
   });
 
   closeSharedUserProfileButton.addEventListener("click", () => {
-    pendingSharedUserProfileRouteUserId = null;
+    resetSharedUserProfileState();
     dashboardState.screen = "dashboard";
     syncAuthState();
     syncDashboardState();

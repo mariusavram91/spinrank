@@ -206,6 +206,7 @@ export const renderSharedUserProfileScreen = (args: {
 }): void => {
   const profile = args.sharedUserProfile;
   if (!profile) {
+    delete (args.progressComparison as HTMLElement & { __progressComparisonCacheKey?: string }).__progressComparisonCacheKey;
     args.meta.textContent = args.t("profileStatsLoading");
     args.name.textContent = args.t("profileStatsLoading");
     args.rank.textContent = args.t("profileStatsLoading");

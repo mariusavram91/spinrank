@@ -156,6 +156,69 @@ describe("shared profile render", () => {
     expect(progressComparison.querySelector(".progress-line--self.progress-line--dotted")).toBeNull();
   });
 
+  it("rerenders the comparison chart after a loading placeholder with the same profile data", () => {
+    const progressComparison = document.createElement("div");
+    const baseArgs = {
+      currentUserId: "user_1",
+      meta: document.createElement("p"),
+      avatar: document.createElement("img"),
+      name: document.createElement("h4"),
+      rank: document.createElement("span"),
+      elo: document.createElement("span"),
+      achievementsSubtitle: document.createElement("p"),
+      achievementsSummary: document.createElement("div"),
+      achievementsPreview: document.createElement("div"),
+      activityHeatmap: document.createElement("div"),
+      progressComparison,
+      currentUserDisplayName: "Owner",
+      currentUserElo: 1250,
+      currentUserProgressPoints: [
+        {
+          playedAt: "2026-04-04T09:00:00.000Z",
+          elo: 1240,
+          delta: 40,
+          label: "2026-04-04T09:00:00.000Z",
+          rank: null,
+        },
+      ],
+      currentUserHasMatches: true,
+      selectedAchievementKey: "",
+      seasonsList: document.createElement("div"),
+      tournamentsList: document.createElement("div"),
+      matchesList: document.createElement("div"),
+      loadMoreButton: document.createElement("button"),
+      matchesLoading: false,
+      avatarBaseUrl: "/",
+      t: (key: string) => key,
+      renderMatchScore: () => "",
+      renderPlayerNames: () => "",
+      renderMatchContext: () => "",
+      formatDateTime: (value: string) => value,
+      onOpenSeason: () => undefined,
+      onOpenTournament: () => undefined,
+      locale: "en",
+    };
+
+    renderSharedUserProfileScreen({
+      ...baseArgs,
+      sharedUserProfile: createProfile([]),
+    });
+    expect(progressComparison.querySelectorAll(".progress-line--self")).toHaveLength(1);
+
+    renderSharedUserProfileScreen({
+      ...baseArgs,
+      sharedUserProfile: null,
+    });
+    expect(progressComparison.textContent).toContain("profileStatsLoading");
+
+    renderSharedUserProfileScreen({
+      ...baseArgs,
+      sharedUserProfile: createProfile([]),
+    });
+    expect(progressComparison.querySelectorAll(".progress-line--self")).toHaveLength(1);
+    expect(progressComparison.textContent).not.toContain("profileStatsLoading");
+  });
+
   it("renders unlocked shared-profile achievements as icon buttons with no expanded list", () => {
     const achievementsSubtitle = document.createElement("p");
     const achievementsSummary = document.createElement("div");

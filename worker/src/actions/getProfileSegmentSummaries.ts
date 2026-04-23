@@ -395,27 +395,28 @@ async function loadTournamentBrackets(
   return grouped;
 }
 
-export async function handleGetProfileSegmentSummaries(
-  request: ApiRequest<"getProfileSegmentSummaries", GetProfileSegmentSummariesPayload>,
-  sessionUser: UserRow,
-  env: Env,
-) {
-  const seasonIds = normalizeIds(request.payload?.seasonIds);
-  const tournamentIds = normalizeIds(request.payload?.tournamentIds);
-
+export async function loadProfileSegmentSummariesForUser(args: {
+  env: Env;
+  viewerUserId: string;
+  targetUserId: string;
+  seasonIds?: string[];
+  tournamentIds?: string[];
+}): Promise<ProfileSegmentSummaryRecord[]> {
+  const seasonIds = normalizeIds(args.seasonIds);
+  const tournamentIds = normalizeIds(args.tournamentIds);
   const [visibleSeasons, visibleTournaments, seasonRatings, tournamentRatings, tournamentBrackets] = await Promise.all([
-    loadVisibleSeasons(env, sessionUser.id, seasonIds),
-    loadVisibleTournaments(env, sessionUser.id, tournamentIds),
-    loadSegmentRatings(env, "season", seasonIds),
-    loadSegmentRatings(env, "tournament", tournamentIds),
-    loadTournamentBrackets(env, tournamentIds),
+    loadVisibleSeasons(args.env, args.viewerUserId, seasonIds),
+    loadVisibleTournaments(args.env, args.viewerUserId, tournamentIds),
+    loadSegmentRatings(args.env, "season", seasonIds),
+    loadSegmentRatings(args.env, "tournament", tournamentIds),
+    loadTournamentBrackets(args.env, tournamentIds),
   ]);
 
   const summaries: ProfileSegmentSummaryRecord[] = [];
 
   visibleSeasons.forEach((season) => {
     const ranked = sortSeasonEntries(mapSeasonEntries(seasonRatings.get(season.id) ?? []));
-    const currentEntry = ranked.find((entry) => entry.userId === sessionUser.id);
+    const currentEntry = ranked.find((entry) => entry.userId === args.targetUserId);
     summaries.push({
       segmentType: "season",
       segmentId: season.id,
@@ -423,6 +424,7 @@ export async function handleGetProfileSegmentSummaries(
       losses: currentEntry?.losses ?? 0,
       rank: currentEntry?.rank ?? null,
       participantCount: parseJsonArray<string>(season.participant_ids_json).length,
+      seasonScore: currentEntry?.seasonScore,
     });
   });
 
@@ -455,7 +457,7 @@ export async function handleGetProfileSegmentSummaries(
       })),
       metrics,
     );
-    const currentEntry = ranked.find((entry) => entry.userId === sessionUser.id);
+    const currentEntry = ranked.find((entry) => entry.userId === args.targetUserId);
 
     summaries.push({
       segmentType: "tournament",
@@ -467,6 +469,22 @@ export async function handleGetProfileSegmentSummaries(
       placementLabelKey: currentEntry?.placementLabelKey,
       placementLabelCount: currentEntry?.placementLabelCount ?? null,
     });
+  });
+
+  return summaries;
+}
+
+export async function handleGetProfileSegmentSummaries(
+  request: ApiRequest<"getProfileSegmentSummaries", GetProfileSegmentSummariesPayload>,
+  sessionUser: UserRow,
+  env: Env,
+) {
+  const summaries = await loadProfileSegmentSummariesForUser({
+    env,
+    viewerUserId: sessionUser.id,
+    targetUserId: sessionUser.id,
+    seasonIds: request.payload?.seasonIds,
+    tournamentIds: request.payload?.tournamentIds,
   });
 
   return successResponse(request.requestId, { summaries });

@@ -35,4 +35,70 @@ describe("avatar utils", () => {
 
     expect(image.src.endsWith("/avatar/user_1")).toBe(true);
   });
+
+  it("does not reassign the same resolved avatar src on the same image element", () => {
+    const image = document.createElement("img");
+    const assignments: string[] = [];
+    let currentSrc = "";
+
+    Object.defineProperty(image, "src", {
+      configurable: true,
+      get() {
+        return currentSrc;
+      },
+      set(value: string) {
+        currentSrc = value;
+        assignments.push(value);
+      },
+    });
+
+    setAvatarImage(
+      image,
+      "user_1",
+      "https://avatars.example.test/user_1.png",
+      "/assets/logo.svg",
+      "User avatar",
+      "Ada",
+    );
+    setAvatarImage(
+      image,
+      "user_1",
+      "https://avatars.example.test/user_1.png",
+      "/assets/logo.svg",
+      "User avatar",
+      "Ada",
+    );
+
+    expect(assignments).toHaveLength(1);
+  });
+
+  it("reuses the fallback for later elements after an avatar url fails", () => {
+    const fallbackSrc = "/assets/logo.svg";
+    const firstImage = document.createElement("img");
+
+    setAvatarImage(
+      firstImage,
+      "user_1",
+      "https://avatars.example.test/user_1.png",
+      fallbackSrc,
+      "User avatar",
+      "Ada",
+    );
+
+    firstImage.onerror?.(new Event("error"));
+
+    const secondImage = document.createElement("img");
+
+    setAvatarImage(
+      secondImage,
+      "user_1",
+      "https://avatars.example.test/user_1.png",
+      fallbackSrc,
+      "User avatar",
+      "Ada",
+    );
+
+    expect(firstImage.src.startsWith("data:image/svg+xml,")).toBe(true);
+    expect(secondImage.src).toBe(firstImage.src);
+  });
 });

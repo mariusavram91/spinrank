@@ -296,6 +296,7 @@ export interface ProfileSegmentSummaryRecord {
   losses: number;
   rank: number | null;
   participantCount: number;
+  seasonScore?: number;
   placementLabelKey?: LeaderboardEntry["placementLabelKey"];
   placementLabelCount?: number | null;
 }

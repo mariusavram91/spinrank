@@ -1,8 +1,8 @@
 import { decodeCursor, encodeCursor, isoNow, parseJsonArray, parseJsonObject } from "../db";
 import { errorResponse, successResponse } from "../responses";
+import { loadProfileSegmentSummariesForUser } from "./getProfileSegmentSummaries";
 import { getAchievementOverview } from "../services/achievements";
-import { getBracketRounds } from "../services/brackets";
-import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
 import { mapMatchRecordRow } from "../services/matchGuards";
 import { getProfileActivityHeatmap } from "../services/profileActivity";
 import { buildVisibleSeasonsSql, buildVisibleTournamentsSql, getRecentCompletionCutoffDate } from "../services/visibility";
@@ -13,10 +13,8 @@ import type {
   LeaderboardEntry,
   MatchRecord,
   SeasonRecord,
-  SharedUserSegmentSummary,
   SharedUserSeasonRecord,
   SharedUserTournamentRecord,
-  TournamentBracketRound,
   TournamentRecord,
   UserProgressPoint,
   UserRow,
@@ -48,13 +46,6 @@ type MatchCursor = {
   createdAt: string;
   id: string;
 } | null;
-
-type TournamentPlacementMetrics = {
-  stageReached: Record<string, number>;
-  bracketWins: Record<string, number>;
-  bracketLosses: Record<string, number>;
-  championIds: Set<string>;
-};
 
 const clampLimit = (value: number | undefined): number => {
   if (!Number.isFinite(value)) {
@@ -292,169 +283,6 @@ const mapMatchRow = (row: MatchRow): MatchRecord => ({
     : null,
 });
 
-const buildTournamentPlacementMetrics = (rounds: TournamentBracketRound[]): TournamentPlacementMetrics => {
-  const metrics: TournamentPlacementMetrics = {
-    stageReached: {},
-    bracketWins: {},
-    bracketLosses: {},
-    championIds: new Set<string>(),
-  };
-
-  rounds.forEach((round, roundIndex) => {
-    const stageReached = roundIndex + 1;
-    round.matches.forEach((match) => {
-      const participants = [match.leftPlayerId, match.rightPlayerId].filter((playerId): playerId is string =>
-        Boolean(playerId),
-      );
-
-      participants.forEach((playerId) => {
-        metrics.stageReached[playerId] = Math.max(metrics.stageReached[playerId] ?? 0, stageReached);
-      });
-
-      if (!match.winnerPlayerId) {
-        return;
-      }
-
-      metrics.bracketWins[match.winnerPlayerId] = (metrics.bracketWins[match.winnerPlayerId] ?? 0) + 1;
-      if (match.isFinal) {
-        metrics.championIds.add(match.winnerPlayerId);
-      }
-
-      const loserId = participants.find((playerId) => playerId !== match.winnerPlayerId) ?? null;
-      if (loserId) {
-        metrics.bracketLosses[loserId] = (metrics.bracketLosses[loserId] ?? 0) + 1;
-      }
-    });
-  });
-
-  return metrics;
-};
-
-const getTournamentPlacementLabel = (
-  rounds: TournamentBracketRound[],
-  metrics: TournamentPlacementMetrics,
-  userId: string,
-): Pick<SharedUserSegmentSummary, "placementLabelKey" | "placementLabelCount"> => {
-  if (metrics.championIds.has(userId)) {
-    return { placementLabelKey: "leaderboardPlacementWinner", placementLabelCount: null };
-  }
-
-  const stageReached = metrics.stageReached[userId] ?? 0;
-  if (stageReached <= 0) {
-    return {};
-  }
-
-  const round = rounds[stageReached - 1];
-  if (!round) {
-    return {};
-  }
-
-  const matchCount = round.matches.length;
-  if (matchCount === 1) {
-    return { placementLabelKey: "leaderboardPlacementFinal", placementLabelCount: null };
-  }
-  if (matchCount === 2) {
-    return { placementLabelKey: "leaderboardPlacementSemifinals", placementLabelCount: null };
-  }
-  if (matchCount === 4) {
-    return { placementLabelKey: "leaderboardPlacementQuarterfinals", placementLabelCount: null };
-  }
-
-  return {
-    placementLabelKey: "leaderboardPlacementRoundOf",
-    placementLabelCount: matchCount * 2,
-  };
-};
-
-const sortSegmentLeaderboard = (
-  segmentType: "season" | "tournament",
-  entries: LeaderboardEntry[],
-  tournamentPlacementMetrics: TournamentPlacementMetrics | null,
-): LeaderboardEntry[] =>
-  entries
-    .slice()
-    .sort((left, right) => {
-      if (segmentType === "season") {
-        const leftMatches = Number(left.matchEquivalentPlayed ?? left.wins + left.losses);
-        const rightMatches = Number(right.matchEquivalentPlayed ?? right.wins + right.losses);
-        const leftQualified = leftMatches >= MINIMUM_LEADERBOARD_MATCHES;
-        const rightQualified = rightMatches >= MINIMUM_LEADERBOARD_MATCHES;
-
-        if (leftQualified !== rightQualified) {
-          return Number(rightQualified) - Number(leftQualified);
-        }
-        if (!leftQualified) {
-          if (rightMatches !== leftMatches) {
-            return rightMatches - leftMatches;
-          }
-          if (right.elo !== left.elo) {
-            return right.elo - left.elo;
-          }
-          if (right.wins !== left.wins) {
-            return right.wins - left.wins;
-          }
-          if (left.losses !== right.losses) {
-            return left.losses - right.losses;
-          }
-          return left.displayName.localeCompare(right.displayName);
-        }
-
-        const leftSeasonScore = left.seasonScore ?? left.elo;
-        const rightSeasonScore = right.seasonScore ?? right.elo;
-        if (rightSeasonScore !== leftSeasonScore) {
-          return rightSeasonScore - leftSeasonScore;
-        }
-        if ((right.seasonConservativeRating ?? 0) !== (left.seasonConservativeRating ?? 0)) {
-          return (right.seasonConservativeRating ?? 0) - (left.seasonConservativeRating ?? 0);
-        }
-        if ((right.seasonGlickoRating ?? 0) !== (left.seasonGlickoRating ?? 0)) {
-          return (right.seasonGlickoRating ?? 0) - (left.seasonGlickoRating ?? 0);
-        }
-        if (right.elo !== left.elo) {
-          return right.elo - left.elo;
-        }
-        if (right.wins !== left.wins) {
-          return right.wins - left.wins;
-        }
-        if (left.losses !== right.losses) {
-          return left.losses - right.losses;
-        }
-        return left.displayName.localeCompare(right.displayName);
-      }
-
-      const metrics = tournamentPlacementMetrics;
-      const rightChampion = metrics?.championIds.has(right.userId) ?? false;
-      const leftChampion = metrics?.championIds.has(left.userId) ?? false;
-      if (rightChampion !== leftChampion) {
-        return Number(rightChampion) - Number(leftChampion);
-      }
-
-      const leftStageReached = metrics?.stageReached[left.userId] ?? 0;
-      const rightStageReached = metrics?.stageReached[right.userId] ?? 0;
-      if (rightStageReached !== leftStageReached) {
-        return rightStageReached - leftStageReached;
-      }
-
-      const leftWins = metrics?.bracketWins[left.userId] ?? 0;
-      const rightWins = metrics?.bracketWins[right.userId] ?? 0;
-      if (rightWins !== leftWins) {
-        return rightWins - leftWins;
-      }
-
-      const leftLosses = metrics?.bracketLosses[left.userId] ?? 0;
-      const rightLosses = metrics?.bracketLosses[right.userId] ?? 0;
-      if (leftLosses !== rightLosses) {
-        return leftLosses - rightLosses;
-      }
-
-      return left.displayName.localeCompare(right.displayName);
-    })
-    .slice(0, 100)
-    .map((entry, index) => ({
-      ...entry,
-      rank: index + 1,
-    }));
-
 const loadPlayersForMatches = async (env: Env, rows: MatchRow[]): Promise<LeaderboardEntry[]> => {
   const userIds = [...new Set(rows.flatMap((row) => [
     ...parseJsonArray<string>(row.team_a_player_ids_json),
@@ -493,107 +321,6 @@ const loadPlayersForMatches = async (env: Env, rows: MatchRow[]): Promise<Leader
     streak: Number(row.streak),
     rank: index + 1,
   }));
-};
-
-const buildSharedSegmentSummary = async (
-  env: Env,
-  segmentType: "season" | "tournament",
-  segmentId: string,
-  targetUserId: string,
-  participantCount: number,
-): Promise<SharedUserSegmentSummary> => {
-  const rows = await env.DB.prepare(
-    `
-      SELECT es.user_id, es.elo, es.matches_played, es.matches_played_equivalent, es.wins, es.losses,
-             es.streak, es.best_win_streak, es.last_match_at, es.season_glicko_rating, es.season_glicko_rd,
-             es.season_conservative_rating, es.season_attended_weeks, es.season_total_weeks,
-             es.season_attendance_penalty, u.display_name, u.avatar_url
-      FROM elo_segments es
-      JOIN users u ON u.id = es.user_id
-      WHERE es.segment_type = ?1 AND es.segment_id = ?2
-    `,
-  )
-    .bind(segmentType, segmentId)
-    .all<{
-      user_id: string;
-      elo: number;
-      matches_played: number;
-      matches_played_equivalent: number;
-      wins: number;
-      losses: number;
-      streak: number;
-      best_win_streak: number;
-      last_match_at: string | null;
-      season_glicko_rating: number | null;
-      season_glicko_rd: number | null;
-      season_conservative_rating: number | null;
-      season_attended_weeks: number;
-      season_total_weeks: number;
-      season_attendance_penalty: number;
-      display_name: string;
-      avatar_url: string | null;
-    }>();
-
-  const tournamentRounds =
-    segmentType === "tournament" ? await getBracketRounds(env, segmentId) : ([] as TournamentBracketRound[]);
-  const tournamentPlacementMetrics =
-    segmentType === "tournament" ? buildTournamentPlacementMetrics(tournamentRounds) : null;
-  const leaderboard = sortSegmentLeaderboard(
-    segmentType,
-    rows.results.map((row) => {
-      const matchEquivalentPlayed = Number(row.matches_played_equivalent ?? row.matches_played ?? 0);
-      const seasonGlickoRating = row.season_glicko_rating === null ? undefined : Number(row.season_glicko_rating);
-      const seasonGlickoRd = row.season_glicko_rd === null ? undefined : Number(row.season_glicko_rd);
-      const seasonAttendedWeeks = Number(row.season_attended_weeks ?? 0);
-      const seasonTotalWeeks = Number(row.season_total_weeks ?? 0);
-      const seasonAttendancePenalty = Number(row.season_attendance_penalty ?? 0);
-      return {
-        userId: row.user_id,
-        displayName: row.display_name,
-        avatarUrl: row.avatar_url,
-        elo: Number(row.elo),
-        wins: Number(row.wins),
-        losses: Number(row.losses),
-        streak: Number(row.streak),
-        bestWinStreak: Number(row.best_win_streak ?? 0),
-        rank: 0,
-        matchEquivalentPlayed,
-        lastMatchAt: row.last_match_at || null,
-        seasonGlickoRating,
-        seasonGlickoRd,
-        seasonConservativeRating:
-          row.season_conservative_rating === null ? undefined : Number(row.season_conservative_rating),
-        seasonAttendancePenalty: segmentType === "season" ? Number(row.season_attendance_penalty ?? 0) : undefined,
-        seasonAttendedWeeks: segmentType === "season" ? seasonAttendedWeeks : undefined,
-        seasonTotalWeeks: segmentType === "season" ? seasonTotalWeeks : undefined,
-        seasonScore:
-          segmentType === "season"
-            ? calculateSeasonScore({
-                rating: seasonGlickoRating ?? Number(row.elo),
-                rd: seasonGlickoRd ?? 0,
-                attendancePenalty: seasonAttendancePenalty,
-              })
-            : undefined,
-        ...(segmentType === "tournament" && tournamentPlacementMetrics
-          ? getTournamentPlacementLabel(tournamentRounds, tournamentPlacementMetrics, row.user_id)
-          : {}),
-      } satisfies LeaderboardEntry;
-    }),
-    tournamentPlacementMetrics,
-  );
-
-  const entry = leaderboard.find((item) => item.userId === targetUserId);
-  return {
-    segmentType,
-    segmentId,
-    wins: entry?.wins ?? 0,
-    losses: entry?.losses ?? 0,
-    rank: entry?.rank ?? null,
-    participantCount,
-    seasonScore: entry?.seasonScore,
-    placementLabelKey: entry?.placementLabelKey,
-    placementLabelCount: entry?.placementLabelCount ?? null,
-  };
 };
 
 export async function handleGetSharedUserProfile(
@@ -804,30 +531,38 @@ export async function handleGetSharedUserProfile(
     bracketStatus: row.bracket_status,
   }));
 
-  const seasonSummaries = await Promise.all(
-    seasons.map(async (season): Promise<SharedUserSeasonRecord> => ({
-      season,
-      summary: await buildSharedSegmentSummary(
-        env,
-        "season",
-        season.id,
-        targetUserId,
-        season.participantIds.length,
-      ),
-    })),
+  const sharedSegmentSummaries = await loadProfileSegmentSummariesForUser({
+    env,
+    viewerUserId: sessionUser.id,
+    targetUserId,
+    seasonIds: seasons.map((season) => season.id),
+    tournamentIds: tournaments.map((tournament) => tournament.id),
+  });
+  const sharedSegmentSummaryByKey = new Map(
+    sharedSegmentSummaries.map((summary) => [`${summary.segmentType}:${summary.segmentId}`, summary] as const),
   );
-  const tournamentSummaries = await Promise.all(
-    tournaments.map(async (tournament): Promise<SharedUserTournamentRecord> => ({
-      tournament,
-      summary: await buildSharedSegmentSummary(
-        env,
-        "tournament",
-        tournament.id,
-        targetUserId,
-        tournament.participantCount,
-      ),
-    })),
-  );
+  const seasonSummaries = seasons.map<SharedUserSeasonRecord>((season) => ({
+    season,
+    summary: sharedSegmentSummaryByKey.get(`season:${season.id}`) ?? {
+      segmentType: "season",
+      segmentId: season.id,
+      wins: 0,
+      losses: 0,
+      rank: null,
+      participantCount: season.participantIds.length,
+    },
+  }));
+  const tournamentSummaries = tournaments.map<SharedUserTournamentRecord>((tournament) => ({
+    tournament,
+    summary: sharedSegmentSummaryByKey.get(`tournament:${tournament.id}`) ?? {
+      segmentType: "tournament",
+      segmentId: tournament.id,
+      wins: 0,
+      losses: 0,
+      rank: null,
+      participantCount: tournament.participantCount,
+    },
+  }));
 
   const page = matchRows.results.slice(0, limit);
   const last = page.at(-1);

@@ -2,6 +2,7 @@ import type { ParticipantSearchEntry } from "../../../api/contract";
 import type { DashboardState, TournamentPlannerMatch, TournamentPlannerState } from "../../shared/types/app";
 import type { RunAuthedAction } from "../../shared/types/actions";
 import type { TextKey } from "../../shared/i18n/translations";
+import { setAvatarImage } from "../../shared/utils/avatar";
 import { translateBracketRoundTitle } from "./helpers";
 
 export const createParticipantEditors = (args: {
@@ -41,14 +42,16 @@ export const createParticipantEditors = (args: {
 
   const setParticipantAvatarImage = (
     image: HTMLImageElement,
-    participant: Pick<ParticipantSearchEntry, "avatarUrl" | "displayName"> | null | undefined,
+    participant: Pick<ParticipantSearchEntry, "userId" | "avatarUrl" | "displayName"> | null | undefined,
   ): void => {
-    image.alt = participant?.displayName || "Participant";
-    image.onerror = () => {
-      image.onerror = null;
-      image.src = `${args.assetsBaseUrl}assets/logo.svg`;
-    };
-    image.src = participant?.avatarUrl || `${args.assetsBaseUrl}assets/logo.svg`;
+    setAvatarImage(
+      image,
+      participant?.userId,
+      participant?.avatarUrl,
+      `${args.assetsBaseUrl}assets/logo.svg`,
+      participant?.displayName || "Participant",
+      participant?.displayName,
+    );
   };
 
   const syncKnownParticipants = (): void => {

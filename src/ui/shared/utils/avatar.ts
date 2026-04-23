@@ -22,6 +22,7 @@ const AVATAR_FALLBACK_COLORS = [
 ] as const;
 
 const avatarFallbackCache = new Map<string, string>();
+const failedAvatarCache = new Map<string, string>();
 
 const getBackendOrigin = (): string => {
   if (!env.backendUrl) {
@@ -100,10 +101,24 @@ export const setAvatarImage = (
   displayName?: string | null,
 ): void => {
   const resolvedFallbackSrc = getAvatarFallbackSrc(displayName, fallbackSrc);
+  const failedAvatarCacheKey = userId || avatarUrl || "";
+  const failedAvatarUrl = failedAvatarCache.get(failedAvatarCacheKey);
+  const resolvedSrc =
+    avatarUrl && failedAvatarUrl === avatarUrl
+      ? resolvedFallbackSrc
+      : getAvatarSrc(userId, avatarUrl) || resolvedFallbackSrc;
   image.alt = alt;
+  if (image.dataset.avatarResolvedSrc === resolvedSrc) {
+    return;
+  }
+  image.dataset.avatarResolvedSrc = resolvedSrc;
   image.onerror = () => {
     image.onerror = null;
+    if (avatarUrl && failedAvatarCacheKey) {
+      failedAvatarCache.set(failedAvatarCacheKey, avatarUrl);
+    }
+    image.dataset.avatarResolvedSrc = resolvedFallbackSrc;
     image.src = resolvedFallbackSrc;
   };
-  image.src = getAvatarSrc(userId, avatarUrl) || resolvedFallbackSrc;
+  image.src = resolvedSrc;
 };
