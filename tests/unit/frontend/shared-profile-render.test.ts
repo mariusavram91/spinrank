@@ -34,6 +34,15 @@ const createProfile = (achievements: AchievementSummaryItem[]): GetSharedUserPro
     activeDays: 1,
     days: [{ date: "2026-04-05", matches: 2, wins: 1, losses: 1 }],
   },
+  sharedUserProgressPoints: [
+    {
+      playedAt: "2026-04-05T09:00:00.000Z",
+      elo: 1220,
+      delta: 20,
+      label: "2026-04-05T09:00:00.000Z",
+      rank: null,
+    },
+  ],
   seasons: [],
   tournaments: [],
   matches: [],
@@ -45,6 +54,7 @@ const createProfile = (achievements: AchievementSummaryItem[]): GetSharedUserPro
 describe("shared profile render", () => {
   it("renders the shared profile best streak alongside elo", () => {
     const elo = document.createElement("span");
+    const progressComparison = document.createElement("div");
 
     renderSharedUserProfileScreen({
       sharedUserProfile: createProfile([]),
@@ -58,6 +68,19 @@ describe("shared profile render", () => {
       achievementsSummary: document.createElement("div"),
       achievementsPreview: document.createElement("div"),
       activityHeatmap: document.createElement("div"),
+      progressComparison,
+      currentUserDisplayName: "Owner",
+      currentUserElo: 1250,
+      currentUserProgressPoints: [
+        {
+          playedAt: "2026-04-04T09:00:00.000Z",
+          elo: 1240,
+          delta: 40,
+          label: "2026-04-04T09:00:00.000Z",
+          rank: null,
+        },
+      ],
+      currentUserHasMatches: true,
       selectedAchievementKey: "",
       seasonsList: document.createElement("div"),
       tournamentsList: document.createElement("div"),
@@ -77,6 +100,60 @@ describe("shared profile render", () => {
 
     const chips = [...elo.querySelectorAll(".profile-stat-chip")].map((chip) => chip.textContent);
     expect(chips).toEqual(["Elo 1234", "progressBestStreak 6"]);
+    expect(progressComparison.querySelectorAll(".progress-line--self")).toHaveLength(1);
+    expect(progressComparison.querySelectorAll(".progress-line--shared")).toHaveLength(1);
+  });
+
+  it("renders a dotted comparison line for players without matches", () => {
+    const progressComparison = document.createElement("div");
+
+    renderSharedUserProfileScreen({
+      sharedUserProfile: {
+        ...createProfile([]),
+        sharedUserProgressPoints: [],
+      },
+      currentUserId: "user_1",
+      meta: document.createElement("p"),
+      avatar: document.createElement("img"),
+      name: document.createElement("h4"),
+      rank: document.createElement("span"),
+      elo: document.createElement("span"),
+      achievementsSubtitle: document.createElement("p"),
+      achievementsSummary: document.createElement("div"),
+      achievementsPreview: document.createElement("div"),
+      activityHeatmap: document.createElement("div"),
+      progressComparison,
+      currentUserDisplayName: "Owner",
+      currentUserElo: 1250,
+      currentUserProgressPoints: [
+        {
+          playedAt: "2026-04-04T09:00:00.000Z",
+          elo: 1240,
+          delta: 40,
+          label: "2026-04-04T09:00:00.000Z",
+          rank: null,
+        },
+      ],
+      currentUserHasMatches: true,
+      selectedAchievementKey: "",
+      seasonsList: document.createElement("div"),
+      tournamentsList: document.createElement("div"),
+      matchesList: document.createElement("div"),
+      loadMoreButton: document.createElement("button"),
+      matchesLoading: false,
+      avatarBaseUrl: "/",
+      t: (key) => key,
+      renderMatchScore: () => "",
+      renderPlayerNames: () => "",
+      renderMatchContext: () => "",
+      formatDateTime: (value) => value,
+      onOpenSeason: () => undefined,
+      onOpenTournament: () => undefined,
+      locale: "en",
+    });
+
+    expect(progressComparison.querySelector(".progress-line--shared.progress-line--dotted")).not.toBeNull();
+    expect(progressComparison.querySelector(".progress-line--self.progress-line--dotted")).toBeNull();
   });
 
   it("renders unlocked shared-profile achievements as icon buttons with no expanded list", () => {
@@ -103,6 +180,11 @@ describe("shared profile render", () => {
       achievementsSummary,
       achievementsPreview,
       activityHeatmap: document.createElement("div"),
+      progressComparison: document.createElement("div"),
+      currentUserDisplayName: "Owner",
+      currentUserElo: 1250,
+      currentUserProgressPoints: [],
+      currentUserHasMatches: false,
       selectedAchievementKey: "",
       seasonsList,
       tournamentsList,
@@ -151,6 +233,11 @@ describe("shared profile render", () => {
       achievementsSummary,
       achievementsPreview,
       activityHeatmap: document.createElement("div"),
+      progressComparison: document.createElement("div"),
+      currentUserDisplayName: "Owner",
+      currentUserElo: 1250,
+      currentUserProgressPoints: [],
+      currentUserHasMatches: false,
       selectedAchievementKey: "first_match",
       seasonsList,
       tournamentsList,
@@ -250,6 +337,11 @@ describe("shared profile render", () => {
       achievementsSummary,
       achievementsPreview,
       activityHeatmap: document.createElement("div"),
+      progressComparison: document.createElement("div"),
+      currentUserDisplayName: "Owner",
+      currentUserElo: 1250,
+      currentUserProgressPoints: [],
+      currentUserHasMatches: false,
       selectedAchievementKey: "",
       seasonsList,
       tournamentsList,

@@ -219,6 +219,8 @@
   "profileTitle": "Profile",
   "profileMeta": "Update your display name and review your activity here.",
   "profileSettingsTitle": "Profile settings",
+  "profileSettingsShowButton": "Show settings",
+  "profileSettingsHideButton": "Hide settings",
   "profileActivityTitle": "Activity",
   "profileDisplayNameLabel": "Display name",
   "profileDisplayNamePlaceholder": "Enter your display name",

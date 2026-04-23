@@ -330,6 +330,7 @@ export interface GetSharedUserProfileData {
   user: SharedUserOverview;
   achievements: AchievementSummaryItem[];
   activityHeatmap: ActivityHeatmapData;
+  sharedUserProgressPoints: UserProgressPoint[];
   seasons: SharedUserSeasonRecord[];
   tournaments: SharedUserTournamentRecord[];
   matches: MatchRecord[];

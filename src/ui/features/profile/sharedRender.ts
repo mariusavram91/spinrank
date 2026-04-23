@@ -13,6 +13,7 @@ import type { TextKey } from "../../shared/i18n/translations";
 import { setAvatarImage } from "../../shared/utils/avatar";
 import { isLockedSeason, isLockedTournament } from "../app/helpers";
 import { renderActivityHeatmap } from "./activityHeatmap";
+import { renderSharedProgressComparison } from "./progressComparison";
 import { ACHIEVEMENT_ICONS, buildAchievementChip } from "./render";
 
 type TranslationFn = (key: TextKey) => string;
@@ -176,6 +177,11 @@ export const renderSharedUserProfileScreen = (args: {
   achievementsSummary: HTMLElement;
   achievementsPreview: HTMLElement;
   activityHeatmap: HTMLElement;
+  progressComparison: HTMLElement;
+  currentUserDisplayName: string;
+  currentUserElo: number;
+  currentUserProgressPoints: GetSharedUserProfileData["sharedUserProgressPoints"];
+  currentUserHasMatches: boolean;
   selectedAchievementKey: string;
   seasonsList: HTMLElement;
   tournamentsList: HTMLElement;
@@ -209,6 +215,7 @@ export const renderSharedUserProfileScreen = (args: {
     args.achievementsPreview.hidden = true;
     args.achievementsPreview.replaceChildren();
     args.activityHeatmap.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
+    args.progressComparison.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
     args.seasonsList.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
     args.tournamentsList.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
     args.matchesList.replaceChildren(createEmptyState(args.t("profileStatsLoading")));
@@ -241,6 +248,20 @@ export const renderSharedUserProfileScreen = (args: {
     target: args.activityHeatmap,
     data: profile.activityHeatmap,
     locale: args.locale,
+    t: args.t,
+  });
+  renderSharedProgressComparison({
+    target: args.progressComparison,
+    currentUserName: args.currentUserDisplayName,
+    currentUserElo: args.currentUserElo,
+    currentUserPoints: args.currentUserProgressPoints,
+    currentUserHasMatches: args.currentUserHasMatches,
+    sharedUserName: profile.user.displayName,
+    sharedUserElo: profile.user.currentElo,
+    sharedUserPoints: profile.sharedUserProgressPoints,
+    sharedUserHasMatches:
+      profile.sharedUserProgressPoints.length > 0 &&
+      !(profile.sharedUserProgressPoints.length === 1 && profile.sharedUserProgressPoints[0]?.label === "current"),
     t: args.t,
   });
 

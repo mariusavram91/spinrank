@@ -177,10 +177,39 @@ export const createComposerActions = (args: {
     args.syncDashboardState();
   };
 
+  const prefillMatchWithUsers = (currentUserId: string, opponentUserId: string): void => {
+    if (!currentUserId || !opponentUserId || currentUserId === opponentUserId) {
+      return;
+    }
+
+    args.matchTypeSelect.value = "singles";
+    args.formatTypeSelect.value = "single_game";
+    args.pointsToWinSelect.value = "11";
+    args.teamA1Select.dataset.pendingValue = currentUserId;
+    args.teamA2Select.dataset.pendingValue = "";
+    args.teamB1Select.dataset.pendingValue = opponentUserId;
+    args.teamB2Select.dataset.pendingValue = "";
+    args.teamA1Select.value = currentUserId;
+    args.teamA2Select.value = "";
+    args.teamB1Select.value = opponentUserId;
+    args.teamB2Select.value = "";
+    args.formSeasonSelect.value = "";
+    args.formTournamentSelect.value = "";
+    args.winnerTeamSelect.value = "A";
+    args.resetScoreInputs();
+    args.setActiveTournamentBracketMatchId(null);
+    args.dashboardState.screen = "createMatch";
+    args.populateMatchFormOptions();
+    args.syncMatchBracketOptions();
+    args.syncAuthState();
+    args.syncDashboardState();
+  };
+
   return {
     applyFairMatchSuggestion,
     suggestTournamentBracket,
     advanceTournamentBye,
     prefillMatchFromTournamentPairing,
+    prefillMatchWithUsers,
   };
 };

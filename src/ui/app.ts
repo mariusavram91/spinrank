@@ -202,6 +202,8 @@ export const buildApp = (): HTMLElement => {
     sharedUserProfileScreen,
     closeProfileButton,
     profileStatus,
+    profileEditorContent,
+    profileEditorToggleButton,
     profileDisplayNameInput,
     profileLocaleSelect,
     profileSaveButton,
@@ -227,10 +229,12 @@ export const buildApp = (): HTMLElement => {
     sharedUserProfileName,
     sharedUserProfileRank,
     sharedUserProfileElo,
+    sharedUserProfileCreateMatchButton,
     sharedUserProfileAchievementsSubtitle,
     sharedUserProfileAchievementsSummary,
     sharedUserProfileAchievementsPreview,
     sharedUserProfileActivityHeatmap,
+    sharedUserProfileProgressComparison,
     sharedUserProfileSeasonsList,
     sharedUserProfileTournamentsList,
     sharedUserProfileMatchesList,
@@ -420,6 +424,7 @@ export const buildApp = (): HTMLElement => {
   const state: { current: ViewState } = createViewState();
   let profileDisplayNameDirty = false;
   let profileLocaleDirty = false;
+  let profileSettingsExpanded = false;
   if (isAuthedState(state.current) && getCurrentLanguage() !== state.current.session.user.locale) {
     setLanguage(state.current.session.user.locale);
   }
@@ -1367,6 +1372,11 @@ export const buildApp = (): HTMLElement => {
         achievementsSummary: sharedUserProfileAchievementsSummary,
         achievementsPreview: sharedUserProfileAchievementsPreview,
         activityHeatmap: sharedUserProfileActivityHeatmap,
+        progressComparison: sharedUserProfileProgressComparison,
+        currentUserDisplayName: state.current.session.user.displayName,
+        currentUserElo: dashboardState.userProgress?.currentElo ?? 1200,
+        currentUserProgressPoints: dashboardState.userProgress?.points ?? [],
+        currentUserHasMatches: (dashboardState.userProgress?.wins ?? 0) + (dashboardState.userProgress?.losses ?? 0) > 0,
         selectedAchievementKey: dashboardState.sharedUserProfileSelectedAchievementKey,
         seasonsList: sharedUserProfileSeasonsList,
         tournamentsList: sharedUserProfileTournamentsList,
@@ -1395,6 +1405,7 @@ export const buildApp = (): HTMLElement => {
       profileDisplayNameInput.disabled = dashboardState.profileSubmitting;
       profileLocaleSelect.disabled = dashboardState.profileSubmitting;
       profileSaveButton.disabled = dashboardState.profileSubmitting || !hasPendingProfileChanges();
+      setProfileSettingsExpanded(profileSettingsExpanded);
 
       const renderSegmentInsights = (
         target: HTMLElement,
@@ -1661,6 +1672,7 @@ export const buildApp = (): HTMLElement => {
     suggestTournamentBracket,
     advanceTournamentBye,
     prefillMatchFromTournamentPairing,
+    prefillMatchWithUsers,
   } = createComposerActions({
     dashboardState,
     tournamentPlannerState,
@@ -1959,6 +1971,32 @@ export const buildApp = (): HTMLElement => {
     void loadSharedUserProfile(dashboardState.sharedUserProfile.user.userId, { appendMatches: true });
   });
 
+  sharedUserProfileCreateMatchButton.addEventListener("click", () => {
+    const profile = dashboardState.sharedUserProfile;
+    const currentUserId = getCurrentUserId(state.current);
+    if (!profile || !currentUserId) {
+      return;
+    }
+
+    if (!dashboardState.players.some((player) => player.userId === profile.user.userId)) {
+      dashboardState.players = [
+        ...dashboardState.players,
+        {
+          userId: profile.user.userId,
+          displayName: profile.user.displayName,
+          avatarUrl: profile.user.avatarUrl,
+          elo: profile.user.currentElo,
+          wins: 0,
+          losses: 0,
+          streak: 0,
+          rank: profile.user.currentRank ?? dashboardState.players.length + 1,
+        },
+      ];
+    }
+
+    prefillMatchWithUsers(currentUserId, profile.user.userId);
+  });
+
   sharedUserProfileAchievementsSummary.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) {
@@ -2045,6 +2083,13 @@ export const buildApp = (): HTMLElement => {
     return displayName !== state.current.session.user.displayName || locale !== state.current.session.user.locale;
   };
 
+  const setProfileSettingsExpanded = (expanded: boolean): void => {
+    profileSettingsExpanded = expanded;
+    profileEditorContent.hidden = !expanded;
+    profileEditorToggleButton.setAttribute("aria-expanded", String(expanded));
+    profileEditorToggleButton.textContent = expanded ? t("profileSettingsHideButton") : t("profileSettingsShowButton");
+  };
+
   const submitProfile = async (): Promise<void> => {
     if (!isAuthedState(state.current) || dashboardState.profileSubmitting) {
       return;
@@ -2085,6 +2130,9 @@ export const buildApp = (): HTMLElement => {
 
   profileSaveButton.addEventListener("click", () => {
     void submitProfile();
+  });
+  profileEditorToggleButton.addEventListener("click", () => {
+    setProfileSettingsExpanded(!profileSettingsExpanded);
   });
   profileDisplayNameInput.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") {

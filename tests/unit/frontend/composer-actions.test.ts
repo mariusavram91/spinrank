@@ -216,4 +216,28 @@ describe("composer actions", () => {
     expect(args.syncDashboardState).toHaveBeenCalled();
     expect(args.dashboardState.matchTournamentBracketCache.tournament_1).toBeUndefined();
   });
+
+  it("prefills a default singles match between the current and shared user", () => {
+    const { args, actions } = createHarness();
+
+    actions.prefillMatchWithUsers("user_a", "user_b");
+
+    expect(args.matchTypeSelect.value).toBe("singles");
+    expect(args.formatTypeSelect.value).toBe("single_game");
+    expect(args.pointsToWinSelect.value).toBe("11");
+    expect(args.teamA1Select.value).toBe("user_a");
+    expect(args.teamA2Select.value).toBe("");
+    expect(args.teamB1Select.value).toBe("user_b");
+    expect(args.teamB2Select.value).toBe("");
+    expect(args.formSeasonSelect.value).toBe("");
+    expect(args.formTournamentSelect.value).toBe("");
+    expect(args.winnerTeamSelect.value).toBe("A");
+    expect(args.dashboardState.screen).toBe("createMatch");
+    expect(args.resetScoreInputs).toHaveBeenCalled();
+    expect(args.setActiveTournamentBracketMatchId).toHaveBeenCalledWith(null);
+    expect(args.populateMatchFormOptions).toHaveBeenCalled();
+    expect(args.syncMatchBracketOptions).toHaveBeenCalled();
+    expect(args.syncAuthState).toHaveBeenCalled();
+    expect(args.syncDashboardState).toHaveBeenCalled();
+  });
 });

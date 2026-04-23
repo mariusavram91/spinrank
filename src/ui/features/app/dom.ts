@@ -178,9 +178,22 @@ export const createAppDom = (args: {
 
   const profileEditorSection = document.createElement("section");
   profileEditorSection.className = "profile-section profile-editor";
+  const profileEditorHeader = document.createElement("div");
+  profileEditorHeader.className = "profile-editor__header";
   const profileEditorTitle = document.createElement("h4");
   profileEditorTitle.className = "card-title profile-section__title profile-section__title--primary";
   bindLocalizedText(profileEditorTitle, "profileSettingsTitle");
+  const profileEditorToggleButton = document.createElement("button");
+  profileEditorToggleButton.type = "button";
+  profileEditorToggleButton.className = "secondary-button profile-editor__toggle";
+  profileEditorToggleButton.dataset.testid = "profile-settings-toggle";
+  profileEditorToggleButton.setAttribute("aria-expanded", "false");
+  profileEditorToggleButton.setAttribute("aria-controls", "profile-settings-content");
+  profileEditorToggleButton.textContent = t("profileSettingsShowButton");
+  const profileEditorContent = document.createElement("div");
+  profileEditorContent.id = "profile-settings-content";
+  profileEditorContent.className = "profile-editor__content";
+  profileEditorContent.hidden = true;
   const profileEditorField = document.createElement("label");
   profileEditorField.className = "form-field";
   const profileEditorLabel = document.createElement("span");
@@ -214,7 +227,9 @@ export const createAppDom = (args: {
   profileSaveButton.className = "primary-button";
   profileSaveButton.dataset.testid = "profile-save";
   bindLocalizedText(profileSaveButton, "profileSaveButton");
-  profileEditorSection.append(profileEditorTitle, profileEditorField, profileLocaleField, profileSaveButton, profileStatus);
+  profileEditorHeader.append(profileEditorTitle, profileEditorToggleButton);
+  profileEditorContent.append(profileEditorField, profileLocaleField, profileSaveButton, profileStatus);
+  profileEditorSection.append(profileEditorHeader, profileEditorContent);
 
   const profileBody = document.createElement("div");
   profileBody.className = "profile-screen__body";
@@ -387,7 +402,12 @@ export const createAppDom = (args: {
   sharedUserProfileStats.append(sharedUserProfileRank, sharedUserProfileElo);
   sharedUserProfileIdentity.append(sharedUserProfileName, sharedUserProfileStats);
   sharedUserProfileHeader.append(sharedUserProfileAvatar, sharedUserProfileIdentity);
-  sharedUserProfileSummary.append(sharedUserProfileHeader);
+  const sharedUserProfileCreateMatchButton = document.createElement("button");
+  sharedUserProfileCreateMatchButton.type = "button";
+  sharedUserProfileCreateMatchButton.className = "secondary-button";
+  bindLocalizedText(sharedUserProfileCreateMatchButton, "createMatch");
+  sharedUserProfileCreateMatchButton.dataset.testid = "shared-profile-create-match";
+  sharedUserProfileSummary.append(sharedUserProfileHeader, sharedUserProfileCreateMatchButton);
 
   const sharedUserProfileActivity = document.createElement("section");
   sharedUserProfileActivity.className = "profile-section profile-activity";
@@ -419,7 +439,9 @@ export const createAppDom = (args: {
   sharedUserProfileActivityHeatmapSection.className = "profile-section";
   const sharedUserProfileActivityHeatmap = document.createElement("div");
   sharedUserProfileActivityHeatmap.className = "activity-heatmap-shell";
-  sharedUserProfileActivityHeatmapSection.append(sharedUserProfileActivityHeatmap);
+  const sharedUserProfileProgressComparison = document.createElement("div");
+  sharedUserProfileProgressComparison.className = "shared-profile-progress-comparison";
+  sharedUserProfileActivityHeatmapSection.append(sharedUserProfileActivityHeatmap, sharedUserProfileProgressComparison);
 
   const sharedUserProfileSeasonsSection = document.createElement("section");
   sharedUserProfileSeasonsSection.className = "profile-section";
@@ -1012,6 +1034,8 @@ export const createAppDom = (args: {
     profilePanel,
     closeProfileButton,
     profileStatus,
+    profileEditorContent,
+    profileEditorToggleButton,
     profileDisplayNameInput,
     profileLocaleSelect,
     profileSaveButton,
@@ -1037,10 +1061,12 @@ export const createAppDom = (args: {
     sharedUserProfileName,
     sharedUserProfileRank,
     sharedUserProfileElo,
+    sharedUserProfileCreateMatchButton,
     sharedUserProfileAchievementsSubtitle,
     sharedUserProfileAchievementsSummary,
     sharedUserProfileAchievementsPreview,
     sharedUserProfileActivityHeatmap,
+    sharedUserProfileProgressComparison,
     sharedUserProfileSeasonsList,
     sharedUserProfileTournamentsList,
     sharedUserProfileMatchesList,

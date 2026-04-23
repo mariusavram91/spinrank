@@ -214,6 +214,8 @@ describe("worker integration: getSharedUserProfile", () => {
           losses: 2,
         },
       ]);
+      expect(firstPage.data?.sharedUserProgressPoints.length).toBeGreaterThan(0);
+      expect(firstPage.data?.sharedUserProgressPoints.at(-1)?.elo).toBe(firstPage.data?.user.currentElo);
       expect(firstPage.data?.seasons.map((entry) => entry.season.name)).toEqual(["Shared Season"]);
       expect(firstPage.data?.tournaments.map((entry) => entry.tournament.name)).toEqual(["Shared Cup"]);
       expect(firstPage.data?.matches).toHaveLength(1);

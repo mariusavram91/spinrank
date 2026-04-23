@@ -219,6 +219,8 @@
   "profileTitle": "Perfil",
   "profileMeta": "Actualiza tu nombre visible y revisa tu actividad aquí.",
   "profileSettingsTitle": "Configuración del perfil",
+  "profileSettingsShowButton": "Mostrar ajustes",
+  "profileSettingsHideButton": "Ocultar ajustes",
   "profileActivityTitle": "Actividad",
   "profileDisplayNameLabel": "Nombre visible",
   "profileDisplayNamePlaceholder": "Introduce tu nombre visible",

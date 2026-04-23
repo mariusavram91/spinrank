@@ -219,6 +219,8 @@
   "profileTitle": "Profil",
   "profileMeta": "Aktualisiere hier deinen Anzeigenamen und prüfe deine Aktivität.",
   "profileSettingsTitle": "Profileinstellungen",
+  "profileSettingsShowButton": "Einstellungen anzeigen",
+  "profileSettingsHideButton": "Einstellungen ausblenden",
   "profileActivityTitle": "Aktivität",
   "profileDisplayNameLabel": "Anzeigename",
   "profileDisplayNamePlaceholder": "Gib deinen Anzeigenamen ein",

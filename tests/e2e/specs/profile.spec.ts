@@ -1,8 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { gotoDashboard } from "../helpers/dashboard";
 import { openProfile } from "../helpers/profile";
 import { createTestToken, signInAsPersona } from "../helpers/personas";
 import { seedProfileState } from "../helpers/seeds";
+
+const expandProfileSettings = async (page: Page): Promise<void> => {
+  const toggle = page.getByTestId("profile-settings-toggle");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+};
 
 test.describe("profile flow", () => {
   test("loads profile activity and lets the user reopen a season from profile", async ({ page, request }) => {
@@ -86,6 +93,7 @@ test.describe("profile flow", () => {
 
     await gotoDashboard(page);
     await openProfile(page);
+    await expandProfileSettings(page);
 
     await expect(page.getByTestId("profile-display-name")).toHaveValue("Profile Rename Owner");
     await expect(page.getByTestId("profile-save")).toBeDisabled();
@@ -107,6 +115,7 @@ test.describe("profile flow", () => {
 
     await gotoDashboard(page);
     await openProfile(page);
+    await expandProfileSettings(page);
 
     const nameInput = page.getByTestId("profile-display-name");
     const localeSelect = page.getByTestId("profile-locale");

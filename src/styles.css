@@ -1204,6 +1204,22 @@ select.text-input {
   gap: 0.75rem;
 }
 
+.profile-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.profile-editor__toggle {
+  flex: 0 0 auto;
+}
+
+.profile-editor__content {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .profile-editor .primary-button {
   justify-self: center;
   margin-top: 1.5rem;
@@ -2267,6 +2283,14 @@ select.text-input {
   font-size: 0.85rem;
 }
 
+.progress-axis-label--self {
+  fill: var(--brand-rank);
+}
+
+.progress-axis-label--shared {
+  fill: #2e5fa8;
+}
+
 .progress-line {
   fill: none;
   stroke: var(--brand-rank);
@@ -2274,6 +2298,51 @@ select.text-input {
   stroke-linecap: round;
   stroke-linejoin: round;
   shape-rendering: geometricPrecision;
+}
+
+.progress-line--self {
+  stroke: var(--brand-rank);
+}
+
+.progress-line--shared {
+  stroke: #2e5fa8;
+}
+
+.progress-line--dotted {
+  stroke-dasharray: 4 8;
+}
+
+.shared-profile-progress-comparison {
+  margin-top: 10px;
+}
+
+.shared-progress-compare__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.shared-progress-compare__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shared-progress-compare__legend-swatch {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.shared-progress-compare__legend-swatch--self {
+  background: var(--brand-rank);
+}
+
+.shared-progress-compare__legend-swatch--shared {
+  background: #2e5fa8;
 }
 
 .progress-point {
