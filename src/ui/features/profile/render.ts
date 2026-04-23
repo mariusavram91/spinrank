@@ -20,6 +20,14 @@ const createEmptyState = (message: string): HTMLParagraphElement => {
   return empty;
 };
 
+const formatSignedDelta = (value: number): string => (value >= 0 ? `+${value}` : String(value));
+const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
+const formatOneDecimal = (value: number): string => {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+};
+const getMatchWeight = (matchType: MatchRecord["matchType"]): number => (matchType === "singles" ? 1 : 0.7);
+
 export const ACHIEVEMENT_ICONS: Record<AchievementSummaryItem["icon"], string> = {
   user_plus: "👤",
   ping_pong: "🏓",
@@ -609,8 +617,143 @@ export const renderProfileScreen = (args: {
     date.className = "profile-match-card__date";
     date.textContent = args.formatDateTime(match.playedAt);
 
+    const impact = document.createElement("details");
+    impact.className = "profile-match-impact";
+
+    const impactSummary = document.createElement("summary");
+    impactSummary.className = "profile-match-impact__summary";
+    impactSummary.textContent = args.t("profileMatchImpactToggle");
+
+    const impactBody = document.createElement("div");
+    impactBody.className = "profile-match-impact__body";
+
+    const weightLine = document.createElement("p");
+    weightLine.className = "profile-match-impact__line";
+    const matchWeight = getMatchWeight(match.matchType);
+    const matchTypeLabel = args.t(match.matchType === "singles" ? "matchTypeSingles" : "matchTypeDoubles");
+    weightLine.textContent = `${args.t("profileMatchImpactWeight")} ${formatOneDecimal(matchWeight)} (${matchTypeLabel})`;
+
+    const globalGroup = document.createElement("section");
+    globalGroup.className = "profile-match-impact__group profile-match-impact__group--global";
+    const globalTitle = document.createElement("h5");
+    globalTitle.className = "profile-match-impact__group-title";
+    globalTitle.textContent = args.t("profileMatchImpactGlobal");
+
+    const globalRow = document.createElement("p");
+    globalRow.className = "profile-match-impact__line profile-match-impact__line--primary";
+    const globalBefore = match.ratingImpact?.globalBefore;
+    const globalAfter = match.ratingImpact?.globalAfter;
+    const globalDelta = match.ratingImpact?.globalDelta;
+    if (typeof globalBefore === "number" && typeof globalAfter === "number" && typeof globalDelta === "number") {
+      globalRow.textContent =
+        `${args.t("profileMatchImpactGlobalPointsSimple")} ${globalBefore} -> ${globalAfter} (${formatSignedDelta(globalDelta)})`;
+    } else {
+      globalRow.textContent = `${args.t("profileMatchImpactChange")}: ${
+        typeof globalDelta === "number" ? formatSignedDelta(globalDelta) : args.t("profileMatchImpactUnavailable")
+      }`;
+    }
+    globalGroup.append(globalTitle, globalRow);
+
+    const globalGap = match.ratingImpact?.globalGap;
+    if (typeof globalGap === "number") {
+      const globalGapRow = document.createElement("p");
+      globalGapRow.className = "profile-match-impact__line";
+      globalGapRow.textContent = `${args.t("profileMatchImpactGlobalGapSimple")} ${args.t("profileMatchImpactGapYou")} ${formatSignedDelta(globalGap)}`;
+      globalGroup.append(globalGapRow);
+    }
+
+    const seasonDelta = match.ratingImpact?.seasonScoreDelta;
+
+    const reason = document.createElement("p");
+    reason.className = "profile-match-impact__source";
+    const expected = match.ratingImpact?.expectedWinProbability;
+    const outcome = match.ratingImpact?.outcome;
+    if (typeof expected === "number" && outcome) {
+      const expectedRow = document.createElement("p");
+      expectedRow.className = "profile-match-impact__line";
+      expectedRow.textContent = `${args.t("profileMatchImpactExpectedChance")} ${formatPercent(expected)}`;
+
+      const highExpected = expected >= 0.5;
+      const outcomeKey = outcome === "win"
+        ? (highExpected ? "profileMatchImpactReasonFavWin" : "profileMatchImpactReasonUnderdogWin")
+        : (highExpected ? "profileMatchImpactReasonFavLoss" : "profileMatchImpactReasonUnderdogLoss");
+      reason.textContent = args.t(outcomeKey);
+      globalGroup.append(expectedRow);
+    } else {
+      reason.textContent = args.t("profileMatchImpactReasonFallback");
+    }
+
+    globalGroup.append(reason);
+
+    const seasonBreakdown = match.ratingImpact?.seasonBreakdown;
+    if (seasonBreakdown && typeof seasonDelta === "number" && match.seasonId) {
+      const seasonGroup = document.createElement("section");
+      seasonGroup.className = "profile-match-impact__group profile-match-impact__group--season";
+      const seasonTitle = document.createElement("h5");
+      seasonTitle.className = "profile-match-impact__group-title";
+      seasonTitle.textContent = args.t("profileMatchImpactSeason");
+
+      const seasonRow = document.createElement("p");
+      seasonRow.className = "profile-match-impact__line profile-match-impact__line--primary";
+      seasonRow.textContent =
+        `${args.t("profileMatchImpactSeasonScoreSimple")} ${seasonBreakdown.scoreBefore} -> ${seasonBreakdown.scoreAfter} (${formatSignedDelta(seasonDelta)})`;
+
+      const seasonExpectedRow = document.createElement("p");
+      seasonExpectedRow.className = "profile-match-impact__line";
+      seasonExpectedRow.textContent = `${args.t("profileMatchImpactSeasonExpectedChance")} ${formatPercent(seasonBreakdown.expectedWinProbability)}`;
+
+      const seasonGap = match.ratingImpact?.seasonGap;
+      const seasonGapRow = typeof seasonGap === "number"
+        ? (() => {
+            const row = document.createElement("p");
+            row.className = "profile-match-impact__line";
+            row.textContent = `${args.t("profileMatchImpactSeasonGapSimple")} ${args.t("profileMatchImpactGapYou")} ${formatSignedDelta(seasonGap)}`;
+            return row;
+          })()
+        : null;
+
+      const seasonReason = document.createElement("p");
+      seasonReason.className = "profile-match-impact__source";
+      const seasonOutcome = match.ratingImpact?.outcome;
+      if (seasonOutcome) {
+        const highSeasonExpected = seasonBreakdown.expectedWinProbability >= 0.5;
+        const seasonOutcomeKey = seasonOutcome === "win"
+          ? (highSeasonExpected ? "profileMatchImpactReasonFavWin" : "profileMatchImpactReasonUnderdogWin")
+          : (highSeasonExpected ? "profileMatchImpactReasonFavLoss" : "profileMatchImpactReasonUnderdogLoss");
+        seasonReason.textContent = args.t(seasonOutcomeKey);
+      } else {
+        seasonReason.textContent = args.t("profileMatchImpactReasonFallback");
+      }
+
+      const hasAttendancePenalty = seasonBreakdown.attendancePenaltyBefore > 0 || seasonBreakdown.attendancePenaltyAfter > 0;
+      if (hasAttendancePenalty) {
+        const penaltyDelta = seasonBreakdown.attendancePenaltyAfter - seasonBreakdown.attendancePenaltyBefore;
+        const penaltyRow = document.createElement("p");
+        penaltyRow.className = "profile-match-impact__line";
+        penaltyRow.textContent = `${args.t("profileMatchImpactSeasonPenaltySimple")} ${seasonBreakdown.attendancePenaltyBefore} -> ${seasonBreakdown.attendancePenaltyAfter} (${formatSignedDelta(penaltyDelta)})`;
+        const formulaRow = document.createElement("p");
+        formulaRow.className = "profile-match-impact__line";
+        formulaRow.textContent =
+          `${args.t("profileMatchImpactSeasonFormulaSimple")} ${seasonBreakdown.conservativeBefore} - ${seasonBreakdown.attendancePenaltyBefore} = ${seasonBreakdown.scoreBefore} -> ` +
+          `${seasonBreakdown.conservativeAfter} - ${seasonBreakdown.attendancePenaltyAfter} = ${seasonBreakdown.scoreAfter}`;
+        seasonGroup.append(penaltyRow, formulaRow);
+      }
+
+      seasonGroup.append(
+        seasonTitle,
+        seasonRow,
+        seasonExpectedRow,
+        ...(seasonGapRow ? [seasonGapRow] : []),
+        seasonReason,
+      );
+      impactBody.append(weightLine, globalGroup, seasonGroup);
+    } else {
+      impactBody.append(weightLine, globalGroup);
+    }
+    impact.append(impactSummary, impactBody);
+
     header.append(players, score);
-    card.append(header, meta, date);
+    card.append(header, meta, date, impact);
     return card;
   });
 

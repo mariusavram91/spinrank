@@ -1771,6 +1771,7 @@ export const buildApp = (): HTMLElement => {
         filter: "mine",
         matchType,
         limit: 8,
+        includeImpact: true,
         cursor: reset ? undefined : dashboardState.profileMatchesCursor ?? undefined,
       });
       const bracketContext = Object.fromEntries(

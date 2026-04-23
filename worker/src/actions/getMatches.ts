@@ -1,5 +1,6 @@
 import { decodeCursor, encodeCursor, parseJsonArray, parseJsonObject } from "../db";
 import { successResponse } from "../responses";
+import { deriveUserMatchImpactDetails } from "../services/elo";
 import { mapMatchRecordRow } from "../services/matchGuards";
 import type { ApiRequest, Env, GetMatchesPayload, LeaderboardEntry, MatchRecord, UserRow } from "../types";
 
@@ -28,6 +29,7 @@ type MatchRow = {
   dispute_updated_at: string | null;
   round_title: string | null;
   is_final: number | null;
+  global_elo_delta_json?: string | null;
 };
 
 type MatchCursor = {
@@ -36,7 +38,8 @@ type MatchCursor = {
   id: string;
 } | null;
 
-function buildSelectColumns(): string {
+function buildSelectColumns(includeImpact: boolean): string {
+  const impactColumns = includeImpact ? ",\n    m.global_elo_delta_json" : "";
   return `
     m.id,
     m.match_type,
@@ -61,7 +64,7 @@ function buildSelectColumns(): string {
     viewer_dispute.created_at AS dispute_created_at,
     viewer_dispute.updated_at AS dispute_updated_at,
     tbm.round_title,
-    tbm.is_final
+    tbm.is_final${impactColumns}
   `;
 }
 
@@ -121,6 +124,7 @@ async function loadTargetMatches(
   sessionUserId: string,
   filter: GetMatchesPayload["filter"],
   targetMatchIds: string[],
+  includeImpact: boolean,
 ): Promise<MatchRow[]> {
   if (targetMatchIds.length === 0) {
     return [];
@@ -132,7 +136,7 @@ async function loadTargetMatches(
   const result = await env.DB.prepare(
     `
       SELECT
-        ${buildSelectColumns()}
+        ${buildSelectColumns(includeImpact)}
       FROM matches m
       ${viewerJoin}
       ${buildVisibilityJoins("?1")}
@@ -147,8 +151,59 @@ async function loadTargetMatches(
   return targetMatchIds.map((matchId) => byId.get(matchId)).filter((row): row is MatchRow => Boolean(row));
 }
 
-function mapMatchRow(row: MatchRow): MatchRecord {
+function mapMatchRow(
+  row: MatchRow,
+  sessionUserId: string,
+  includeImpact: boolean,
+  detailedImpactByMatchId?: Record<
+    string,
+    {
+      globalDelta: number;
+      globalBefore: number;
+      globalAfter: number;
+      globalGap: number;
+      seasonScoreDelta: number | null;
+      seasonGap: number | null;
+      expectedWinProbability: number;
+      effectiveKFactor: number;
+      outcome: "win" | "loss";
+      seasonBreakdown: {
+        expectedWinProbability: number;
+        ratingBefore: number;
+        ratingAfter: number;
+        rdBefore: number;
+        rdAfter: number;
+        conservativeBefore: number;
+        conservativeAfter: number;
+        attendancePenaltyBefore: number;
+        attendancePenaltyAfter: number;
+        scoreBefore: number;
+        scoreAfter: number;
+      } | null;
+    }
+  >,
+): MatchRecord {
   const match = mapMatchRecordRow(row);
+  const detailedImpact = detailedImpactByMatchId?.[row.id];
+  const fallbackGlobalDelta = Number(
+    parseJsonObject<Record<string, number>>(row.global_elo_delta_json ?? "{}", {})[sessionUserId] ?? 0,
+  );
+  const ratingImpact = includeImpact
+    ? {
+        userId: sessionUserId,
+        globalDelta: detailedImpact?.globalDelta ?? fallbackGlobalDelta,
+        globalBefore: detailedImpact?.globalBefore ?? null,
+        globalAfter: detailedImpact?.globalAfter ?? null,
+        globalGap: detailedImpact?.globalGap ?? null,
+        seasonScoreDelta: detailedImpact?.seasonScoreDelta ?? null,
+        seasonGap: detailedImpact?.seasonGap ?? null,
+        expectedWinProbability: detailedImpact?.expectedWinProbability ?? null,
+        effectiveKFactor: detailedImpact?.effectiveKFactor ?? null,
+        outcome: detailedImpact?.outcome ?? null,
+        seasonBreakdown: detailedImpact?.seasonBreakdown ?? null,
+      }
+    : null;
+
   return {
     ...match,
     bracketContext: row.round_title
@@ -157,6 +212,7 @@ function mapMatchRow(row: MatchRow): MatchRecord {
           isFinal: Boolean(row.is_final),
         }
       : null,
+    ratingImpact,
   };
 }
 
@@ -200,13 +256,27 @@ async function loadPlayersForMatches(env: Env, rows: MatchRow[]): Promise<Leader
   }));
 }
 
-async function buildMatchPageResponse(requestId: string, env: Env, rows: MatchRow[], limit: number) {
+async function buildMatchPageResponse(
+  requestId: string,
+  env: Env,
+  rows: MatchRow[],
+  limit: number,
+  sessionUserId: string,
+  includeImpact: boolean,
+) {
   const page = rows.slice(0, limit);
   const last = page.at(-1);
   const players = await loadPlayersForMatches(env, page);
+  const detailedImpactByMatchId = includeImpact
+    ? await deriveUserMatchImpactDetails(
+        env,
+        sessionUserId,
+        page.map((match) => match.id),
+      )
+    : undefined;
 
   return successResponse(requestId, {
-    matches: page.map<MatchRecord>(mapMatchRow),
+    matches: page.map<MatchRecord>((row) => mapMatchRow(row, sessionUserId, includeImpact, detailedImpactByMatchId)),
     players,
     nextCursor:
       rows.length > limit && last
@@ -225,6 +295,7 @@ async function loadDashboardPreviewMatches(
   filter: GetMatchesPayload["filter"],
   matchType: MatchRecord["matchType"] | null,
   limit: number,
+  includeImpact: boolean,
 ): Promise<MatchRow[]> {
   const viewerJoin =
     filter === "mine" ? "INNER JOIN match_players viewer_mp ON viewer_mp.match_id = m.id AND viewer_mp.user_id = ?1" : "";
@@ -232,7 +303,7 @@ async function loadDashboardPreviewMatches(
   const result = await env.DB.prepare(
     `
       SELECT
-        ${buildSelectColumns()}
+        ${buildSelectColumns(includeImpact)}
       FROM matches m
       ${viewerJoin}
       ${buildVisibilityJoins("?1")}
@@ -254,11 +325,12 @@ async function loadRecentOrAllMatches(
   cursor: MatchCursor,
   matchType: MatchRecord["matchType"] | null,
   limit: number,
+  includeImpact: boolean,
 ): Promise<MatchRow[]> {
   const result = await env.DB.prepare(
     `
       SELECT
-        ${buildSelectColumns()}
+        ${buildSelectColumns(includeImpact)}
       FROM matches m
       ${buildVisibilityJoins("?1")}
       WHERE ${buildVisibilityPredicate("?1")}
@@ -280,11 +352,12 @@ async function loadMineMatches(
   cursor: MatchCursor,
   matchType: MatchRecord["matchType"] | null,
   limit: number,
+  includeImpact: boolean,
 ): Promise<MatchRow[]> {
   const result = await env.DB.prepare(
     `
       SELECT
-        ${buildSelectColumns()}
+        ${buildSelectColumns(includeImpact)}
       FROM matches m
       INNER JOIN match_players viewer_mp
         ON viewer_mp.match_id = m.id AND viewer_mp.user_id = ?1
@@ -328,21 +401,22 @@ export async function handleGetMatches(
   const cursor = decodeCursor(request.payload?.cursor);
   const targetMatchIds = [...new Set((request.payload?.targetMatchIds ?? []).filter((value): value is string => Boolean(value)))].slice(0, 10);
   const dashboardPreview = isDashboardPreviewMode(request.payload) && !cursor;
+  const includeImpact = Boolean(request.payload?.includeImpact);
 
   if (targetMatchIds.length > 0) {
-    const rows = await loadTargetMatches(env, sessionUser.id, filter, targetMatchIds);
-    return buildMatchPageResponse(request.requestId, env, rows, rows.length);
+    const rows = await loadTargetMatches(env, sessionUser.id, filter, targetMatchIds, includeImpact);
+    return buildMatchPageResponse(request.requestId, env, rows, rows.length, sessionUser.id, includeImpact);
   }
 
   if (dashboardPreview) {
-    const rows = await loadDashboardPreviewMatches(env, sessionUser.id, filter, matchType, limit);
-    return buildMatchPageResponse(request.requestId, env, rows, limit);
+    const rows = await loadDashboardPreviewMatches(env, sessionUser.id, filter, matchType, limit, includeImpact);
+    return buildMatchPageResponse(request.requestId, env, rows, limit, sessionUser.id, includeImpact);
   }
 
   const rows =
     filter === "mine"
-    ? await loadMineMatches(env, sessionUser.id, cursor, matchType, limit)
-    : await loadRecentOrAllMatches(env, sessionUser.id, cursor, matchType, limit);
+    ? await loadMineMatches(env, sessionUser.id, cursor, matchType, limit, includeImpact)
+    : await loadRecentOrAllMatches(env, sessionUser.id, cursor, matchType, limit, includeImpact);
 
-  return buildMatchPageResponse(request.requestId, env, rows, limit);
+  return buildMatchPageResponse(request.requestId, env, rows, limit, sessionUser.id, includeImpact);
 }

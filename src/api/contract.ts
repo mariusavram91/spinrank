@@ -463,6 +463,7 @@ export interface GetMatchesPayload {
   matchType?: MatchType;
   targetMatchIds?: string[];
   mode?: "default" | "dashboard_preview";
+  includeImpact?: boolean;
 }
 
 export interface MatchScoreGame {
@@ -478,6 +479,34 @@ export interface MatchDisputeRecord {
   status: "active" | "withdrawn";
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MatchSeasonImpactBreakdown {
+  expectedWinProbability: number;
+  ratingBefore: number;
+  ratingAfter: number;
+  rdBefore: number;
+  rdAfter: number;
+  conservativeBefore: number;
+  conservativeAfter: number;
+  attendancePenaltyBefore: number;
+  attendancePenaltyAfter: number;
+  scoreBefore: number;
+  scoreAfter: number;
+}
+
+export interface MatchRatingImpact {
+  userId: string;
+  globalDelta: number;
+  globalBefore?: number | null;
+  globalAfter?: number | null;
+  globalGap?: number | null;
+  seasonScoreDelta?: number | null;
+  seasonGap?: number | null;
+  expectedWinProbability?: number | null;
+  effectiveKFactor?: number | null;
+  outcome?: "win" | "loss" | null;
+  seasonBreakdown?: MatchSeasonImpactBreakdown | null;
 }
 
 export interface MatchRecord {
@@ -499,6 +528,7 @@ export interface MatchRecord {
   hasActiveDispute?: boolean;
   currentUserDispute?: MatchDisputeRecord | null;
   bracketContext?: MatchBracketContext | null;
+  ratingImpact?: MatchRatingImpact | null;
 }
 
 export interface DuplicateMatchCandidate extends MatchRecord {

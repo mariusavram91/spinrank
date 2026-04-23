@@ -70,6 +70,7 @@ describe("worker integration: getMatches", () => {
           payload: {
             filter: "recent",
             limit: 1,
+            includeImpact: true,
           },
         },
         owner,
@@ -80,7 +81,12 @@ describe("worker integration: getMatches", () => {
       expect(firstPage.data?.matches).toHaveLength(1);
       expect(firstPage.data?.matches[0]).toMatchObject({
         playedAt: "2026-04-05T10:00:00.000Z",
+        ratingImpact: {
+          userId: "user_a",
+        },
       });
+      expect(firstPage.data?.matches[0].ratingImpact?.globalDelta).toBeGreaterThan(0);
+      expect(firstPage.data?.matches[0].ratingImpact?.seasonBreakdown).toBeNull();
       expect(firstPage.data?.nextCursor).toBeTruthy();
 
       const secondPage = await handleGetMatches(
@@ -103,6 +109,98 @@ describe("worker integration: getMatches", () => {
         playedAt: "2026-04-05T09:00:00.000Z",
       });
       expect(secondPage.data?.nextCursor).toBeNull();
+    } finally {
+      await context.cleanup();
+    }
+  }, 30000);
+
+  it("returns season breakdown details for season matches when impact is requested", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(
+        `
+          SELECT *
+          FROM users
+          WHERE id = ?1
+        `,
+      )
+        .bind("user_a")
+        .first<UserRow>();
+
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_season_for_impact",
+          payload: {
+            name: "Impact Season",
+            startDate: "2026-04-01",
+            endDate: null,
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_season_match_for_impact",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+            seasonId: seasonResponse.data?.season.id,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const response = await handleGetMatches(
+        {
+          action: "getMatches",
+          requestId: "req_get_matches_impact_season",
+          payload: {
+            filter: "recent",
+            limit: 1,
+            includeImpact: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(response.ok).toBe(true);
+      expect(response.data?.matches).toHaveLength(1);
+      expect(response.data?.matches[0].ratingImpact?.seasonBreakdown).toMatchObject({
+        expectedWinProbability: expect.any(Number),
+        ratingBefore: expect.any(Number),
+        ratingAfter: expect.any(Number),
+        rdBefore: expect.any(Number),
+        rdAfter: expect.any(Number),
+        conservativeBefore: expect.any(Number),
+        conservativeAfter: expect.any(Number),
+        attendancePenaltyBefore: expect.any(Number),
+        attendancePenaltyAfter: expect.any(Number),
+        scoreBefore: expect.any(Number),
+        scoreAfter: expect.any(Number),
+      });
     } finally {
       await context.cleanup();
     }

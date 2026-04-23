@@ -1807,6 +1807,64 @@ select.text-input {
   gap: 0.5rem;
 }
 
+.profile-match-impact {
+  border-top: 1px dashed rgba(15, 23, 42, 0.16);
+  padding-top: 0.45rem;
+}
+
+.profile-match-impact__summary {
+  cursor: pointer;
+  font-size: 0.86rem;
+  color: rgba(15, 23, 42, 0.72);
+  font-weight: 600;
+}
+
+.profile-match-impact__body {
+  margin-top: 0.45rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.profile-match-impact__group {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  padding: 0.5rem 0.6rem;
+  display: grid;
+  gap: 0.2rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.profile-match-impact__group--global {
+  border-color: rgba(59, 130, 246, 0.28);
+  background: rgba(255, 247, 237, 0.74);
+}
+
+.profile-match-impact__group--season {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(255, 247, 237, 0.74);
+}
+
+.profile-match-impact__group-title {
+  margin: 0 0 0.1rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.76);
+}
+
+.profile-match-impact__line,
+.profile-match-impact__source {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(15, 23, 42, 0.68);
+}
+
+.profile-match-impact__line--primary {
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.82);
+}
+
 @media (max-width: 640px) {
   .profile-match-type-summary {
     grid-template-columns: 1fr;
