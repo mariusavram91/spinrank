@@ -42,6 +42,7 @@ const createElements = () => ({
   createSeasonScreen: document.createElement("section"),
   profileScreen: document.createElement("section"),
   sharedUserProfileScreen: document.createElement("section"),
+  featuresScreen: document.createElement("section"),
   faqScreen: document.createElement("section"),
   privacyScreen: document.createElement("section"),
   loginView: document.createElement("section"),
@@ -113,6 +114,7 @@ describe("auth sync", () => {
     expect(elements.container.contains(elements.createMenu)).toBe(true);
     expect(elements.profileScreen.hidden).toBe(false);
     expect(elements.sharedUserProfileScreen.hidden).toBe(true);
+    expect(elements.featuresScreen.hidden).toBe(true);
     expect(elements.dashboard.hidden).toBe(true);
     expect(elements.loginView.hidden).toBe(true);
     expect(elements.welcomeText.textContent).toBe("");
@@ -158,6 +160,7 @@ describe("auth sync", () => {
     expect(authMenuOpen).toBe(false);
     expect(createMenuOpen).toBe(false);
     expect(elements.dashboard.hidden).toBe(true);
+    expect(elements.featuresScreen.hidden).toBe(true);
     expect(elements.faqScreen.hidden).toBe(false);
     expect(elements.loginView.hidden).toBe(true);
     expect(hideScoreCard).toHaveBeenCalled();

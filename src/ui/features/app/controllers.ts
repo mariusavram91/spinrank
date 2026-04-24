@@ -9,6 +9,7 @@ export const createTopLevelUiHandlers = (args: {
   clearSession: () => void;
   setIdleState: () => void;
   openFaqScreen: () => void;
+  openFeaturesScreen: () => void;
   openPrivacyScreen: () => void;
   syncAuthState: () => void;
   syncDashboardState: () => void;
@@ -24,6 +25,7 @@ export const createTopLevelUiHandlers = (args: {
   resetSeasonForm: () => void;
   populateSeasonManagerLoadOptions: () => void;
   renderSeasonEditor: () => void;
+  closeFeaturesScreen: () => void;
   closeFaqScreen: () => void;
   closePrivacyScreen: () => void;
   applyFairMatchSuggestion: () => void | Promise<void>;
@@ -36,6 +38,7 @@ export const createTopLevelUiHandlers = (args: {
       | "createSeason"
       | "profile"
       | "userProfile"
+      | "features"
       | "faq"
       | "privacy";
     seasonFormError: string;
@@ -53,6 +56,7 @@ export const createTopLevelUiHandlers = (args: {
   };
 }): {
   onLogout: () => void;
+  onOpenFeatures: () => void;
   onOpenFaq: () => void;
   onOpenPrivacy: () => void;
   onOpenProfile: () => void;
@@ -68,6 +72,7 @@ export const createTopLevelUiHandlers = (args: {
   onCloseCreateTournament: () => void;
   onCloseCreateSeason: () => void;
   onCloseProfile: () => void;
+  onCloseFeatures: () => void;
   onCloseFaq: () => void;
   onClosePrivacy: () => void;
   onCloseScoreCard: () => void;
@@ -79,6 +84,9 @@ export const createTopLevelUiHandlers = (args: {
     args.menuState.authMenuOpen = false;
     args.clearSession();
     args.setIdleState();
+  },
+  onOpenFeatures: () => {
+    args.openFeaturesScreen();
   },
   onOpenFaq: () => {
     args.openFaqScreen();
@@ -185,6 +193,9 @@ export const createTopLevelUiHandlers = (args: {
     args.dashboardState.screen = "dashboard";
     args.syncAuthState();
     args.syncDashboardState();
+  },
+  onCloseFeatures: () => {
+    args.closeFeaturesScreen();
   },
   onCloseFaq: () => {
     args.closeFaqScreen();

@@ -128,6 +128,7 @@ export const buildApp = (): HTMLElement => {
     "createTournament",
     "createSeason",
     "profile",
+    "features",
     "faq",
     "privacy",
   ];
@@ -202,6 +203,7 @@ export const buildApp = (): HTMLElement => {
     createSeasonScreen,
     profileScreen,
     sharedUserProfileScreen,
+    featuresScreen,
     closeProfileButton,
     profileStatus,
     profileEditorContent,
@@ -241,11 +243,13 @@ export const buildApp = (): HTMLElement => {
     sharedUserProfileTournamentsList,
     sharedUserProfileMatchesList,
     sharedUserProfileLoadMoreButton,
+    featuresBackButton,
     faqScreen,
     faqBackButton,
     privacyScreen,
     privacyBackButton,
     footer,
+    footerFeaturesButton,
     footerFaqButton,
     footerPrivacyButton,
     loginView,
@@ -1151,6 +1155,7 @@ export const buildApp = (): HTMLElement => {
     createSeasonScreen,
     profileScreen,
     sharedUserProfileScreen,
+    featuresScreen,
     faqScreen,
     privacyScreen,
     loginView,
@@ -1169,17 +1174,18 @@ export const buildApp = (): HTMLElement => {
     },
   });
 
-  const { openFaqScreen, closeFaqScreen, openPrivacyScreen, closePrivacyScreen } = createHelpNavigation({
-    dashboardState,
-    setAuthMenuOpen: (value) => {
-      authMenuOpen = value;
-    },
-    setCreateMenuOpen: (value) => {
-      createMenuOpen = value;
-    },
-    syncAuthState,
-    syncDashboardState: () => syncDashboardState(),
-  });
+  const { openFeaturesScreen, closeFeaturesScreen, openFaqScreen, closeFaqScreen, openPrivacyScreen, closePrivacyScreen } =
+    createHelpNavigation({
+      dashboardState,
+      setAuthMenuOpen: (value) => {
+        authMenuOpen = value;
+      },
+      setCreateMenuOpen: (value) => {
+        createMenuOpen = value;
+      },
+      syncAuthState,
+      syncDashboardState: () => syncDashboardState(),
+    });
   const resetScrollForScreenChange = createScreenScrollReset(() => dashboardState.screen);
 
   const { clearFormStatus, scheduleFormStatusHide } = createFormStatusOrchestration({
@@ -2371,6 +2377,7 @@ export const buildApp = (): HTMLElement => {
     closeLanguageSwitchIfOutside,
     clearSession,
     setIdleState,
+    openFeaturesScreen,
     openFaqScreen,
     openPrivacyScreen,
     syncAuthState,
@@ -2387,6 +2394,7 @@ export const buildApp = (): HTMLElement => {
     resetSeasonForm,
     populateSeasonManagerLoadOptions,
     renderSeasonEditor,
+    closeFeaturesScreen,
     closeFaqScreen,
     closePrivacyScreen,
     applyFairMatchSuggestion,
@@ -2411,6 +2419,7 @@ export const buildApp = (): HTMLElement => {
 
   bindTopLevelUiHandlers({
     logoutButton,
+    footerFeaturesButton,
     faqMenuButton,
     footerFaqButton,
     footerPrivacyButton,
@@ -2426,6 +2435,7 @@ export const buildApp = (): HTMLElement => {
     closeCreateTournamentButton,
     closeCreateSeasonButton,
     closeProfileButton,
+    featuresBackButton,
     faqBackButton,
     privacyBackButton,
     closeScoreCardButton,

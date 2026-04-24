@@ -21,6 +21,7 @@ describe("event bindings", () => {
 
     bindTopLevelUiHandlers({
       logoutButton: createButton(),
+      footerFeaturesButton: createButton(),
       faqMenuButton: createButton(),
       footerFaqButton: createButton(),
       footerPrivacyButton: createButton(),
@@ -36,6 +37,7 @@ describe("event bindings", () => {
       closeCreateTournamentButton: createButton(),
       closeCreateSeasonButton: createButton(),
       closeProfileButton: createButton(),
+      featuresBackButton: createButton(),
       faqBackButton: createButton(),
       privacyBackButton: createButton(),
       closeScoreCardButton: createButton(),
@@ -43,6 +45,7 @@ describe("event bindings", () => {
       suggestMatchButton: createButton(),
       suggestTournamentButton: createButton(),
       onLogout: vi.fn(),
+      onOpenFeatures: vi.fn(),
       onOpenFaq: vi.fn(),
       onOpenPrivacy: vi.fn(),
       onOpenProfile,
@@ -58,6 +61,7 @@ describe("event bindings", () => {
       onCloseCreateTournament: vi.fn(),
       onCloseCreateSeason: vi.fn(),
       onCloseProfile: vi.fn(),
+      onCloseFeatures: vi.fn(),
       onCloseFaq: vi.fn(),
       onClosePrivacy: vi.fn(),
       onCloseScoreCard: vi.fn(),

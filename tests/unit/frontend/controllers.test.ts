@@ -16,6 +16,7 @@ describe("app controllers", () => {
       closeLanguageSwitchIfOutside: vi.fn(),
       clearSession: vi.fn(),
       setIdleState: vi.fn(),
+      openFeaturesScreen: vi.fn(),
       openFaqScreen: vi.fn(),
       openPrivacyScreen: vi.fn(),
       syncAuthState: vi.fn(),
@@ -31,6 +32,7 @@ describe("app controllers", () => {
       resetSeasonForm: vi.fn(),
       populateSeasonManagerLoadOptions: vi.fn(),
       renderSeasonEditor: vi.fn(),
+      closeFeaturesScreen: vi.fn(),
       closeFaqScreen: vi.fn(),
       closePrivacyScreen: vi.fn(),
       applyFairMatchSuggestion: vi.fn().mockResolvedValue(undefined),
@@ -94,6 +96,7 @@ describe("app controllers", () => {
       closeLanguageSwitchIfOutside: vi.fn(),
       clearSession: vi.fn(),
       setIdleState: vi.fn(),
+      openFeaturesScreen: vi.fn(),
       openFaqScreen: vi.fn(),
       openPrivacyScreen: vi.fn(),
       syncAuthState: vi.fn(),
@@ -109,6 +112,7 @@ describe("app controllers", () => {
       resetSeasonForm: vi.fn(),
       populateSeasonManagerLoadOptions: vi.fn(),
       renderSeasonEditor: vi.fn(),
+      closeFeaturesScreen: vi.fn(),
       closeFaqScreen: vi.fn(),
       closePrivacyScreen: vi.fn(),
       applyFairMatchSuggestion: vi.fn().mockResolvedValue(undefined),
@@ -124,6 +128,7 @@ describe("app controllers", () => {
     };
 
     const handlers = createTopLevelUiHandlers(args);
+    handlers.onOpenFeatures();
     handlers.onOpenFaq();
     handlers.onOpenPrivacy();
     handlers.onOpenProfile();
@@ -132,6 +137,7 @@ describe("app controllers", () => {
     handlers.onCloseCreateTournament();
     handlers.onCloseCreateSeason();
     handlers.onCloseProfile();
+    handlers.onCloseFeatures();
     handlers.onCloseFaq();
     handlers.onClosePrivacy();
     handlers.onSuggestMatch();
@@ -146,10 +152,12 @@ describe("app controllers", () => {
       currentTarget: args.createMenu,
     } as unknown as MouseEvent);
 
+    expect(args.openFeaturesScreen).toHaveBeenCalled();
     expect(args.openFaqScreen).toHaveBeenCalled();
     expect(args.openPrivacyScreen).toHaveBeenCalled();
     expect(args.openProfileScreen).not.toHaveBeenCalled();
     expect(args.loadDashboard).toHaveBeenCalled();
+    expect(args.closeFeaturesScreen).toHaveBeenCalled();
     expect(args.closeFaqScreen).toHaveBeenCalled();
     expect(args.closePrivacyScreen).toHaveBeenCalled();
     expect(args.applyFairMatchSuggestion).toHaveBeenCalled();
@@ -166,6 +174,7 @@ describe("app controllers", () => {
       closeLanguageSwitchIfOutside: vi.fn(),
       clearSession: vi.fn(),
       setIdleState: vi.fn(),
+      openFeaturesScreen: vi.fn(),
       openFaqScreen: vi.fn(),
       openPrivacyScreen: vi.fn(),
       syncAuthState: vi.fn(),
@@ -181,6 +190,7 @@ describe("app controllers", () => {
       resetSeasonForm: vi.fn(),
       populateSeasonManagerLoadOptions: vi.fn(),
       renderSeasonEditor: vi.fn(),
+      closeFeaturesScreen: vi.fn(),
       closeFaqScreen: vi.fn(),
       closePrivacyScreen: vi.fn(),
       applyFairMatchSuggestion: vi.fn().mockResolvedValue(undefined),

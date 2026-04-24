@@ -7,8 +7,27 @@ export const createHelpNavigation = (args: {
   syncAuthState: () => void;
   syncDashboardState: () => void;
 }) => {
+  let screenBeforeFeatures: DashboardState["screen"] = "dashboard";
   let screenBeforeFaq: DashboardState["screen"] = "dashboard";
   let screenBeforePrivacy: DashboardState["screen"] = "dashboard";
+
+  const openFeaturesScreen = (): void => {
+    if (args.dashboardState.screen !== "features") {
+      screenBeforeFeatures = args.dashboardState.screen;
+    }
+    args.dashboardState.screen = "features";
+    args.setAuthMenuOpen(false);
+    args.setCreateMenuOpen(false);
+    args.syncAuthState();
+    args.syncDashboardState();
+  };
+
+  const closeFeaturesScreen = (): void => {
+    args.dashboardState.screen = screenBeforeFeatures;
+    screenBeforeFeatures = "dashboard";
+    args.syncAuthState();
+    args.syncDashboardState();
+  };
 
   const openFaqScreen = (): void => {
     if (args.dashboardState.screen !== "faq") {
@@ -47,6 +66,8 @@ export const createHelpNavigation = (args: {
   };
 
   return {
+    openFeaturesScreen,
+    closeFeaturesScreen,
     openFaqScreen,
     closeFaqScreen,
     openPrivacyScreen,

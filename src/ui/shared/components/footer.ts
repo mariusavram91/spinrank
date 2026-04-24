@@ -2,6 +2,7 @@ import { onLanguageChange, t } from "../i18n/runtime";
 
 export interface FooterElements {
   footer: HTMLElement;
+  featuresButton: HTMLButtonElement;
   faqButton: HTMLButtonElement;
   privacyButton: HTMLButtonElement;
 }
@@ -13,6 +14,10 @@ export const buildFooter = (): FooterElements => {
   const footerLinks = document.createElement("div");
   footerLinks.className = "footer-links";
 
+  const featuresButton = document.createElement("button");
+  featuresButton.type = "button";
+  featuresButton.className = "footer-link-button";
+
   const faqButton = document.createElement("button");
   faqButton.type = "button";
   faqButton.className = "footer-link-button";
@@ -21,10 +26,11 @@ export const buildFooter = (): FooterElements => {
   privacyButton.type = "button";
   privacyButton.className = "footer-link-button";
 
-  footerLinks.append(faqButton, privacyButton);
+  footerLinks.append(featuresButton, faqButton, privacyButton);
   footer.append(footerLinks);
 
   const setFooterTexts = (): void => {
+    featuresButton.textContent = t("footerFeaturesLink");
     faqButton.textContent = t("footerFaqLink");
     privacyButton.textContent = t("footerPrivacyLink");
   };
@@ -34,6 +40,7 @@ export const buildFooter = (): FooterElements => {
 
   return {
     footer,
+    featuresButton,
     faqButton,
     privacyButton,
   };

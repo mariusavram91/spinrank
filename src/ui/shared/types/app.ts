@@ -54,6 +54,7 @@ export interface DashboardState {
     | "createSeason"
     | "profile"
     | "userProfile"
+    | "features"
     | "faq"
     | "privacy";
   loading: boolean;

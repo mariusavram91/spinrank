@@ -29,6 +29,7 @@ type AuthSyncArgs = {
   createSeasonScreen: HTMLElement;
   profileScreen: HTMLElement;
   sharedUserProfileScreen: HTMLElement;
+  featuresScreen: HTMLElement;
   faqScreen: HTMLElement;
   privacyScreen: HTMLElement;
   loginView: HTMLElement;
@@ -95,6 +96,7 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
       args.createSeasonScreen.hidden = screen !== "createSeason";
       args.profileScreen.hidden = screen !== "profile";
       args.sharedUserProfileScreen.hidden = screen !== "userProfile";
+      args.featuresScreen.hidden = screen !== "features";
       args.faqScreen.hidden = screen !== "faq";
       args.privacyScreen.hidden = screen !== "privacy";
       args.loginView.hidden = true;
@@ -118,9 +120,13 @@ export const createAuthSync = (args: AuthSyncArgs) => ({
     args.createSeasonScreen.hidden = true;
     args.profileScreen.hidden = true;
     args.sharedUserProfileScreen.hidden = true;
+    args.featuresScreen.hidden = args.dashboardState.screen !== "features";
     args.faqScreen.hidden = args.dashboardState.screen !== "faq";
     args.privacyScreen.hidden = args.dashboardState.screen !== "privacy";
-    args.loginView.hidden = args.dashboardState.screen === "faq" || args.dashboardState.screen === "privacy";
+    args.loginView.hidden =
+      args.dashboardState.screen === "features" ||
+      args.dashboardState.screen === "faq" ||
+      args.dashboardState.screen === "privacy";
     args.hideScoreCard();
   },
 });

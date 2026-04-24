@@ -25,6 +25,7 @@ export const createMatchActions = (args: {
       | "createSeason"
       | "profile"
       | "userProfile"
+      | "features"
       | "faq"
       | "privacy";
     error: string;

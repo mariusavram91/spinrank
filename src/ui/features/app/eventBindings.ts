@@ -4,6 +4,7 @@ import type { SharePanelElements } from "../../shared/types/app";
 
 export const bindTopLevelUiHandlers = (args: {
   logoutButton: HTMLButtonElement;
+  footerFeaturesButton: HTMLButtonElement;
   faqMenuButton: HTMLButtonElement;
   footerFaqButton: HTMLButtonElement;
   footerPrivacyButton: HTMLButtonElement;
@@ -19,6 +20,7 @@ export const bindTopLevelUiHandlers = (args: {
   closeCreateTournamentButton: HTMLButtonElement;
   closeCreateSeasonButton: HTMLButtonElement;
   closeProfileButton: HTMLButtonElement;
+  featuresBackButton: HTMLButtonElement;
   faqBackButton: HTMLButtonElement;
   privacyBackButton: HTMLButtonElement;
   closeScoreCardButton: HTMLButtonElement;
@@ -26,6 +28,7 @@ export const bindTopLevelUiHandlers = (args: {
   suggestMatchButton: HTMLButtonElement;
   suggestTournamentButton: HTMLButtonElement;
   onLogout: () => void;
+  onOpenFeatures: () => void;
   onOpenFaq: () => void;
   onOpenPrivacy: () => void;
   onOpenProfile: () => void;
@@ -41,6 +44,7 @@ export const bindTopLevelUiHandlers = (args: {
   onCloseCreateTournament: () => void;
   onCloseCreateSeason: () => void;
   onCloseProfile: () => void;
+  onCloseFeatures: () => void;
   onCloseFaq: () => void;
   onClosePrivacy: () => void;
   onCloseScoreCard: () => void;
@@ -49,6 +53,7 @@ export const bindTopLevelUiHandlers = (args: {
   onSuggestTournament: () => void;
 }): void => {
   args.logoutButton.addEventListener("click", args.onLogout);
+  args.footerFeaturesButton.addEventListener("click", args.onOpenFeatures);
   args.faqMenuButton.addEventListener("click", args.onOpenFaq);
   args.footerFaqButton.addEventListener("click", args.onOpenFaq);
   args.footerPrivacyButton.addEventListener("click", args.onOpenPrivacy);
@@ -65,6 +70,7 @@ export const bindTopLevelUiHandlers = (args: {
   args.closeCreateTournamentButton.addEventListener("click", args.onCloseCreateTournament);
   args.closeCreateSeasonButton.addEventListener("click", args.onCloseCreateSeason);
   args.closeProfileButton.addEventListener("click", args.onCloseProfile);
+  args.featuresBackButton.addEventListener("click", args.onCloseFeatures);
   args.faqBackButton.addEventListener("click", args.onCloseFaq);
   args.privacyBackButton.addEventListener("click", args.onClosePrivacy);
   args.closeScoreCardButton.addEventListener("click", args.onCloseScoreCard);

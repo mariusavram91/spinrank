@@ -185,7 +185,7 @@ export const createAppDom = (args: {
   bindLocalizedText(profileEditorTitle, "profileSettingsTitle");
   const profileEditorToggleButton = document.createElement("button");
   profileEditorToggleButton.type = "button";
-  profileEditorToggleButton.className = "secondary-button profile-editor__toggle";
+  profileEditorToggleButton.className = "secondary-button profile-editor__toggle compact-header-button";
   profileEditorToggleButton.dataset.testid = "profile-settings-toggle";
   profileEditorToggleButton.setAttribute("aria-expanded", "false");
   profileEditorToggleButton.setAttribute("aria-controls", "profile-settings-content");
@@ -307,7 +307,7 @@ export const createAppDom = (args: {
   profileAchievementsSubtitle.className = "profile-section__subtitle";
   const profileAchievementsToggle = document.createElement("button");
   profileAchievementsToggle.type = "button";
-  profileAchievementsToggle.className = "secondary-button";
+  profileAchievementsToggle.className = "secondary-button compact-header-button";
   profileAchievementsToggle.dataset.testid = "profile-achievements-toggle";
   const profileAchievementsSummary = document.createElement("div");
   profileAchievementsSummary.className = "profile-achievements__summary";
@@ -479,19 +479,28 @@ export const createAppDom = (args: {
   );
 
   sharedUserProfileActivity.append(
-    sharedUserProfileActivityHeatmapSection,
     sharedUserProfileActivityTitle,
-    sharedUserProfileAchievementsSection,
     sharedUserProfileSeasonsSection,
     sharedUserProfileTournamentsSection,
     sharedUserProfileMatchesSection,
   );
-  sharedUserProfileBody.append(sharedUserProfileSummary, sharedUserProfileActivity);
+  sharedUserProfileBody.append(
+    sharedUserProfileSummary,
+    sharedUserProfileAchievementsSection,
+    sharedUserProfileActivityHeatmapSection,
+    sharedUserProfileActivity,
+  );
   sharedUserProfilePanel.append(sharedUserProfileTop, sharedUserProfileBody);
   sharedUserProfileScreen.append(sharedUserProfilePanel);
 
-  const { faqScreen, faqBackButton, privacyScreen, privacyBackButton } = buildHelpScreens();
-  const { footer, faqButton: footerFaqButton, privacyButton: footerPrivacyButton } = buildFooter();
+  const { featuresScreen, featuresBackButton, faqScreen, faqBackButton, privacyScreen, privacyBackButton } =
+    buildHelpScreens();
+  const {
+    footer,
+    featuresButton: footerFeaturesButton,
+    faqButton: footerFaqButton,
+    privacyButton: footerPrivacyButton,
+  } = buildFooter();
   const { loginView, googleSlot } = buildLoginView();
 
   const welcomeTitle = document.createElement("h2");
@@ -601,7 +610,7 @@ export const createAppDom = (args: {
 
   const closeCreateMatchButton = document.createElement("button");
   closeCreateMatchButton.type = "button";
-  closeCreateMatchButton.className = "secondary-button";
+  closeCreateMatchButton.className = "secondary-button compact-header-button";
   bindLocalizedText(closeCreateMatchButton, "back");
 
   const composerHeading = document.createElement("div");
@@ -997,6 +1006,7 @@ export const createAppDom = (args: {
     createSeasonScreen,
     profileScreen,
     sharedUserProfileScreen,
+    featuresScreen,
     faqScreen,
     privacyScreen,
     footer,
@@ -1071,11 +1081,14 @@ export const createAppDom = (args: {
     sharedUserProfileTournamentsList,
     sharedUserProfileMatchesList,
     sharedUserProfileLoadMoreButton,
+    featuresScreen,
+    featuresBackButton,
     faqScreen,
     faqBackButton,
     privacyScreen,
     privacyBackButton,
     footer,
+    footerFeaturesButton,
     footerFaqButton,
     footerPrivacyButton,
     loginView,

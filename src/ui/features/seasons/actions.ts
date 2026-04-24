@@ -22,6 +22,7 @@ export const createSeasonActions = (args: {
       | "createSeason"
       | "profile"
       | "userProfile"
+      | "features"
       | "faq"
       | "privacy";
   };
