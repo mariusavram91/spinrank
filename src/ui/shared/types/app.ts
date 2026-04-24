@@ -32,6 +32,7 @@ export interface SharedUserProfileSourceContext {
   segmentMode: SegmentMode;
   seasonId: string;
   tournamentId: string;
+  tournamentDirectMatchReady: boolean;
 }
 
 export interface ProfileSegmentSummary {

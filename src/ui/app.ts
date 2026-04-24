@@ -1000,6 +1000,36 @@ export const buildApp = (): HTMLElement => {
     return null;
   };
 
+  const hasReadyTournamentMatchAgainstUser = (tournamentId: string, opponentUserId: string): boolean => {
+    const currentUserId = getCurrentUserId(state.current);
+    if (
+      !currentUserId ||
+      !opponentUserId ||
+      dashboardState.segmentMode !== "tournament" ||
+      dashboardState.selectedTournamentId !== tournamentId
+    ) {
+      return false;
+    }
+
+    return dashboardState.tournamentBracket.some((round, roundIndex) =>
+      round.matches.some((match, matchIndex) => {
+        if (
+          !isTournamentBracketMatchReadyForCreation(dashboardState.tournamentBracket, roundIndex, matchIndex) ||
+          !match.leftPlayerId ||
+          !match.rightPlayerId ||
+          match.createdMatchId ||
+          match.winnerPlayerId ||
+          match.locked
+        ) {
+          return false;
+        }
+
+        const playerIds = [match.leftPlayerId, match.rightPlayerId];
+        return playerIds.includes(currentUserId) && playerIds.includes(opponentUserId);
+      }),
+    );
+  };
+
   const syncMatchBracketOptions = async (): Promise<void> => {
     const tournamentId = formTournamentSelect.value;
     if (!tournamentId) {
@@ -1912,6 +1942,7 @@ export const buildApp = (): HTMLElement => {
         segmentMode: dashboardState.segmentMode,
         seasonId: dashboardState.selectedSeasonId,
         tournamentId: dashboardState.selectedTournamentId,
+        tournamentDirectMatchReady: hasReadyTournamentMatchAgainstUser(dashboardState.selectedTournamentId, userId),
       };
     }
     const requestKey = `${userId}::${appendMatches ? cursor ?? "" : "initial"}`;

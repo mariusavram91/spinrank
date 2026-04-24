@@ -342,6 +342,7 @@ describe("composer actions", () => {
       segmentMode: "season",
       seasonId: "season_1",
       tournamentId: "",
+      tournamentDirectMatchReady: false,
     };
 
     actions.prefillMatchWithUsers("user_a", "user_b");
@@ -357,6 +358,7 @@ describe("composer actions", () => {
       segmentMode: "tournament",
       seasonId: "season_1",
       tournamentId: "tournament_1",
+      tournamentDirectMatchReady: true,
     };
 
     actions.prefillMatchWithUsers("user_a", "user_b");
@@ -372,6 +374,7 @@ describe("composer actions", () => {
       segmentMode: "season",
       seasonId: "season_completed",
       tournamentId: "",
+      tournamentDirectMatchReady: false,
     };
 
     actions.prefillMatchWithUsers("user_a", "user_b");
@@ -383,6 +386,7 @@ describe("composer actions", () => {
       segmentMode: "tournament",
       seasonId: "season_1",
       tournamentId: "tournament_completed",
+      tournamentDirectMatchReady: true,
     };
     actions.prefillMatchWithUsers("user_a", "user_b");
 
@@ -401,6 +405,23 @@ describe("composer actions", () => {
       segmentMode: "tournament",
       seasonId: "season_1",
       tournamentId: "tournament_1",
+      tournamentDirectMatchReady: true,
+    };
+
+    actions.prefillMatchWithUsers("user_a", "user_b");
+
+    expect(args.formSeasonSelect.value).toBe("");
+    expect(args.formTournamentSelect.value).toBe("");
+    expect(args.setMatchContextMode).toHaveBeenLastCalledWith("open");
+  });
+
+  it("falls back to open context when the source tournament has no direct bracket match with the shared user", () => {
+    const { args, actions } = createHarness();
+    args.dashboardState.sharedUserProfileSourceContext = {
+      segmentMode: "tournament",
+      seasonId: "season_1",
+      tournamentId: "tournament_1",
+      tournamentDirectMatchReady: false,
     };
 
     actions.prefillMatchWithUsers("user_a", "user_b");

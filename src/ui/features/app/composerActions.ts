@@ -201,7 +201,11 @@ export const createComposerActions = (args: {
     }
     if (
       sourceContext?.segmentMode === "tournament" &&
-      (isLockedTournament(tournament) || !sharedProfileTournamentIds.has(sourceContext.tournamentId))
+      (
+        isLockedTournament(tournament) ||
+        !sharedProfileTournamentIds.has(sourceContext.tournamentId) ||
+        !sourceContext.tournamentDirectMatchReady
+      )
     ) {
       sourceContext = null;
     }
