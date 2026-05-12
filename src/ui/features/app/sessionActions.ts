@@ -14,6 +14,7 @@ export const createSessionActions = (args: {
   hasBackendConfig: boolean;
   clearSession: () => void;
   saveSession: (session: AppSession) => void;
+  setGlobalLoading: (active: boolean, label?: string) => void;
   syncAuthState: () => void;
   syncDashboardState: () => void;
   initAuthenticatedDashboard: () => Promise<void>;
@@ -27,6 +28,7 @@ export const createSessionActions = (args: {
     args.dashboardState.screen = "dashboard";
     args.dashboardState.error = "";
     args.dashboardState.loading = false;
+    args.setGlobalLoading(false);
     args.syncAuthState();
     args.syncDashboardState();
   };
@@ -65,6 +67,7 @@ export const createSessionActions = (args: {
     };
   }): Promise<void> => {
     args.state.current = { status: "loading", message: `Signing in with ${result.provider}...` };
+    args.setGlobalLoading(true, "Signing in...");
     args.syncAuthState();
 
     try {
@@ -94,6 +97,7 @@ export const createSessionActions = (args: {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Authentication failed.";
       args.state.current = { status: "error", message };
+      args.setGlobalLoading(false);
     }
 
     args.syncAuthState();

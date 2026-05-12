@@ -34,6 +34,7 @@ describe("session actions", () => {
 
     const state = { current: { status: "loading", message: "Loading" } as ViewState };
     const dashboardState = { screen: "createMatch", error: "Boom", loading: true } as DashboardState;
+    const setGlobalLoading = vi.fn();
     const syncAuthState = vi.fn();
     const syncDashboardState = vi.fn();
 
@@ -43,6 +44,7 @@ describe("session actions", () => {
       hasBackendConfig: true,
       clearSession: vi.fn(),
       saveSession: vi.fn(),
+      setGlobalLoading,
       syncAuthState,
       syncDashboardState,
       initAuthenticatedDashboard: vi.fn(),
@@ -59,6 +61,7 @@ describe("session actions", () => {
     expect(dashboardState.screen).toBe("dashboard");
     expect(dashboardState.error).toBe("");
     expect(dashboardState.loading).toBe(false);
+    expect(setGlobalLoading).toHaveBeenCalledWith(false);
     expect(syncAuthState).toHaveBeenCalled();
     expect(syncDashboardState).toHaveBeenCalled();
   });
@@ -78,6 +81,7 @@ describe("session actions", () => {
       current: { status: "authenticated", message: "Signed in", session } as ViewState,
     };
     const clearSession = vi.fn();
+    const setGlobalLoading = vi.fn();
     const syncAuthState = vi.fn();
 
     const actions = createSessionActions({
@@ -86,6 +90,7 @@ describe("session actions", () => {
       hasBackendConfig: true,
       clearSession,
       saveSession: vi.fn(),
+      setGlobalLoading,
       syncAuthState,
       syncDashboardState: vi.fn(),
       initAuthenticatedDashboard: vi.fn(),
@@ -125,6 +130,7 @@ describe("session actions", () => {
     const initAuthenticatedDashboard = vi.fn().mockResolvedValue(undefined);
     const buildSessionFromBootstrap = vi.fn().mockReturnValue(session);
     const state = { current: { status: "idle", message: "Idle" } as ViewState };
+    const setGlobalLoading = vi.fn();
     const syncAuthState = vi.fn();
 
     const actions = createSessionActions({
@@ -133,6 +139,7 @@ describe("session actions", () => {
       hasBackendConfig: true,
       clearSession: vi.fn(),
       saveSession,
+      setGlobalLoading,
       syncAuthState,
       syncDashboardState: vi.fn(),
       initAuthenticatedDashboard,
@@ -152,6 +159,7 @@ describe("session actions", () => {
     expect(buildSessionFromBootstrap).toHaveBeenCalledWith(bootstrapData);
     expect(saveSession).toHaveBeenCalledWith(session);
     expect(initAuthenticatedDashboard).toHaveBeenCalled();
+    expect(setGlobalLoading).toHaveBeenCalledWith(true, "Signing in...");
     expect(state.current).toEqual({
       status: "authenticated",
       message: "Signed in",
@@ -167,5 +175,6 @@ describe("session actions", () => {
       status: "error",
       message: "Backend failed.",
     });
+    expect(setGlobalLoading).toHaveBeenLastCalledWith(false);
   });
 });

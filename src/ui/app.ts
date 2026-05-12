@@ -1588,6 +1588,7 @@ export const buildApp = (): HTMLElement => {
     hasBackendConfig,
     clearSession,
     saveSession,
+    setGlobalLoading,
     syncAuthState,
     syncDashboardState,
     initAuthenticatedDashboard: async () => {
