@@ -4282,7 +4282,7 @@ select.text-input {
 .season-stats-chart__column {
   display: grid;
   gap: 8px;
-  align-content: end;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 40px;
 }
 
@@ -4290,6 +4290,12 @@ select.text-input {
   text-align: center;
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.season-stats-chart__bar-track {
+  height: 180px;
+  display: flex;
+  align-items: end;
 }
 
 .season-stats-chart__bar {

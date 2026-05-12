@@ -16,17 +16,21 @@ function createBarColumn(bar: SegmentGameScoreChart["bars"][number], maxGames: n
   value.className = "season-stats-chart__value";
   value.textContent = String(bar.gamesPlayed);
 
+  const barTrack = document.createElement("div");
+  barTrack.className = "season-stats-chart__bar-track";
+
   const barNode = document.createElement("div");
   barNode.className = "season-stats-chart__bar";
   barNode.style.height = `${maxGames > 0 ? Math.max(8, (bar.gamesPlayed / maxGames) * 100) : 8}%`;
   barNode.setAttribute("aria-hidden", "true");
+  barTrack.append(barNode);
 
   const score = document.createElement("span");
   score.className = "season-stats-chart__label";
   score.textContent = bar.scoreLabel;
 
   column.title = `${bar.scoreLabel}: ${bar.gamesPlayed}`;
-  column.append(value, barNode, score);
+  column.append(value, barTrack, score);
   return column;
 }
 
