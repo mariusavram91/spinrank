@@ -15,8 +15,7 @@ const GLICKO_TAU = 0.5;
 const GLICKO_SCALE = 173.7178;
 
 const ATTENDANCE_FREE_MISSES = 2;
-const ATTENDANCE_PENALTY_BASE = 4;
-const ATTENDANCE_PENALTY_CAP = 128;
+const ATTENDANCE_PENALTY_BASE = 8;
 const WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
 
 interface RatingState {
@@ -201,13 +200,23 @@ function calculateAttendancePenaltyForMissedWeeks(missedWeeks: number): number {
     return 0;
   }
 
-  return Math.min(ATTENDANCE_PENALTY_CAP, ATTENDANCE_PENALTY_BASE * 2 ** (penalizedMisses - 1));
+  return ATTENDANCE_PENALTY_BASE * (2 ** penalizedMisses - 1);
+}
+
+function calculateAttendancePenaltyIncrementForMissedWeek(missedWeeksInCurrentStreak: number): number {
+  const penalizedMisses = Math.max(0, missedWeeksInCurrentStreak - ATTENDANCE_FREE_MISSES);
+  if (penalizedMisses <= 0) {
+    return 0;
+  }
+
+  return ATTENDANCE_PENALTY_BASE * 2 ** (penalizedMisses - 1);
 }
 
 export function calculateSeasonScore(args: {
   rating: number;
   rd: number;
   attendancePenalty?: number;
+  attendedWeekKeys?: Iterable<number>;
   consecutiveMissedWeeks?: number;
   attendedWeeks?: number;
   totalWeeks?: number;
@@ -216,9 +225,12 @@ export function calculateSeasonScore(args: {
   const totalWeeks = Number(args.totalWeeks ?? 0);
   const attendancePenalty =
     args.attendancePenalty ??
+    (args.attendedWeekKeys !== undefined
+      ? calculateAttendancePenalty(new Set(args.attendedWeekKeys), totalWeeks)
+      :
     (args.consecutiveMissedWeeks !== undefined
       ? calculateAttendancePenaltyForMissedWeeks(Math.max(0, Number(args.consecutiveMissedWeeks)))
-      : calculateAttendancePenaltyForMissedWeeks(Math.max(0, totalWeeks - attendedWeeks)));
+      : calculateAttendancePenaltyForMissedWeeks(Math.max(0, totalWeeks - attendedWeeks))));
   return calculateSeasonConservativeRating(args.rating, args.rd) - attendancePenalty;
 }
 
@@ -239,7 +251,20 @@ function calculateConsecutiveMissedWeeks(attendedWeekKeys: Set<number>, totalWee
 }
 
 function calculateAttendancePenalty(attendedWeekKeys: Set<number>, totalWeeks: number): number {
-  return calculateAttendancePenaltyForMissedWeeks(calculateConsecutiveMissedWeeks(attendedWeekKeys, totalWeeks));
+  let missedWeeksInCurrentStreak = 0;
+  let totalPenalty = 0;
+
+  for (let weekIndex = 0; weekIndex < totalWeeks; weekIndex += 1) {
+    if (attendedWeekKeys.has(weekIndex)) {
+      missedWeeksInCurrentStreak = 0;
+      continue;
+    }
+
+    missedWeeksInCurrentStreak += 1;
+    totalPenalty += calculateAttendancePenaltyIncrementForMissedWeek(missedWeeksInCurrentStreak);
+  }
+
+  return totalPenalty;
 }
 
 function getSeasonScoreAtWeek(state: SeasonRatingState, totalWeeks: number): number {

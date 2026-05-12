@@ -422,7 +422,7 @@
   "faqSummaryCarryDetail": "Übernehmen hat keinen festen Startwert. Es kann je nach deinem aktuellen globalen Rating über oder unter 500 liegen. Ein frischer Reset kann bei 500 sichtbar werden.",
   "faqSummaryAttendanceLabel": "Saison-Teilnahme",
   "faqSummaryAttendanceValue": "Die ersten 2 Fehlwochen sind frei",
-  "faqSummaryAttendanceDetail": "Die Teilnahme-Strafe ist ein Abzug von Saison-Score-Punkten bei aufeinanderfolgenden Fehlwochen: die ersten 2 sind frei, dann -4, -8, -16, -32, -64 Punkte, gedeckelt bei -128. Wer wieder spielt, setzt den Fehlzähler zurück.",
+  "faqSummaryAttendanceDetail": "Die Teilnahme-Strafe ist ein Abzug von Saison-Score-Punkten bei aufeinanderfolgenden Fehlwochen: die ersten 2 sind frei, dann bringt die 3. Fehlwoche -8, die 4. zusätzlich -16, danach -32, -64, -128 und so weiter. Diese Abzüge stapeln sich ohne Obergrenze. Wer wieder spielt, setzt nur die Fehlserie für künftige Fehlwochen zurück; die bereits aufgebaute Strafe bleibt.",
   "faqSummaryTournamentLabel": "Turnier-Ergebnis",
   "faqSummaryTournamentValue": "Das Bracket entscheidet",
   "faqSummaryTournamentDetail": "Die Turnierreihenfolge kommt aus dem Bracket-Ergebnis, nicht aus Elo oder Saison-Score.",
