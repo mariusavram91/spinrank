@@ -1,7 +1,31 @@
+import { vi } from "vitest";
+
+const { recomputeAllRankingsMock } = vi.hoisted(() => ({
+  recomputeAllRankingsMock: vi.fn(),
+}));
+
+vi.mock("../../../worker/src/services/elo", async () => {
+  const actual = await vi.importActual<typeof import("../../../worker/src/services/elo")>(
+    "../../../worker/src/services/elo",
+  );
+  return {
+    ...actual,
+    recomputeAllRankings: recomputeAllRankingsMock,
+  };
+});
+
 import worker from "../../../worker/src/index";
 import { makeTestEnv } from "../../helpers/worker/make-test-env";
 
 describe("worker fetch entrypoint", () => {
+  beforeEach(() => {
+    recomputeAllRankingsMock.mockReset();
+    recomputeAllRankingsMock.mockResolvedValue({
+      globalState: {},
+      segmentStates: new Map(),
+    });
+  });
+
   it("returns a server error when the session secret is missing", async () => {
     const response = await worker.fetch(
       new Request("https://example.test/api", {
@@ -94,5 +118,22 @@ describe("worker fetch entrypoint", () => {
     await expect(limited.json()).resolves.toMatchObject({
       error: { code: "RATE_LIMITED" },
     });
+  });
+
+  it("recomputes rankings from the scheduled handler", async () => {
+    const waitUntil = vi.fn();
+
+    await worker.scheduled(
+      {
+        cron: "0 2 * * *",
+        scheduledTime: Date.parse("2026-05-13T02:00:00.000Z"),
+        type: "scheduled",
+      },
+      makeTestEnv(),
+      { waitUntil, passThroughOnException: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(recomputeAllRankingsMock).toHaveBeenCalledTimes(1);
+    expect(waitUntil).toHaveBeenCalledTimes(1);
   });
 });

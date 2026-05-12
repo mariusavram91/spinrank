@@ -2,6 +2,9 @@ name = "spinrank-api"
 main = "src/index.ts"
 compatibility_date = "2026-04-01"
 
+[triggers]
+crons = ["0 2 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "spinrank-prod"
