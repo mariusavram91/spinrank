@@ -202,9 +202,7 @@ export const createDashboardActions = (args: {
       args.renderSeasonEditor();
       args.renderTournamentPlanner();
 
-      if (args.dashboardState.segmentMode !== "global") {
-        await loadLeaderboard();
-      }
+      await loadLeaderboard();
     } catch (error) {
       args.dashboardState.error =
         error instanceof Error ? error.message : "Failed to load dashboard data.";

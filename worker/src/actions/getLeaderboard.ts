@@ -88,6 +88,7 @@ export async function handleGetLeaderboard(
     streak: Number(row.streak),
     bestWinStreak: Number(row.best_win_streak ?? 0),
     matchEquivalentPlayed: Number(row.wins) + Number(row.losses),
+    isQualified: Number(row.wins) + Number(row.losses) >= MINIMUM_LEADERBOARD_MATCHES,
     rank: Number(row.rank || index + 1),
   }));
 

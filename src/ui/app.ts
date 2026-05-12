@@ -322,6 +322,7 @@ export const buildApp = (): HTMLElement => {
     leaderboardStatHighestPeakPlayer,
     leaderboardStatHighestPeakMeta,
     leaderboardList,
+    leaderboardLoadMoreButton,
     leaderboardAvatarFallback,
     composerPanel,
     composerTop,
@@ -721,6 +722,7 @@ export const buildApp = (): HTMLElement => {
   const leaderboardRenderer = createLeaderboardRenderer({
     dashboardState,
     leaderboardList,
+    loadMoreButton: leaderboardLoadMoreButton,
     getCurrentUserId: () => getCurrentUserId(state.current),
     onOpenUserProfile: (userId) => {
       openSharedUserProfile(userId);

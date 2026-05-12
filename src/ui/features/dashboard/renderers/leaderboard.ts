@@ -4,6 +4,7 @@ import { translateBracketRoundTitle } from "../../app/helpers";
 import { setAvatarImage } from "../../../shared/utils/avatar";
 
 type TranslationFn = (key: TextKey) => string;
+const GLOBAL_LEADERBOARD_BATCH_SIZE = 10;
 
 const renderStreak = (streak: number, t: TranslationFn): string => {
   if (streak > 0) {
@@ -25,18 +26,19 @@ const getVisibleLeaderboardEntries = (
   leaderboard: DashboardState["leaderboard"],
   segmentMode: SegmentMode,
   currentUserId: string,
+  globalVisibleCount: number,
 ): DashboardState["leaderboard"] => {
   if (segmentMode !== "global") {
     return leaderboard.slice(0, 20);
   }
 
-  const topTen = leaderboard.slice(0, 10);
-  if (topTen.some((entry) => entry.userId === currentUserId)) {
-    return topTen;
+  const visibleRankedEntries = leaderboard.slice(0, globalVisibleCount);
+  if (visibleRankedEntries.some((entry) => entry.userId === currentUserId)) {
+    return visibleRankedEntries;
   }
 
   const currentUserEntry = leaderboard.find((entry) => entry.userId === currentUserId);
-  return currentUserEntry ? [...topTen, currentUserEntry] : topTen;
+  return currentUserEntry ? [...visibleRankedEntries, currentUserEntry] : visibleRankedEntries;
 };
 
 const getLeaderboardEmptyText = (scope: SegmentMode, t: TranslationFn): string => {
@@ -194,12 +196,40 @@ export type LeaderboardRenderer = {
 export const createLeaderboardRenderer = (args: {
   dashboardState: DashboardState;
   leaderboardList: HTMLElement;
+  loadMoreButton: HTMLButtonElement;
   getCurrentUserId: () => string;
   onOpenUserProfile: (userId: string) => void;
   t: TranslationFn;
   avatarBaseUrl: string;
 }): LeaderboardRenderer => {
   let needsUpdate = true;
+  let globalVisibleCount = GLOBAL_LEADERBOARD_BATCH_SIZE;
+  let lastRenderKey = "";
+  const render = (): void => {
+    if (!needsUpdate) {
+      return;
+    }
+    needsUpdate = false;
+    rebuildLeaderboard();
+  };
+
+  const renderKeyForState = (): string =>
+    [
+      args.dashboardState.segmentMode,
+      args.dashboardState.selectedSeasonId,
+      args.dashboardState.selectedTournamentId,
+      args.dashboardState.leaderboardUpdatedAt,
+      args.dashboardState.leaderboard.length,
+    ].join(":");
+
+  const resetPaginationIfNeeded = (): void => {
+    const nextKey = renderKeyForState();
+    if (nextKey === lastRenderKey) {
+      return;
+    }
+    lastRenderKey = nextKey;
+    globalVisibleCount = GLOBAL_LEADERBOARD_BATCH_SIZE;
+  };
 
   const buildEmptyState = (): HTMLParagraphElement => {
     const empty = document.createElement("p");
@@ -209,8 +239,11 @@ export const createLeaderboardRenderer = (args: {
   };
 
   const rebuildLeaderboard = (): void => {
+    resetPaginationIfNeeded();
     const isTournamentMode = args.dashboardState.segmentMode === "tournament";
     const leaderboard = args.dashboardState.leaderboard;
+    args.loadMoreButton.hidden = true;
+    args.loadMoreButton.disabled = false;
     if (isTournamentMode) {
       const rounds = args.dashboardState.tournamentBracket;
       if (rounds.length === 0) {
@@ -374,7 +407,12 @@ export const createLeaderboardRenderer = (args: {
     }
 
     const currentUserId = args.getCurrentUserId();
-    const visibleEntries = getVisibleLeaderboardEntries(leaderboard, args.dashboardState.segmentMode, currentUserId);
+    const visibleEntries = getVisibleLeaderboardEntries(
+      leaderboard,
+      args.dashboardState.segmentMode,
+      currentUserId,
+      globalVisibleCount,
+    );
     const bestVisibleStreak = getBestVisibleStreak(visibleEntries);
     const rows = visibleEntries.map((entry) => {
       const isInactive = getLeaderboardMatchesPlayed(entry) <= 0;
@@ -430,6 +468,14 @@ export const createLeaderboardRenderer = (args: {
         inactiveChip.className = "leaderboard-status-chip leaderboard-status-chip--inactive";
         inactiveChip.textContent = args.t("leaderboardInactive");
         identityLine.append(inactiveChip);
+      } else if (
+        (args.dashboardState.segmentMode === "global" || args.dashboardState.segmentMode === "season") &&
+        entry.isQualified === false
+      ) {
+        const qualificationChip = document.createElement("span");
+        qualificationChip.className = "leaderboard-status-chip leaderboard-status-chip--unqualified";
+        qualificationChip.textContent = args.t("leaderboardUnqualified");
+        identityLine.append(qualificationChip);
       }
 
       if (args.dashboardState.segmentMode === "season") {
@@ -501,18 +547,26 @@ export const createLeaderboardRenderer = (args: {
     });
 
     args.leaderboardList.replaceChildren(...rows);
+    if (args.dashboardState.segmentMode === "global") {
+      const hasMore = leaderboard.length > globalVisibleCount;
+      args.loadMoreButton.hidden = !hasMore;
+      args.loadMoreButton.disabled = !hasMore;
+    }
   };
+
+  args.loadMoreButton.addEventListener("click", () => {
+    if (args.dashboardState.segmentMode !== "global") {
+      return;
+    }
+    globalVisibleCount += GLOBAL_LEADERBOARD_BATCH_SIZE;
+    needsUpdate = true;
+    render();
+  });
 
   return {
     markDirty: () => {
       needsUpdate = true;
     },
-    render: () => {
-      if (!needsUpdate) {
-        return;
-      }
-      needsUpdate = false;
-      rebuildLeaderboard();
-    },
+    render,
   };
 };

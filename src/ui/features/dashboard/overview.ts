@@ -48,6 +48,7 @@ export interface DashboardOverviewElements {
   leaderboardStatBestWinRatePlayer: HTMLSpanElement;
   leaderboardStatBestWinRateMeta: HTMLSpanElement;
   leaderboardList: HTMLDivElement;
+  leaderboardLoadMoreButton: HTMLButtonElement;
   leaderboardAvatarFallback: string;
 }
 
@@ -366,9 +367,16 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   leaderboardList.className = "leaderboard-list";
   leaderboardList.dataset.testid = "leaderboard-list";
 
+  const leaderboardLoadMoreButton = document.createElement("button");
+  leaderboardLoadMoreButton.type = "button";
+  leaderboardLoadMoreButton.className = "secondary-button leaderboard-load-more-button";
+  leaderboardLoadMoreButton.dataset.testid = "leaderboard-load-more";
+  leaderboardLoadMoreButton.hidden = true;
+  bindLocalizedText(leaderboardLoadMoreButton, "loadMore");
+
   leaderboardHeading.append(leaderboardTitle, segmentToggle, seasonSelect, seasonStats, tournamentSelect);
   leaderboardTop.append(leaderboardHeading);
-  leaderboardPanel.append(leaderboardTop, leaderboardList, leaderboardStatsGroup);
+  leaderboardPanel.append(leaderboardTop, leaderboardList, leaderboardLoadMoreButton, leaderboardStatsGroup);
 
   return {
     dashboardStatus,
@@ -418,6 +426,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatBestWinRatePlayer,
     leaderboardStatBestWinRateMeta,
     leaderboardList,
+    leaderboardLoadMoreButton,
     leaderboardAvatarFallback: `${baseUrl}assets/logo.svg`,
   };
 };
