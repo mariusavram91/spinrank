@@ -13,6 +13,7 @@ import type {
   MatchRecord,
   ParticipantSearchEntry,
   SeasonRecord,
+  SegmentGameScoreChart,
   TournamentRecord,
   SegmentLeaderboardStats,
 } from "../api/contract";
@@ -63,6 +64,7 @@ import { buildFooter } from "./shared/components/footer";
 import { buildLanguageSwitch } from "./shared/components/languageSwitch";
 import { buildLoginView } from "./shared/components/loginView";
 import { buildScoreCard } from "./shared/components/scoreCard";
+import { buildSeasonStatsModal } from "./shared/components/seasonStatsModal";
 import {
   bindLocalizedText,
   getCurrentLanguage,
@@ -298,6 +300,7 @@ export const buildApp = (): HTMLElement => {
     leaderboardStatsGroup,
     leaderboardMatchesSummary,
     leaderboardMatchesSummaryValue,
+    leaderboardMatchesChartButton,
     leaderboardStatMostActive,
     leaderboardStatMostActivePlayer,
     leaderboardStatMostActiveMeta,
@@ -392,6 +395,7 @@ export const buildApp = (): HTMLElement => {
     seasonIsPublicInput,
     submitSeasonButton,
     deleteSeasonButton,
+    seasonDetailsChartButton,
     tournamentNameInput,
     loadTournamentSelect,
     resetTournamentDraftButton,
@@ -1303,6 +1307,7 @@ export const buildApp = (): HTMLElement => {
       leaderboardStatsGroup,
       leaderboardMatchesSummary,
       leaderboardMatchesSummaryValue,
+      leaderboardMatchesChartButton,
       leaderboardStatMostActive,
       leaderboardStatMostActivePlayer,
       leaderboardStatMostActiveMeta,
@@ -1326,6 +1331,7 @@ export const buildApp = (): HTMLElement => {
       leaderboardStatBestWinRate,
       leaderboardStatBestWinRatePlayer,
       leaderboardStatBestWinRateMeta,
+      seasonDetailsChartButton,
     },
     sharePanels: {
       get season() {
@@ -1633,6 +1639,7 @@ export const buildApp = (): HTMLElement => {
     loadDashboard,
     applyMatchFilter,
     loadMoreMatches,
+    loadSeasonScoreCharts,
     applySegmentMode,
     refreshSegmentShareLink,
     initAuthenticatedDashboard,
@@ -1724,6 +1731,40 @@ export const buildApp = (): HTMLElement => {
     getEditingSeason,
     promptDeleteWarning: async (request) => promptDeleteWarning(request),
     formatDate,
+  });
+
+  let activeSeasonStatsModal: ReturnType<typeof buildSeasonStatsModal> | null = null;
+  const showSeasonStatsModal = async (seasonId: string): Promise<void> => {
+    if (!seasonId) {
+      return;
+    }
+
+    const seasonName =
+      dashboardState.seasons.find((season) => season.id === seasonId)?.name || t("seasonDetails");
+
+    if (activeSeasonStatsModal?.overlay.isConnected) {
+      activeSeasonStatsModal.overlay.remove();
+    }
+    activeSeasonStatsModal = buildSeasonStatsModal((key) => t(key));
+    container.append(activeSeasonStatsModal.overlay);
+    activeSeasonStatsModal.showLoading(seasonName);
+
+    try {
+      const charts: SegmentGameScoreChart[] = await loadSeasonScoreCharts(seasonId);
+      activeSeasonStatsModal.renderCharts(seasonName, charts);
+    } catch (error) {
+      activeSeasonStatsModal.showError(
+        seasonName,
+        error instanceof Error ? error.message : t("seasonStatsModalError"),
+      );
+    }
+  };
+
+  leaderboardMatchesChartButton.addEventListener("click", () => {
+    void showSeasonStatsModal(dashboardState.selectedSeasonId);
+  });
+  seasonDetailsChartButton.addEventListener("click", () => {
+    void showSeasonStatsModal(dashboardState.editingSeasonId);
   });
 
   const { loadTournamentBracket, saveTournament, deleteTournament } = createTournamentActions({
@@ -2702,6 +2743,7 @@ export const buildApp = (): HTMLElement => {
     seasonParticipantList,
     submitSeasonButton,
     deleteSeasonButton,
+    seasonDetailsChartButton,
   });
   tournamentActionsWrapper = nextTournamentActionsWrapper;
   seasonActionsWrapper = nextSeasonActionsWrapper;

@@ -108,6 +108,7 @@ export const assembleAppScreens = (args: {
   seasonParticipantList: HTMLElement;
   submitSeasonButton: HTMLButtonElement;
   deleteSeasonButton: HTMLButtonElement;
+  seasonDetailsChartButton: HTMLButtonElement;
 }) => {
   const { dashboardHeader } = buildDashboardHeader({
     welcomeTitle: args.welcomeTitle,
@@ -224,6 +225,7 @@ export const assembleAppScreens = (args: {
     seasonPublicField,
     submitSeasonButton: args.submitSeasonButton,
     deleteSeasonButton: args.deleteSeasonButton,
+    seasonDetailsChartButton: args.seasonDetailsChartButton,
   });
 
   return {

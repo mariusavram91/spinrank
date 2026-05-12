@@ -11,6 +11,7 @@ import type {
   MatchScoreGame,
   ParticipantSearchEntry,
   SeasonRecord,
+  SegmentGameScoreChart,
   SegmentLeaderboardStats,
   SegmentType,
   TournamentBracketRound,
@@ -63,6 +64,7 @@ export interface DashboardState {
   players: LeaderboardEntry[];
   leaderboardUpdatedAt: string;
   leaderboardStats: SegmentLeaderboardStats | null;
+  seasonScoreChartsBySeasonId: Record<string, SegmentGameScoreChart[]>;
   tournamentBracket: TournamentBracketRound[];
   userProgress: GetUserProgressData | null;
   achievements: AchievementOverview | null;

@@ -81,6 +81,7 @@ const createDashboardState = (overrides: Partial<DashboardState> = {}): Dashboar
     players: [],
     leaderboardUpdatedAt: "",
     leaderboardStats: null,
+    seasonScoreChartsBySeasonId: {},
     tournamentBracket: [],
     userProgress: null,
     segmentMode: "global",
@@ -250,7 +251,7 @@ describe("dashboard actions", () => {
     expect(harness.args.populateMatchFormOptions).toHaveBeenCalled();
     expect(harness.args.renderSeasonEditor).toHaveBeenCalled();
     expect(harness.args.renderTournamentPlanner).toHaveBeenCalled();
-    expect(harness.markLeaderboardDirty).toHaveBeenCalledTimes(1);
+    expect(harness.markLeaderboardDirty).toHaveBeenCalledTimes(2);
     expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(1, true, "loadingDashboard");
     expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(2, false);
   });

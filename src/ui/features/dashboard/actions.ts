@@ -87,6 +87,7 @@ export const createDashboardActions = (args: {
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
       args.dashboardState.leaderboardStats = null;
+      args.dashboardState.seasonScoreChartsBySeasonId = {};
       args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       return;
@@ -115,6 +116,9 @@ export const createDashboardActions = (args: {
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
       args.dashboardState.leaderboardStats = data.stats;
+      if (data.stats.gameScoreCharts) {
+        args.dashboardState.seasonScoreChartsBySeasonId[requestedSeasonId] = data.stats.gameScoreCharts;
+      }
       args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       return;
@@ -124,6 +128,7 @@ export const createDashboardActions = (args: {
       args.dashboardState.leaderboard = [];
       args.dashboardState.leaderboardUpdatedAt = "";
       args.dashboardState.leaderboardStats = null;
+      args.dashboardState.seasonScoreChartsBySeasonId = {};
       args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       return;
@@ -152,6 +157,7 @@ export const createDashboardActions = (args: {
     args.dashboardState.leaderboard = leaderboardData.leaderboard;
     args.dashboardState.leaderboardUpdatedAt = leaderboardData.updatedAt;
     args.dashboardState.leaderboardStats = leaderboardData.stats;
+    args.dashboardState.seasonScoreChartsBySeasonId = {};
     args.dashboardState.tournamentBracket = bracketData.rounds;
     args.markLeaderboardDirty();
   };
@@ -184,6 +190,7 @@ export const createDashboardActions = (args: {
       args.dashboardState.players = mergePlayers(data.players ?? [], data.leaderboard);
       args.dashboardState.leaderboard = data.leaderboard;
       args.dashboardState.leaderboardUpdatedAt = data.leaderboardUpdatedAt;
+      args.dashboardState.seasonScoreChartsBySeasonId = {};
       args.dashboardState.tournamentBracket = [];
       args.markLeaderboardDirty();
       args.dashboardState.userProgress = data.userProgress;
@@ -305,6 +312,22 @@ export const createDashboardActions = (args: {
     await loadMatches({ reset: false });
   };
 
+  const loadSeasonScoreCharts = async (seasonId: string) => {
+    const cached = args.dashboardState.seasonScoreChartsBySeasonId[seasonId];
+    if (cached) {
+      return cached;
+    }
+
+    const data = await args.runAuthedAction("getSegmentLeaderboard", {
+      segmentType: "season",
+      segmentId: seasonId,
+      includeScoreDistribution: true,
+    });
+    const charts = data.stats.gameScoreCharts ?? [];
+    args.dashboardState.seasonScoreChartsBySeasonId[seasonId] = charts;
+    return charts;
+  };
+
   const applySegmentMode = async (mode: SegmentMode): Promise<void> => {
     args.dashboardState.segmentMode = mode;
     args.dashboardState.loading = true;
@@ -395,6 +418,7 @@ export const createDashboardActions = (args: {
     loadMatches,
     applyMatchFilter,
     loadMoreMatches,
+    loadSeasonScoreCharts,
     applySegmentMode,
     refreshSegmentShareLink,
     tryRedeemPendingShareToken,

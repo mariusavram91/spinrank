@@ -8,6 +8,7 @@ import type {
   Env,
   GetSegmentLeaderboardPayload,
   LeaderboardEntry,
+  SegmentGameScoreChart,
   SegmentLeaderboardStats,
   TournamentBracketRound,
   UserRow,
@@ -22,12 +23,27 @@ type TournamentPlacementMetrics = {
 
 type SegmentMatchRow = {
   match_type: "singles" | "doubles";
+  points_to_win?: 11 | 21;
   team_a_player_ids_json: string;
   team_b_player_ids_json: string;
   winner_team: "A" | "B";
 };
 
+type SegmentGameScoreCountRow = {
+  match_type: "singles" | "doubles";
+  points_to_win: 11 | 21;
+  winner_score: number;
+  loser_score: number;
+  game_count: number;
+};
+
 const MIN_AWARD_MATCHES = 10;
+const SCORE_CHART_CONFIGS: Array<{ matchType: "singles" | "doubles"; pointsToWin: 11 | 21 }> = [
+  { matchType: "singles", pointsToWin: 11 },
+  { matchType: "singles", pointsToWin: 21 },
+  { matchType: "doubles", pointsToWin: 11 },
+  { matchType: "doubles", pointsToWin: 21 },
+];
 
 function buildTournamentPlacementMetrics(rounds: TournamentBracketRound[]): TournamentPlacementMetrics {
   const metrics: TournamentPlacementMetrics = {
@@ -223,12 +239,81 @@ function chooseBestDoublesPair(
   return rankedPairs[0] ?? null;
 }
 
+function buildScoreLabel(winnerScore: number, loserScore: number): string {
+  return `${winnerScore}:${loserScore}`;
+}
+
+function buildGameScoreCharts(rows: SegmentGameScoreCountRow[]): SegmentGameScoreChart[] {
+  const countsByKey = new Map<string, number>();
+  const observedByChart = new Map<string, Array<{ winnerScore: number; loserScore: number }>>();
+
+  rows.forEach((row) => {
+    const chartKey = `${row.match_type}:${row.points_to_win}`;
+    const scoreKey = `${chartKey}:${row.winner_score}:${row.loser_score}`;
+    countsByKey.set(scoreKey, Number(row.game_count));
+    const observedScores = observedByChart.get(chartKey) ?? [];
+    observedScores.push({
+      winnerScore: Number(row.winner_score),
+      loserScore: Number(row.loser_score),
+    });
+    observedByChart.set(chartKey, observedScores);
+  });
+
+  return SCORE_CHART_CONFIGS.map(({ matchType, pointsToWin }) => {
+    const chartKey = `${matchType}:${pointsToWin}`;
+    const baselineScores = Array.from({ length: pointsToWin - 1 }, (_, loserScore) => ({
+      winnerScore: pointsToWin,
+      loserScore,
+    }));
+    const deuceScores = (observedByChart.get(chartKey) ?? [])
+      .filter(({ winnerScore, loserScore }) => winnerScore > pointsToWin || loserScore >= pointsToWin - 1)
+      .sort((left, right) => {
+        if (left.winnerScore !== right.winnerScore) {
+          return left.winnerScore - right.winnerScore;
+        }
+        return left.loserScore - right.loserScore;
+      });
+
+    const uniqueScores = [...baselineScores, ...deuceScores].filter(
+      (score, index, allScores) =>
+        allScores.findIndex(
+          (candidate) =>
+            candidate.winnerScore === score.winnerScore && candidate.loserScore === score.loserScore,
+        ) === index,
+    );
+
+    const bars = uniqueScores
+      .map(({ winnerScore, loserScore }) => ({
+        scoreLabel: buildScoreLabel(winnerScore, loserScore),
+        winnerScore,
+        loserScore,
+        gamesPlayed: countsByKey.get(`${chartKey}:${winnerScore}:${loserScore}`) ?? 0,
+      }))
+      .sort((left, right) => {
+        if (right.gamesPlayed !== left.gamesPlayed) {
+          return right.gamesPlayed - left.gamesPlayed;
+        }
+        if (left.winnerScore !== right.winnerScore) {
+          return left.winnerScore - right.winnerScore;
+        }
+        return left.loserScore - right.loserScore;
+      });
+
+    return {
+      matchType,
+      pointsToWin,
+      totalGames: bars.reduce((sum, bar) => sum + bar.gamesPlayed, 0),
+      bars,
+    };
+  });
+}
+
 export async function handleGetSegmentLeaderboard(
   request: ApiRequest<"getSegmentLeaderboard", GetSegmentLeaderboardPayload>,
   sessionUser: UserRow,
   env: Env,
 ) {
-  const { segmentType, segmentId } = request.payload;
+  const { segmentType, segmentId, includeScoreDistribution } = request.payload;
   if (!segmentId || (segmentType !== "season" && segmentType !== "tournament")) {
     return errorResponse(request.requestId, "VALIDATION_ERROR", "getSegmentLeaderboard requires segmentType and segmentId.");
   }
@@ -301,7 +386,7 @@ export async function handleGetSegmentLeaderboard(
     .first<{ total_matches: number }>();
   const segmentMatches = await env.DB.prepare(
     `
-      SELECT m.match_type, m.team_a_player_ids_json, m.team_b_player_ids_json, m.winner_team
+      SELECT m.match_type, m.points_to_win, m.team_a_player_ids_json, m.team_b_player_ids_json, m.winner_team
       FROM matches m
       LEFT JOIN tournaments t ON t.id = m.tournament_id
       WHERE m.status = 'active'
@@ -313,6 +398,39 @@ export async function handleGetSegmentLeaderboard(
   )
     .bind(segmentType, segmentId)
     .all<SegmentMatchRow>();
+  const gameScoreCounts =
+    segmentType === "season" && includeScoreDistribution
+      ? await env.DB.prepare(
+          `
+            SELECT
+              m.match_type,
+              m.points_to_win,
+              CASE
+                WHEN CAST(json_extract(game.value, '$.teamA') AS INTEGER) >= CAST(json_extract(game.value, '$.teamB') AS INTEGER)
+                  THEN CAST(json_extract(game.value, '$.teamA') AS INTEGER)
+                ELSE CAST(json_extract(game.value, '$.teamB') AS INTEGER)
+              END AS winner_score,
+              CASE
+                WHEN CAST(json_extract(game.value, '$.teamA') AS INTEGER) >= CAST(json_extract(game.value, '$.teamB') AS INTEGER)
+                  THEN CAST(json_extract(game.value, '$.teamB') AS INTEGER)
+                ELSE CAST(json_extract(game.value, '$.teamA') AS INTEGER)
+              END AS loser_score,
+              COUNT(*) AS game_count
+            FROM matches m
+            LEFT JOIN tournaments t ON t.id = m.tournament_id
+            JOIN json_each(m.score_json) game
+            WHERE m.status = 'active'
+              AND (m.season_id = ?1 OR t.season_id = ?1)
+            GROUP BY
+              m.match_type,
+              m.points_to_win,
+              winner_score,
+              loser_score
+          `,
+        )
+          .bind(segmentId)
+          .all<SegmentGameScoreCountRow>()
+      : { results: [] as SegmentGameScoreCountRow[] };
 
   const leaderboard = rows.results
     .map<LeaderboardEntry>((row) => {
@@ -540,6 +658,8 @@ export async function handleGetSegmentLeaderboard(
         leaderboard.map((entry) => [entry.userId, { displayName: entry.displayName, avatarUrl: entry.avatarUrl }] as const),
       ),
     ),
+    gameScoreCharts:
+      segmentType === "season" && includeScoreDistribution ? buildGameScoreCharts(gameScoreCounts.results) : undefined,
     tournamentWinnerPlayer: tournamentWinnerRow
       ? {
           userId: tournamentWinnerRow.user_id,

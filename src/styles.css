@@ -876,6 +876,18 @@ button:disabled,
   transform: rotate(20deg);
 }
 
+.leaderboard-matches__chart-button,
+.section-chart-button,
+.season-stats-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaderboard-matches__chart-button {
+  margin-left: 8px;
+}
+
 .section-delete-button {
   font-size: 1rem;
   color: rgba(138, 37, 27, 0.85);
@@ -3310,6 +3322,12 @@ select.text-input {
   gap: 10px;
 }
 
+.panel-section__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .panel-section--editor-entry {
   border-color: rgba(20, 31, 51, 0.12);
   background:
@@ -4188,6 +4206,108 @@ select.text-input {
   outline: none;
   border-color: var(--brand-spin);
   box-shadow: 0 0 0 3px rgba(11, 74, 141, 0.15);
+}
+
+.season-stats-modal {
+  width: min(1080px, 100%);
+  max-height: min(88vh, 920px);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.season-stats-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.season-stats-modal__heading {
+  display: grid;
+  gap: 6px;
+}
+
+.season-stats-modal__status {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.season-stats-modal__content {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.season-stats-chart {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(20, 31, 51, 0.09);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(243, 246, 251, 0.92), rgba(255, 255, 255, 0.98)),
+    var(--surface-strong);
+}
+
+.season-stats-chart__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.season-stats-chart__title,
+.season-stats-chart__meta {
+  margin: 0;
+}
+
+.season-stats-chart__meta {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.season-stats-chart__plot {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(40px, 1fr);
+  align-items: end;
+  gap: 10px;
+  min-height: 240px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.season-stats-chart__column {
+  display: grid;
+  gap: 8px;
+  align-content: end;
+  min-width: 40px;
+}
+
+.season-stats-chart__value {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.season-stats-chart__bar {
+  width: 100%;
+  min-height: 8px;
+  border-radius: 12px 12px 4px 4px;
+  background:
+    linear-gradient(180deg, rgba(46, 123, 160, 0.95), rgba(30, 84, 109, 0.88)),
+    var(--brand-spin-dark);
+}
+
+.season-stats-chart__label {
+  text-align: center;
+  font-size: 0.77rem;
+  color: var(--text-muted);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  min-height: 64px;
 }
 
 .delete-warning__actions {

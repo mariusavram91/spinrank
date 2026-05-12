@@ -479,6 +479,7 @@ export const buildSeasonScreen = (args: {
   seasonPublicField: HTMLElement;
   submitSeasonButton: HTMLButtonElement;
   deleteSeasonButton: HTMLButtonElement;
+  seasonDetailsChartButton: HTMLButtonElement;
 }): SeasonScreenElements => {
   args.seasonParticipantSection.append(
     args.seasonParticipantSearchInput,
@@ -512,12 +513,15 @@ export const buildSeasonScreen = (args: {
   if (seasonDetailsHeading) {
     const seasonDetailsHeader = document.createElement("div");
     seasonDetailsHeader.className = "panel-section__header";
+    const seasonDetailsActions = document.createElement("div");
+    seasonDetailsActions.className = "panel-section__actions";
+    seasonDetailsActions.append(args.seasonDetailsChartButton, args.deleteSeasonButton);
     args.deleteSeasonButton.className = "icon-button section-delete-button";
     args.deleteSeasonButton.textContent = "🗑";
     args.deleteSeasonButton.setAttribute("aria-label", "Delete season");
     args.deleteSeasonButton.title = "Delete season";
     seasonDetailsHeading.replaceWith(seasonDetailsHeader);
-    seasonDetailsHeader.append(seasonDetailsHeading, args.deleteSeasonButton);
+    seasonDetailsHeader.append(seasonDetailsHeading, seasonDetailsActions);
   }
 
   const seasonParticipantsSection = createPanelSection("participants", args.seasonParticipantSection);

@@ -146,6 +146,7 @@ const createDom = () => ({
   leaderboardStatsGroup: makeDiv(),
   leaderboardMatchesSummary: makeDiv(),
   leaderboardMatchesSummaryValue: makeDiv(),
+  leaderboardMatchesChartButton: makeButton(),
   leaderboardStatMostActive: makeDiv(),
   leaderboardStatMostActivePlayer: makeDiv(),
   leaderboardStatMostActiveMeta: makeDiv(),
@@ -169,6 +170,7 @@ const createDom = () => ({
   leaderboardStatBestWinRate: makeDiv(),
   leaderboardStatBestWinRatePlayer: makeDiv(),
   leaderboardStatBestWinRateMeta: makeDiv(),
+  seasonDetailsChartButton: makeButton(),
 });
 
 const setSelectValue = (select: HTMLSelectElement, value: string) => {
@@ -189,6 +191,7 @@ const createDashboardState = (overrides?: Partial<DashboardState>) =>
     screen: "dashboard",
     players: [],
     leaderboardUpdatedAt: "",
+    seasonScoreChartsBySeasonId: {},
     tournamentBracket: [],
     userProgress: null,
     selectedSeasonId: "",

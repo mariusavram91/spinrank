@@ -625,4 +625,109 @@ describe("worker getSegmentLeaderboard action", () => {
     expect(response.data?.stats.bestSinglesPlayer).toBeNull();
     expect(response.data?.stats.bestDoublesPair).toBeNull();
   });
+
+  it("builds zero-filled season game score charts on demand", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1200,
+      wins: 0,
+      losses: 0,
+      streak: 0,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("FROM elo_segments es")) {
+              return {
+                results: [
+                  {
+                    user_id: "user_a",
+                    elo: 1300,
+                    matches_played: 2,
+                    matches_played_equivalent: 2,
+                    wins: 2,
+                    losses: 0,
+                    streak: 2,
+                    best_win_streak: 2,
+                    highest_score: 1300,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1300,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1210,
+                    season_attended_weeks: 2,
+                    season_total_weeks: 2,
+                    season_attendance_penalty: 0,
+                    display_name: "Alice",
+                    avatar_url: null,
+                  },
+                ],
+              };
+            }
+            if (statementSql.includes("COUNT(*) AS total_matches")) {
+              return { total_matches: 2 };
+            }
+            if (statementSql.includes("JOIN json_each(m.score_json)")) {
+              return {
+                results: [
+                  {
+                    match_type: "singles",
+                    points_to_win: 11,
+                    winner_score: 11,
+                    loser_score: 8,
+                    game_count: 3,
+                  },
+                  {
+                    match_type: "singles",
+                    points_to_win: 11,
+                    winner_score: 12,
+                    loser_score: 10,
+                    game_count: 1,
+                  },
+                ],
+              };
+            }
+            return { results: [] };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetSegmentLeaderboard(
+      {
+        action: "getSegmentLeaderboard",
+        requestId: "req_segment_score_charts",
+        payload: { segmentType: "season", segmentId: "season_1", includeScoreDistribution: true },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.stats.gameScoreCharts).toBeDefined();
+    const singles11Chart = response.data?.stats.gameScoreCharts?.find(
+      (chart) => chart.matchType === "singles" && chart.pointsToWin === 11,
+    );
+    expect(singles11Chart?.totalGames).toBe(4);
+    expect(singles11Chart?.bars[0]).toMatchObject({ scoreLabel: "11:8", gamesPlayed: 3 });
+    expect(singles11Chart?.bars.find((bar) => bar.scoreLabel === "11:5")).toMatchObject({ gamesPlayed: 0 });
+    expect(singles11Chart?.bars.find((bar) => bar.scoreLabel === "12:10")).toMatchObject({ gamesPlayed: 1 });
+    expect(
+      response.data?.stats.gameScoreCharts?.find((chart) => chart.matchType === "doubles" && chart.pointsToWin === 21),
+    ).toMatchObject({
+      totalGames: 0,
+    });
+  });
 });

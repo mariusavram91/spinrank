@@ -195,12 +195,27 @@ export interface SegmentBestDoublesPair {
   losses: number;
 }
 
+export interface SegmentGameScoreBar {
+  scoreLabel: string;
+  winnerScore: number;
+  loserScore: number;
+  gamesPlayed: number;
+}
+
+export interface SegmentGameScoreChart {
+  matchType: MatchType;
+  pointsToWin: 11 | 21;
+  totalGames: number;
+  bars: SegmentGameScoreBar[];
+}
+
 export interface SegmentLeaderboardStats {
   totalMatches: number;
   mostMatchesPlayer: SegmentMostMatchesPlayer | null;
   mostWinsPlayer: SegmentMostWinsPlayer | null;
   bestSinglesPlayer?: SegmentBestSinglesPlayer | null;
   bestDoublesPair?: SegmentBestDoublesPair | null;
+  gameScoreCharts?: SegmentGameScoreChart[];
   tournamentWinnerPlayer: SegmentTournamentWinner | null;
 }
 
@@ -684,6 +699,7 @@ export interface RedeemSegmentShareLinkData {
 export interface GetSegmentLeaderboardPayload {
   segmentType: SegmentType;
   segmentId: string;
+  includeScoreDistribution?: boolean;
 }
 
 export interface GetSegmentLeaderboardData {

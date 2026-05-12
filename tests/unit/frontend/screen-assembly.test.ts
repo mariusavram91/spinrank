@@ -139,6 +139,7 @@ describe("screen assembly", () => {
       seasonParticipantList: document.createElement("div"),
       submitSeasonButton: createButton(),
       deleteSeasonButton: createButton(),
+      seasonDetailsChartButton: createButton(),
     });
 
     expect(buildDashboardHeader).toHaveBeenCalled();

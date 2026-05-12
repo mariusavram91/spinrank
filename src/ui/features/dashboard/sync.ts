@@ -70,6 +70,7 @@ type DashboardSyncDom = {
   leaderboardStatsGroup: HTMLElement;
   leaderboardMatchesSummary: HTMLElement;
   leaderboardMatchesSummaryValue: HTMLElement;
+  leaderboardMatchesChartButton: HTMLButtonElement;
   leaderboardStatMostActive: HTMLElement;
   leaderboardStatMostActivePlayer: HTMLElement;
   leaderboardStatMostActiveMeta: HTMLElement;
@@ -93,6 +94,7 @@ type DashboardSyncDom = {
   leaderboardStatBestWinRate: HTMLElement;
   leaderboardStatBestWinRatePlayer: HTMLElement;
   leaderboardStatBestWinRateMeta: HTMLElement;
+  seasonDetailsChartButton: HTMLButtonElement;
 };
 
 type SharePanelSyncData = {
@@ -256,6 +258,10 @@ export const createDashboardSync = (args: {
       args.dom.globalButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "global"));
       args.dom.seasonButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "season"));
       args.dom.tournamentButton.setAttribute("aria-pressed", String(args.dashboardState.segmentMode === "tournament"));
+      args.dom.leaderboardMatchesChartButton.setAttribute("aria-label", args.t("seasonStatsChartButton"));
+      args.dom.leaderboardMatchesChartButton.title = args.t("seasonStatsChartButton");
+      args.dom.seasonDetailsChartButton.setAttribute("aria-label", args.t("seasonStatsChartButton"));
+      args.dom.seasonDetailsChartButton.title = args.t("seasonStatsChartButton");
       args.dom.seasonButton.disabled = args.dashboardState.loading || args.dashboardState.seasons.length === 0;
       args.dom.tournamentButton.disabled = args.dashboardState.loading || args.dashboardState.tournaments.length === 0;
 
@@ -347,6 +353,7 @@ export const createDashboardSync = (args: {
       const seasonLocked = args.helpers.isLockedSeason(editingSeason);
       args.dom.deleteSeasonButton.hidden =
         !args.helpers.canSoftDelete(editingSeason ?? {}, currentUserId) || seasonLocked;
+      args.dom.seasonDetailsChartButton.hidden = !Boolean(args.dashboardState.editingSeasonId);
       args.dom.deleteTournamentButton.hidden = !args.helpers.canSoftDelete(
         args.helpers.getEditingTournament() ?? {},
         currentUserId,
@@ -452,8 +459,12 @@ export const createDashboardSync = (args: {
       if (leaderboardStats?.totalMatches !== undefined) {
         args.dom.leaderboardMatchesSummaryValue.textContent = formatCount(leaderboardStats.totalMatches);
         args.dom.leaderboardMatchesSummary.hidden = false;
+        args.dom.leaderboardMatchesChartButton.hidden = !(
+          args.dashboardState.segmentMode === "season" && args.dashboardState.selectedSeasonId
+        );
       } else {
         args.dom.leaderboardMatchesSummary.hidden = true;
+        args.dom.leaderboardMatchesChartButton.hidden = true;
       }
 
       if (!isTournamentMode && busiestPlayer && busiestPlayer.matchesPlayed > 0) {

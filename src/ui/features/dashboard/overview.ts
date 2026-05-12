@@ -24,6 +24,7 @@ export interface DashboardOverviewElements {
   leaderboardStatsGroup: HTMLDivElement;
   leaderboardMatchesSummary: HTMLParagraphElement;
   leaderboardMatchesSummaryValue: HTMLSpanElement;
+  leaderboardMatchesChartButton: HTMLButtonElement;
   leaderboardStatMostActive: HTMLDivElement;
   leaderboardStatMostActivePlayer: HTMLSpanElement;
   leaderboardStatMostActiveMeta: HTMLSpanElement;
@@ -183,7 +184,19 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   const leaderboardMatchesSummaryValue = document.createElement("span");
   leaderboardMatchesSummaryValue.className = "leaderboard-matches__value";
 
-  leaderboardMatchesSummary.append(leaderboardMatchesSummaryLabel, leaderboardMatchesSummaryValue);
+  const leaderboardMatchesChartButton = document.createElement("button");
+  leaderboardMatchesChartButton.type = "button";
+  leaderboardMatchesChartButton.className = "icon-button leaderboard-matches__chart-button";
+  leaderboardMatchesChartButton.textContent = "📊";
+  leaderboardMatchesChartButton.hidden = true;
+  leaderboardMatchesChartButton.setAttribute("aria-label", "Season score charts");
+  leaderboardMatchesChartButton.title = "Season score charts";
+
+  leaderboardMatchesSummary.append(
+    leaderboardMatchesSummaryLabel,
+    leaderboardMatchesSummaryValue,
+    leaderboardMatchesChartButton,
+  );
 
   const leaderboardStatMostActive = document.createElement("div");
   leaderboardStatMostActive.className = "leaderboard-stat";
@@ -402,6 +415,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     leaderboardStatsGroup,
     leaderboardMatchesSummary,
     leaderboardMatchesSummaryValue,
+    leaderboardMatchesChartButton,
     leaderboardStatMostActive,
     leaderboardStatMostActivePlayer,
     leaderboardStatMostActiveMeta,

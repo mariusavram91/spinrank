@@ -899,6 +899,12 @@ export const createAppDom = (args: {
   bindLocalizedAttribute(deleteSeasonButton, "title", "deleteSeason");
   deleteSeasonButton.hidden = true;
 
+  const seasonDetailsChartButton = document.createElement("button");
+  seasonDetailsChartButton.type = "button";
+  seasonDetailsChartButton.className = "icon-button section-chart-button";
+  seasonDetailsChartButton.textContent = "📊";
+  seasonDetailsChartButton.hidden = true;
+
   const tournamentNameInput = document.createElement("input");
   tournamentNameInput.className = "text-input";
   tournamentNameInput.placeholder = "Tournament name";
@@ -1186,6 +1192,7 @@ export const createAppDom = (args: {
     seasonIsPublicInput,
     submitSeasonButton,
     deleteSeasonButton,
+    seasonDetailsChartButton,
     tournamentNameInput,
     loadTournamentSelect,
     resetTournamentDraftButton,
