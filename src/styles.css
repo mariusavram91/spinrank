@@ -4146,6 +4146,9 @@ select.text-input {
   place-items: center;
   padding: 16px;
   background: rgba(10, 13, 25, 0.82);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .delete-warning-modal {
@@ -4213,6 +4216,7 @@ select.text-input {
   max-height: min(88vh, 920px);
   grid-template-rows: auto auto minmax(0, 1fr);
   overflow: hidden;
+  min-height: 0;
 }
 
 .season-stats-modal__header {
@@ -4237,7 +4241,23 @@ select.text-input {
   gap: 16px;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding-right: 4px;
+}
+
+@media (max-width: 700px) {
+  .delete-warning-overlay {
+    place-items: stretch;
+    padding: 12px;
+  }
+
+  .season-stats-modal {
+    width: 100%;
+    max-height: 100%;
+    margin: auto 0;
+  }
 }
 
 .season-stats-chart {
