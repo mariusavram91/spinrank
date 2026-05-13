@@ -1750,7 +1750,12 @@ export const buildApp = (): HTMLElement => {
 
     try {
       const stats = await loadSeasonScoreCharts(seasonId);
-      activeSeasonStatsModal.renderCharts(seasonName, stats.gameScoreCharts, stats.matchupCharts);
+      activeSeasonStatsModal.renderCharts(
+        seasonName,
+        stats.gameScoreCharts,
+        stats.matchupCharts,
+        stats.attendanceBars,
+      );
     } catch (error) {
       activeSeasonStatsModal.showError(
         seasonName,

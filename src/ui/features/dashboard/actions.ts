@@ -12,6 +12,30 @@ import type { TextKey } from "../../shared/i18n/translations";
 
 type TranslationFn = (key: TextKey) => string;
 
+const buildSeasonAttendanceBars = (leaderboard: LeaderboardEntry[]) =>
+  leaderboard
+    .map((entry) => {
+      const attendedWeeks = Number(entry.seasonAttendedWeeks ?? 0);
+      const totalWeeks = Number(entry.seasonTotalWeeks ?? 0);
+      const attendanceRate = totalWeeks > 0 ? attendedWeeks / totalWeeks : 0;
+      return {
+        label: entry.displayName,
+        attendedWeeks,
+        totalWeeks,
+        attendanceRate,
+      };
+    })
+    .filter((entry) => entry.totalWeeks > 0)
+    .sort((left, right) => {
+      if (right.attendedWeeks !== left.attendedWeeks) {
+        return right.attendedWeeks - left.attendedWeeks;
+      }
+      if (right.attendanceRate !== left.attendanceRate) {
+        return right.attendanceRate - left.attendanceRate;
+      }
+      return left.label.localeCompare(right.label);
+    });
+
 export const createDashboardActions = (args: {
   dashboardState: DashboardState;
   runAuthedAction: RunAuthedAction;
@@ -120,6 +144,7 @@ export const createDashboardActions = (args: {
         args.dashboardState.seasonStatsBySeasonId[requestedSeasonId] = {
           gameScoreCharts: data.stats.gameScoreCharts ?? [],
           matchupCharts: data.stats.matchupCharts ?? [],
+          attendanceBars: buildSeasonAttendanceBars(data.leaderboard),
         };
       }
       args.dashboardState.tournamentBracket = [];
@@ -329,6 +354,7 @@ export const createDashboardActions = (args: {
     const nextStats = {
       gameScoreCharts: data.stats.gameScoreCharts ?? [],
       matchupCharts: data.stats.matchupCharts ?? [],
+      attendanceBars: buildSeasonAttendanceBars(data.leaderboard),
     };
     args.dashboardState.seasonStatsBySeasonId[seasonId] = nextStats;
     return nextStats;

@@ -70,6 +70,12 @@ export interface DashboardState {
     {
       gameScoreCharts: SegmentGameScoreChart[];
       matchupCharts: SegmentMatchupChart[];
+      attendanceBars: Array<{
+        label: string;
+        attendedWeeks: number;
+        totalWeeks: number;
+        attendanceRate: number;
+      }>;
     }
   >;
   tournamentBracket: TournamentBracketRound[];

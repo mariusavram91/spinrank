@@ -4371,6 +4371,16 @@ select.text-input {
     #4f7d1a;
 }
 
+.season-stats-attendance__bar {
+  height: 100%;
+  min-width: 4px;
+  max-width: 100%;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(46, 123, 160, 0.92), rgba(30, 84, 109, 0.88)),
+    var(--brand-spin-dark);
+}
+
 @media (max-width: 720px) {
   .season-stats-matchup__row {
     grid-template-columns: minmax(0, 1fr) auto;

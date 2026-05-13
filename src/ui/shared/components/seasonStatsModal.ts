@@ -112,6 +112,74 @@ function createMatchupChartSection(chart: SegmentMatchupChart, t: TranslationFn)
   return section;
 }
 
+function createAttendanceRow(bar: {
+  label: string;
+  attendedWeeks: number;
+  totalWeeks: number;
+  attendanceRate: number;
+}): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "season-stats-matchup__row";
+
+  const label = document.createElement("span");
+  label.className = "season-stats-matchup__label";
+  label.textContent = bar.label;
+
+  const barTrack = document.createElement("div");
+  barTrack.className = "season-stats-matchup__bar-track";
+
+  const barNode = document.createElement("div");
+  barNode.className = "season-stats-attendance__bar";
+  barNode.style.width = `${Math.max(4, bar.attendanceRate * 100)}%`;
+  barTrack.append(barNode);
+
+  const value = document.createElement("span");
+  value.className = "season-stats-matchup__value";
+  value.textContent = `${bar.attendedWeeks}/${bar.totalWeeks}`;
+
+  row.title = `${bar.label}: ${bar.attendedWeeks}/${bar.totalWeeks}`;
+  row.append(label, barTrack, value);
+  return row;
+}
+
+function createAttendanceSection(
+  attendanceBars: Array<{
+    label: string;
+    attendedWeeks: number;
+    totalWeeks: number;
+    attendanceRate: number;
+  }>,
+  t: TranslationFn,
+): HTMLElement | null {
+  if (attendanceBars.length === 0) {
+    return null;
+  }
+
+  const section = document.createElement("section");
+  section.className = "season-stats-chart";
+
+  const header = document.createElement("div");
+  header.className = "season-stats-chart__header";
+
+  const title = document.createElement("h4");
+  title.className = "season-stats-chart__title";
+  title.textContent = t("seasonStatsAttendance");
+
+  const maxWeeks = attendanceBars.reduce((max, bar) => Math.max(max, bar.totalWeeks), 0);
+  const meta = document.createElement("p");
+  meta.className = "season-stats-chart__meta";
+  meta.textContent = `${t("seasonStatsTotalWeeks")} ${maxWeeks}`;
+
+  header.append(title, meta);
+
+  const list = document.createElement("div");
+  list.className = "season-stats-matchup";
+  list.append(...attendanceBars.map((bar) => createAttendanceRow(bar)));
+
+  section.append(header, list);
+  return section;
+}
+
 export const buildSeasonStatsModal = (t: TranslationFn) => {
   const overlay = document.createElement("div");
   overlay.className = "delete-warning-overlay";
@@ -196,10 +264,18 @@ export const buildSeasonStatsModal = (t: TranslationFn) => {
       seasonName: string,
       charts: SegmentGameScoreChart[],
       matchupCharts: SegmentMatchupChart[],
+      attendanceBars: Array<{
+        label: string;
+        attendedWeeks: number;
+        totalWeeks: number;
+        attendanceRate: number;
+      }>,
     ): void => {
       title.textContent = `${seasonName} • ${t("seasonStatsModalTitle")}`;
       status.hidden = true;
+      const attendanceSection = createAttendanceSection(attendanceBars, t);
       content.replaceChildren(
+        ...(attendanceSection ? [attendanceSection] : []),
         ...matchupCharts.map((chart) => createMatchupChartSection(chart, t)),
         ...charts.map((chart) => createChartSection(chart, t)),
       );
