@@ -13,7 +13,6 @@ import type {
   MatchRecord,
   ParticipantSearchEntry,
   SeasonRecord,
-  SegmentGameScoreChart,
   TournamentRecord,
   SegmentLeaderboardStats,
 } from "../api/contract";
@@ -1750,8 +1749,8 @@ export const buildApp = (): HTMLElement => {
     activeSeasonStatsModal.showLoading(seasonName);
 
     try {
-      const charts: SegmentGameScoreChart[] = await loadSeasonScoreCharts(seasonId);
-      activeSeasonStatsModal.renderCharts(seasonName, charts);
+      const stats = await loadSeasonScoreCharts(seasonId);
+      activeSeasonStatsModal.renderCharts(seasonName, stats.gameScoreCharts, stats.matchupCharts);
     } catch (error) {
       activeSeasonStatsModal.showError(
         seasonName,

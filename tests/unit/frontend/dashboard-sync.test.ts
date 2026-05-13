@@ -191,7 +191,7 @@ const createDashboardState = (overrides?: Partial<DashboardState>) =>
     screen: "dashboard",
     players: [],
     leaderboardUpdatedAt: "",
-    seasonScoreChartsBySeasonId: {},
+    seasonStatsBySeasonId: {},
     tournamentBracket: [],
     userProgress: null,
     selectedSeasonId: "",

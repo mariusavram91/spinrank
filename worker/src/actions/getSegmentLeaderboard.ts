@@ -9,6 +9,7 @@ import type {
   GetSegmentLeaderboardPayload,
   LeaderboardEntry,
   SegmentGameScoreChart,
+  SegmentMatchupChart,
   SegmentLeaderboardStats,
   TournamentBracketRound,
   UserRow,
@@ -303,6 +304,68 @@ function buildGameScoreCharts(rows: SegmentGameScoreCountRow[]): SegmentGameScor
       matchType,
       pointsToWin,
       totalGames: bars.reduce((sum, bar) => sum + bar.gamesPlayed, 0),
+      bars,
+    };
+  });
+}
+
+function buildMatchupCharts(
+  matches: SegmentMatchRow[],
+  playerProfiles: Map<string, { displayName: string; avatarUrl: string | null }>,
+): SegmentMatchupChart[] {
+  const charts = new Map<"singles" | "doubles", Map<string, number>>([
+    ["singles", new Map<string, number>()],
+    ["doubles", new Map<string, number>()],
+  ]);
+
+  const getPlayerName = (playerId: string): string => playerProfiles.get(playerId)?.displayName ?? playerId;
+
+  matches.forEach((match) => {
+    const teamA = parseJsonArray<string>(match.team_a_player_ids_json);
+    const teamB = parseJsonArray<string>(match.team_b_player_ids_json);
+    if (match.match_type === "singles") {
+      const playerA = teamA[0];
+      const playerB = teamB[0];
+      if (!playerA || !playerB) {
+        return;
+      }
+      const players = [playerA, playerB].sort((left, right) => left.localeCompare(right));
+      const label = players.map(getPlayerName).join(" vs ");
+      const count = charts.get("singles")?.get(label) ?? 0;
+      charts.get("singles")?.set(label, count + 1);
+      return;
+    }
+
+    if (teamA.length < 2 || teamB.length < 2) {
+      return;
+    }
+    const pairA = [...teamA].sort((left, right) => left.localeCompare(right)).slice(0, 2);
+    const pairB = [...teamB].sort((left, right) => left.localeCompare(right)).slice(0, 2);
+    const labeledPairs = [
+      pairA.map(getPlayerName).join(" & "),
+      pairB.map(getPlayerName).join(" & "),
+    ].sort((left, right) => left.localeCompare(right));
+    const label = labeledPairs.join(" vs ");
+    const count = charts.get("doubles")?.get(label) ?? 0;
+    charts.get("doubles")?.set(label, count + 1);
+  });
+
+  return (["singles", "doubles"] as const).map((matchType) => {
+    const bars = [...(charts.get(matchType)?.entries() ?? [])]
+      .map(([label, matchesPlayed]) => ({
+        label,
+        matchesPlayed,
+      }))
+      .sort((left, right) => {
+        if (right.matchesPlayed !== left.matchesPlayed) {
+          return right.matchesPlayed - left.matchesPlayed;
+        }
+        return left.label.localeCompare(right.label);
+      });
+
+    return {
+      matchType,
+      totalMatches: bars.reduce((sum, bar) => sum + bar.matchesPlayed, 0),
       bars,
     };
   });
@@ -660,6 +723,17 @@ export async function handleGetSegmentLeaderboard(
     ),
     gameScoreCharts:
       segmentType === "season" && includeScoreDistribution ? buildGameScoreCharts(gameScoreCounts.results) : undefined,
+    matchupCharts:
+      segmentType === "season" && includeScoreDistribution
+        ? buildMatchupCharts(
+            segmentMatches.results,
+            new Map(
+              leaderboard.map(
+                (entry) => [entry.userId, { displayName: entry.displayName, avatarUrl: entry.avatarUrl }] as const,
+              ),
+            ),
+          )
+        : undefined,
     tournamentWinnerPlayer: tournamentWinnerRow
       ? {
           userId: tournamentWinnerRow.user_id,

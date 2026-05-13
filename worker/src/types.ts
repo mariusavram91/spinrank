@@ -209,6 +209,17 @@ export interface SegmentGameScoreChart {
   bars: SegmentGameScoreBar[];
 }
 
+export interface SegmentMatchupBar {
+  label: string;
+  matchesPlayed: number;
+}
+
+export interface SegmentMatchupChart {
+  matchType: MatchType;
+  totalMatches: number;
+  bars: SegmentMatchupBar[];
+}
+
 export interface SegmentLeaderboardStats {
   totalMatches: number;
   mostMatchesPlayer: SegmentMostMatchesPlayer | null;
@@ -216,6 +227,7 @@ export interface SegmentLeaderboardStats {
   bestSinglesPlayer?: SegmentBestSinglesPlayer | null;
   bestDoublesPair?: SegmentBestDoublesPair | null;
   gameScoreCharts?: SegmentGameScoreChart[];
+  matchupCharts?: SegmentMatchupChart[];
   tournamentWinnerPlayer: SegmentTournamentWinner | null;
 }
 

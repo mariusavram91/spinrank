@@ -4316,6 +4316,68 @@ select.text-input {
   min-height: 64px;
 }
 
+.season-stats-matchup {
+  display: grid;
+  gap: 12px;
+  overflow-x: hidden;
+}
+
+.season-stats-matchup__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label label"
+    "bar value";
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.season-stats-matchup__label,
+.season-stats-matchup__value {
+  font-size: 0.9rem;
+}
+
+.season-stats-matchup__label {
+  grid-area: label;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.season-stats-matchup__value {
+  grid-area: value;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.season-stats-matchup__bar-track {
+  grid-area: bar;
+  height: 16px;
+  width: 100%;
+  min-width: 0;
+  border-radius: 999px;
+  background: rgba(20, 31, 51, 0.08);
+  overflow: hidden;
+}
+
+.season-stats-matchup__bar {
+  height: 100%;
+  min-width: 4px;
+  max-width: 100%;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(99, 154, 24, 0.92), rgba(55, 122, 28, 0.88)),
+    #4f7d1a;
+}
+
+@media (max-width: 720px) {
+  .season-stats-matchup__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+}
+
 .delete-warning__actions {
   display: flex;
   justify-content: flex-end;

@@ -81,7 +81,7 @@ const createDashboardState = (overrides: Partial<DashboardState> = {}): Dashboar
     players: [],
     leaderboardUpdatedAt: "",
     leaderboardStats: null,
-    seasonScoreChartsBySeasonId: {},
+    seasonStatsBySeasonId: {},
     tournamentBracket: [],
     userProgress: null,
     segmentMode: "global",

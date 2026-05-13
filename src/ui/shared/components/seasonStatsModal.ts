@@ -1,4 +1,4 @@
-import type { SegmentGameScoreChart } from "../../../api/contract";
+import type { SegmentGameScoreChart, SegmentMatchupChart } from "../../../api/contract";
 import type { TextKey } from "../i18n/translations";
 
 type TranslationFn = (key: TextKey) => string;
@@ -57,6 +57,58 @@ function createChartSection(chart: SegmentGameScoreChart, t: TranslationFn): HTM
   plot.append(...chart.bars.map((bar) => createBarColumn(bar, maxGames)));
 
   section.append(header, plot);
+  return section;
+}
+
+function createMatchupRow(bar: SegmentMatchupChart["bars"][number], maxMatches: number): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "season-stats-matchup__row";
+
+  const label = document.createElement("span");
+  label.className = "season-stats-matchup__label";
+  label.textContent = bar.label;
+
+  const barTrack = document.createElement("div");
+  barTrack.className = "season-stats-matchup__bar-track";
+
+  const barNode = document.createElement("div");
+  barNode.className = "season-stats-matchup__bar";
+  barNode.style.width = `${maxMatches > 0 ? Math.max(4, (bar.matchesPlayed / maxMatches) * 100) : 4}%`;
+  barTrack.append(barNode);
+
+  const value = document.createElement("span");
+  value.className = "season-stats-matchup__value";
+  value.textContent = String(bar.matchesPlayed);
+
+  row.title = `${bar.label}: ${bar.matchesPlayed}`;
+  row.append(label, barTrack, value);
+  return row;
+}
+
+function createMatchupChartSection(chart: SegmentMatchupChart, t: TranslationFn): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "season-stats-chart";
+
+  const header = document.createElement("div");
+  header.className = "season-stats-chart__header";
+
+  const title = document.createElement("h4");
+  title.className = "season-stats-chart__title";
+  title.textContent =
+    chart.matchType === "singles" ? t("seasonStatsSinglesMatchups") : t("seasonStatsDoublesMatchups");
+
+  const meta = document.createElement("p");
+  meta.className = "season-stats-chart__meta";
+  meta.textContent = `${t("seasonStatsTotalMatches")} ${chart.totalMatches}`;
+
+  header.append(title, meta);
+
+  const list = document.createElement("div");
+  list.className = "season-stats-matchup";
+  const maxMatches = chart.bars.reduce((max, bar) => Math.max(max, bar.matchesPlayed), 0);
+  list.append(...chart.bars.map((bar) => createMatchupRow(bar, maxMatches)));
+
+  section.append(header, list);
   return section;
 }
 
@@ -140,10 +192,17 @@ export const buildSeasonStatsModal = (t: TranslationFn) => {
       overlay.hidden = false;
       overlay.focus();
     },
-    renderCharts: (seasonName: string, charts: SegmentGameScoreChart[]): void => {
+    renderCharts: (
+      seasonName: string,
+      charts: SegmentGameScoreChart[],
+      matchupCharts: SegmentMatchupChart[],
+    ): void => {
       title.textContent = `${seasonName} • ${t("seasonStatsModalTitle")}`;
       status.hidden = true;
-      content.replaceChildren(...charts.map((chart) => createChartSection(chart, t)));
+      content.replaceChildren(
+        ...matchupCharts.map((chart) => createMatchupChartSection(chart, t)),
+        ...charts.map((chart) => createChartSection(chart, t)),
+      );
       overlay.hidden = false;
       overlay.focus();
     },

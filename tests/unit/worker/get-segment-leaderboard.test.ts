@@ -724,10 +724,204 @@ describe("worker getSegmentLeaderboard action", () => {
     expect(singles11Chart?.bars[0]).toMatchObject({ scoreLabel: "11:8", gamesPlayed: 3 });
     expect(singles11Chart?.bars.find((bar) => bar.scoreLabel === "11:5")).toMatchObject({ gamesPlayed: 0 });
     expect(singles11Chart?.bars.find((bar) => bar.scoreLabel === "12:10")).toMatchObject({ gamesPlayed: 1 });
+    expect(response.data?.stats.matchupCharts?.find((chart) => chart.matchType === "singles")).toMatchObject({
+      totalMatches: 0,
+      bars: [],
+    });
     expect(
       response.data?.stats.gameScoreCharts?.find((chart) => chart.matchType === "doubles" && chart.pointsToWin === 21),
     ).toMatchObject({
       totalGames: 0,
+    });
+  });
+
+  it("builds repeated matchup charts for singles and doubles", async () => {
+    const sessionUser = {
+      id: "user_a",
+      provider: "google",
+      provider_user_id: "google:user_a",
+      email: "user_a@example.com",
+      display_name: "Alice",
+      avatar_url: null,
+      global_elo: 1200,
+      wins: 0,
+      losses: 0,
+      streak: 0,
+      created_at: "2026-04-01T00:00:00.000Z",
+      updated_at: "2026-04-06T00:00:00.000Z",
+    } as UserRow;
+
+    const env = {
+      DB: {
+        prepare: vi.fn((sql: string) =>
+          createPreparedStatement(sql, async (statementSql) => {
+            if (statementSql.includes("FROM elo_segments es")) {
+              return {
+                results: [
+                  {
+                    user_id: "user_a",
+                    elo: 1300,
+                    matches_played: 5,
+                    matches_played_equivalent: 5,
+                    wins: 5,
+                    losses: 0,
+                    streak: 5,
+                    best_win_streak: 5,
+                    highest_score: 1300,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1300,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1210,
+                    season_attended_weeks: 5,
+                    season_total_weeks: 5,
+                    season_attendance_penalty: 0,
+                    display_name: "Alice",
+                    avatar_url: null,
+                  },
+                  {
+                    user_id: "user_b",
+                    elo: 1280,
+                    matches_played: 5,
+                    matches_played_equivalent: 5,
+                    wins: 2,
+                    losses: 3,
+                    streak: -1,
+                    best_win_streak: 1,
+                    highest_score: 1280,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1280,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1190,
+                    season_attended_weeks: 5,
+                    season_total_weeks: 5,
+                    season_attendance_penalty: 0,
+                    display_name: "Bob",
+                    avatar_url: null,
+                  },
+                  {
+                    user_id: "user_c",
+                    elo: 1260,
+                    matches_played: 4,
+                    matches_played_equivalent: 4,
+                    wins: 1,
+                    losses: 3,
+                    streak: -2,
+                    best_win_streak: 1,
+                    highest_score: 1260,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1260,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1170,
+                    season_attended_weeks: 4,
+                    season_total_weeks: 5,
+                    season_attendance_penalty: 0,
+                    display_name: "Cara",
+                    avatar_url: null,
+                  },
+                  {
+                    user_id: "user_d",
+                    elo: 1240,
+                    matches_played: 4,
+                    matches_played_equivalent: 4,
+                    wins: 0,
+                    losses: 4,
+                    streak: -4,
+                    best_win_streak: 0,
+                    highest_score: 1240,
+                    last_match_at: "2026-04-05T10:00:00.000Z",
+                    updated_at: "2026-04-05T10:05:00.000Z",
+                    season_glicko_rating: 1240,
+                    season_glicko_rd: 45,
+                    season_conservative_rating: 1150,
+                    season_attended_weeks: 4,
+                    season_total_weeks: 5,
+                    season_attendance_penalty: 0,
+                    display_name: "Dina",
+                    avatar_url: null,
+                  },
+                ],
+              };
+            }
+            if (statementSql.includes("COUNT(*) AS total_matches")) {
+              return { total_matches: 5 };
+            }
+            if (statementSql.includes("SELECT m.match_type, m.points_to_win")) {
+              return {
+                results: [
+                  {
+                    match_type: "singles",
+                    points_to_win: 11,
+                    team_a_player_ids_json: JSON.stringify(["user_a"]),
+                    team_b_player_ids_json: JSON.stringify(["user_b"]),
+                    winner_team: "A",
+                  },
+                  {
+                    match_type: "singles",
+                    points_to_win: 11,
+                    team_a_player_ids_json: JSON.stringify(["user_b"]),
+                    team_b_player_ids_json: JSON.stringify(["user_a"]),
+                    winner_team: "A",
+                  },
+                  {
+                    match_type: "singles",
+                    points_to_win: 21,
+                    team_a_player_ids_json: JSON.stringify(["user_a"]),
+                    team_b_player_ids_json: JSON.stringify(["user_c"]),
+                    winner_team: "A",
+                  },
+                  {
+                    match_type: "doubles",
+                    points_to_win: 11,
+                    team_a_player_ids_json: JSON.stringify(["user_a", "user_b"]),
+                    team_b_player_ids_json: JSON.stringify(["user_c", "user_d"]),
+                    winner_team: "A",
+                  },
+                  {
+                    match_type: "doubles",
+                    points_to_win: 11,
+                    team_a_player_ids_json: JSON.stringify(["user_d", "user_c"]),
+                    team_b_player_ids_json: JSON.stringify(["user_b", "user_a"]),
+                    winner_team: "A",
+                  },
+                ],
+              };
+            }
+            if (statementSql.includes("JOIN json_each(m.score_json)")) {
+              return { results: [] };
+            }
+            return { results: [] };
+          }),
+        ),
+      },
+      runtime: {
+        nowIso: () => "2026-04-06T12:00:00.000Z",
+      },
+    } as unknown as Env;
+
+    const response = await handleGetSegmentLeaderboard(
+      {
+        action: "getSegmentLeaderboard",
+        requestId: "req_segment_matchups",
+        payload: { segmentType: "season", segmentId: "season_1", includeScoreDistribution: true },
+      },
+      sessionUser,
+      env,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.stats.matchupCharts?.find((chart) => chart.matchType === "singles")).toMatchObject({
+      totalMatches: 3,
+      bars: [
+        { label: "Alice vs Bob", matchesPlayed: 2 },
+        { label: "Alice vs Cara", matchesPlayed: 1 },
+      ],
+    });
+    expect(response.data?.stats.matchupCharts?.find((chart) => chart.matchType === "doubles")).toMatchObject({
+      totalMatches: 2,
+      bars: [{ label: "Alice & Bob vs Cara & Dina", matchesPlayed: 2 }],
     });
   });
 });
