@@ -1,7 +1,7 @@
 vi.mock("../../../worker/src/services/visibility", () => ({
   canAccessSeason: vi.fn(() => true),
   canAccessTournament: vi.fn(async () => true),
-  getSeasonById: vi.fn(async () => ({ id: "season_1" })),
+  getSeasonById: vi.fn(async () => ({ id: "season_1", start_date: "2026-04-01", end_date: "2026-04-30" })),
   getTournamentById: vi.fn(async () => ({ id: "tournament_1" })),
 }));
 
@@ -854,6 +854,7 @@ describe("worker getSegmentLeaderboard action", () => {
                   {
                     match_type: "singles",
                     points_to_win: 11,
+                    played_at: "2026-04-02T10:00:00.000Z",
                     team_a_player_ids_json: JSON.stringify(["user_a"]),
                     team_b_player_ids_json: JSON.stringify(["user_b"]),
                     winner_team: "A",
@@ -861,6 +862,7 @@ describe("worker getSegmentLeaderboard action", () => {
                   {
                     match_type: "singles",
                     points_to_win: 11,
+                    played_at: "2026-04-05T10:00:00.000Z",
                     team_a_player_ids_json: JSON.stringify(["user_b"]),
                     team_b_player_ids_json: JSON.stringify(["user_a"]),
                     winner_team: "A",
@@ -868,6 +870,7 @@ describe("worker getSegmentLeaderboard action", () => {
                   {
                     match_type: "singles",
                     points_to_win: 21,
+                    played_at: "2026-04-10T10:00:00.000Z",
                     team_a_player_ids_json: JSON.stringify(["user_a"]),
                     team_b_player_ids_json: JSON.stringify(["user_c"]),
                     winner_team: "A",
@@ -875,6 +878,7 @@ describe("worker getSegmentLeaderboard action", () => {
                   {
                     match_type: "doubles",
                     points_to_win: 11,
+                    played_at: "2026-04-16T10:00:00.000Z",
                     team_a_player_ids_json: JSON.stringify(["user_a", "user_b"]),
                     team_b_player_ids_json: JSON.stringify(["user_c", "user_d"]),
                     winner_team: "A",
@@ -882,6 +886,7 @@ describe("worker getSegmentLeaderboard action", () => {
                   {
                     match_type: "doubles",
                     points_to_win: 11,
+                    played_at: "2026-04-18T10:00:00.000Z",
                     team_a_player_ids_json: JSON.stringify(["user_d", "user_c"]),
                     team_b_player_ids_json: JSON.stringify(["user_b", "user_a"]),
                     winner_team: "A",
@@ -923,5 +928,16 @@ describe("worker getSegmentLeaderboard action", () => {
       totalMatches: 2,
       bars: [{ label: "Alice & Bob vs Cara & Dina", matchesPlayed: 2 }],
     });
+    expect(response.data?.stats.weeklyActivityBars).toEqual([
+      { label: "Week 1", matchesPlayed: 2 },
+      { label: "Week 2", matchesPlayed: 1 },
+      { label: "Week 3", matchesPlayed: 2 },
+      { label: "Week 4", matchesPlayed: 0 },
+      { label: "Week 5", matchesPlayed: 0 },
+    ]);
+    expect(response.data?.stats.matchTypeSplitBars).toEqual([
+      { matchType: "singles", label: "Singles", matchesPlayed: 3, share: 0.6 },
+      { matchType: "doubles", label: "Doubles", matchesPlayed: 2, share: 0.4 },
+    ]);
   });
 });

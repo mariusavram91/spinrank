@@ -12,11 +12,33 @@ import type { TextKey } from "../../shared/i18n/translations";
 
 type TranslationFn = (key: TextKey) => string;
 
-const buildSeasonAttendanceBars = (leaderboard: LeaderboardEntry[]) =>
+const daysBetween = (startDate: string, endDate: string): number => {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000));
+};
+
+const getSeasonAttendanceTotalWeeks = (season: GetDashboardData["seasons"][number] | undefined): number => {
+  if (!season?.startDate) {
+    return 0;
+  }
+
+  const today = new Date();
+  const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
+    today.getDate(),
+  ).padStart(2, "0")}`;
+  const effectiveEndDate = season.status === "completed" && season.endDate ? season.endDate : todayDate;
+  return Math.floor(daysBetween(season.startDate, effectiveEndDate) / 7) + 1;
+};
+
+const buildSeasonAttendanceBars = (
+  leaderboard: LeaderboardEntry[],
+  season: GetDashboardData["seasons"][number] | undefined,
+) =>
   leaderboard
     .map((entry) => {
       const attendedWeeks = Number(entry.seasonAttendedWeeks ?? 0);
-      const totalWeeks = Number(entry.seasonTotalWeeks ?? 0);
+      const totalWeeks = getSeasonAttendanceTotalWeeks(season);
       const attendanceRate = totalWeeks > 0 ? attendedWeeks / totalWeeks : 0;
       return {
         label: entry.displayName,
@@ -141,10 +163,13 @@ export const createDashboardActions = (args: {
       args.dashboardState.leaderboardUpdatedAt = data.updatedAt;
       args.dashboardState.leaderboardStats = data.stats;
       if (data.stats.gameScoreCharts || data.stats.matchupCharts) {
+        const season = args.dashboardState.seasons.find((entry) => entry.id === requestedSeasonId);
         args.dashboardState.seasonStatsBySeasonId[requestedSeasonId] = {
           gameScoreCharts: data.stats.gameScoreCharts ?? [],
           matchupCharts: data.stats.matchupCharts ?? [],
-          attendanceBars: buildSeasonAttendanceBars(data.leaderboard),
+          weeklyActivityBars: data.stats.weeklyActivityBars ?? [],
+          matchTypeSplitBars: data.stats.matchTypeSplitBars ?? [],
+          attendanceBars: buildSeasonAttendanceBars(data.leaderboard, season),
         };
       }
       args.dashboardState.tournamentBracket = [];
@@ -354,7 +379,12 @@ export const createDashboardActions = (args: {
     const nextStats = {
       gameScoreCharts: data.stats.gameScoreCharts ?? [],
       matchupCharts: data.stats.matchupCharts ?? [],
-      attendanceBars: buildSeasonAttendanceBars(data.leaderboard),
+      weeklyActivityBars: data.stats.weeklyActivityBars ?? [],
+      matchTypeSplitBars: data.stats.matchTypeSplitBars ?? [],
+      attendanceBars: buildSeasonAttendanceBars(
+        data.leaderboard,
+        args.dashboardState.seasons.find((entry) => entry.id === seasonId),
+      ),
     };
     args.dashboardState.seasonStatsBySeasonId[seasonId] = nextStats;
     return nextStats;

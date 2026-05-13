@@ -180,6 +180,168 @@ function createAttendanceSection(
   return section;
 }
 
+function createWeeklyActivitySection(
+  weeklyActivityBars: Array<{
+    label: string;
+    matchesPlayed: number;
+  }>,
+  t: TranslationFn,
+): HTMLElement | null {
+  if (weeklyActivityBars.length === 0) {
+    return null;
+  }
+
+  const section = document.createElement("section");
+  section.className = "season-stats-chart";
+
+  const header = document.createElement("div");
+  header.className = "season-stats-chart__header";
+
+  const title = document.createElement("h4");
+  title.className = "season-stats-chart__title";
+  title.textContent = t("seasonStatsWeeklyActivity");
+
+  const meta = document.createElement("p");
+  meta.className = "season-stats-chart__meta";
+  meta.textContent = `${t("seasonStatsPeakWeek")} ${Math.max(...weeklyActivityBars.map((bar) => bar.matchesPlayed), 0)}`;
+
+  header.append(title, meta);
+
+  const chart = document.createElement("div");
+  chart.className = "season-stats-line";
+
+  const maxMatches = Math.max(...weeklyActivityBars.map((bar) => bar.matchesPlayed), 0);
+  const points = weeklyActivityBars.map((bar, index) => {
+    const x = ((index + 0.5) / weeklyActivityBars.length) * 100;
+    const y = maxMatches === 0 ? 100 : 100 - (bar.matchesPlayed / maxMatches) * 100;
+    return { ...bar, x, y };
+  });
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.classList.add("season-stats-line__svg");
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  polyline.setAttribute("d", path);
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("vector-effect", "non-scaling-stroke");
+  polyline.classList.add("season-stats-line__path");
+  svg.append(polyline);
+
+  const pointsRow = document.createElement("div");
+  pointsRow.className = "season-stats-line__points";
+  pointsRow.append(
+    ...points.map((point) => {
+      const item = document.createElement("div");
+      item.className = "season-stats-line__point";
+      item.style.left = `${point.x}%`;
+      item.style.top = `${point.y}%`;
+      item.title = `${point.label}: ${point.matchesPlayed}`;
+
+      const dot = document.createElement("span");
+      dot.className = "season-stats-line__dot";
+
+      const value = document.createElement("span");
+      value.className = "season-stats-line__value";
+      value.textContent = String(point.matchesPlayed);
+
+      item.append(dot, value);
+      return item;
+    }),
+  );
+
+  const labels = document.createElement("div");
+  labels.className = "season-stats-line__labels";
+  labels.append(
+    ...weeklyActivityBars.map((bar) => {
+      const label = document.createElement("span");
+      label.className = "season-stats-line__label";
+      label.textContent = bar.label;
+      return label;
+    }),
+  );
+
+  chart.append(svg, pointsRow, labels);
+  section.append(header, chart);
+  return section;
+}
+
+function createMatchTypeSplitSection(
+  bars: Array<{
+    matchType: "singles" | "doubles";
+    label: string;
+    matchesPlayed: number;
+    share: number;
+  }>,
+  t: TranslationFn,
+): HTMLElement | null {
+  if (bars.length === 0) {
+    return null;
+  }
+
+  const section = document.createElement("section");
+  section.className = "season-stats-chart";
+
+  const header = document.createElement("div");
+  header.className = "season-stats-chart__header";
+
+  const title = document.createElement("h4");
+  title.className = "season-stats-chart__title";
+  title.textContent = t("seasonStatsMatchTypeSplit");
+
+  const meta = document.createElement("p");
+  meta.className = "season-stats-chart__meta";
+  meta.textContent = `${t("seasonStatsTotalMatches")} ${bars.reduce((sum, bar) => sum + bar.matchesPlayed, 0)}`;
+
+  header.append(title, meta);
+
+  const body = document.createElement("div");
+  body.className = "season-stats-pie";
+
+  const pie = document.createElement("div");
+  pie.className = "season-stats-pie__chart";
+  const singlesShare = bars.find((bar) => bar.matchType === "singles")?.share ?? 0;
+  const singlesAngle = singlesShare * 360;
+  pie.style.background = `conic-gradient(
+    rgba(46, 123, 160, 0.95) 0deg ${singlesAngle}deg,
+    rgba(99, 154, 24, 0.92) ${singlesAngle}deg 360deg
+  )`;
+  pie.setAttribute("aria-hidden", "true");
+
+  const legend = document.createElement("div");
+  legend.className = "season-stats-pie__legend";
+  legend.append(
+    ...bars.map((bar) => {
+      const item = document.createElement("div");
+      item.className = "season-stats-pie__legend-item";
+
+      const swatch = document.createElement("span");
+      swatch.className = "season-stats-pie__swatch";
+      swatch.dataset.matchType = bar.matchType;
+
+      const label = document.createElement("span");
+      label.className = "season-stats-pie__legend-label";
+      label.textContent = bar.matchType === "singles" ? t("matchTypeSingles") : t("matchTypeDoubles");
+
+      const value = document.createElement("span");
+      value.className = "season-stats-pie__legend-value";
+      value.textContent = `${bar.matchesPlayed} • ${(bar.share * 100).toFixed(0)}%`;
+
+      item.append(swatch, label, value);
+      return item;
+    }),
+  );
+
+  body.append(pie, legend);
+
+  section.append(header, body);
+  return section;
+}
+
 export const buildSeasonStatsModal = (t: TranslationFn) => {
   const overlay = document.createElement("div");
   overlay.className = "delete-warning-overlay";
@@ -264,6 +426,16 @@ export const buildSeasonStatsModal = (t: TranslationFn) => {
       seasonName: string,
       charts: SegmentGameScoreChart[],
       matchupCharts: SegmentMatchupChart[],
+      weeklyActivityBars: Array<{
+        label: string;
+        matchesPlayed: number;
+      }>,
+      matchTypeSplitBars: Array<{
+        matchType: "singles" | "doubles";
+        label: string;
+        matchesPlayed: number;
+        share: number;
+      }>,
       attendanceBars: Array<{
         label: string;
         attendedWeeks: number;
@@ -274,8 +446,12 @@ export const buildSeasonStatsModal = (t: TranslationFn) => {
       title.textContent = `${seasonName} • ${t("seasonStatsModalTitle")}`;
       status.hidden = true;
       const attendanceSection = createAttendanceSection(attendanceBars, t);
+      const weeklyActivitySection = createWeeklyActivitySection(weeklyActivityBars, t);
+      const matchTypeSplitSection = createMatchTypeSplitSection(matchTypeSplitBars, t);
       content.replaceChildren(
         ...(attendanceSection ? [attendanceSection] : []),
+        ...(weeklyActivitySection ? [weeklyActivitySection] : []),
+        ...(matchTypeSplitSection ? [matchTypeSplitSection] : []),
         ...matchupCharts.map((chart) => createMatchupChartSection(chart, t)),
         ...charts.map((chart) => createChartSection(chart, t)),
       );

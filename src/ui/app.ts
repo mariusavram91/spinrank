@@ -1754,6 +1754,8 @@ export const buildApp = (): HTMLElement => {
         seasonName,
         stats.gameScoreCharts,
         stats.matchupCharts,
+        stats.weeklyActivityBars,
+        stats.matchTypeSplitBars,
         stats.attendanceBars,
       );
     } catch (error) {

@@ -9,8 +9,10 @@ import type {
   GetSegmentLeaderboardPayload,
   LeaderboardEntry,
   SegmentGameScoreChart,
+  SegmentMatchTypeSplitBar,
   SegmentMatchupChart,
   SegmentLeaderboardStats,
+  SegmentWeeklyActivityBar,
   TournamentBracketRound,
   UserRow,
 } from "../types";
@@ -25,6 +27,7 @@ type TournamentPlacementMetrics = {
 type SegmentMatchRow = {
   match_type: "singles" | "doubles";
   points_to_win?: 11 | 21;
+  played_at?: string;
   team_a_player_ids_json: string;
   team_b_player_ids_json: string;
   winner_team: "A" | "B";
@@ -371,6 +374,61 @@ function buildMatchupCharts(
   });
 }
 
+function daysBetween(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000));
+}
+
+function buildWeeklyActivityBars(
+  matches: SegmentMatchRow[],
+  seasonStartDate: string,
+  seasonEndDate: string | null,
+): SegmentWeeklyActivityBar[] {
+  const matchDates = matches
+    .map((match) => String(match.played_at || "").slice(0, 10))
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  const effectiveEndDate = seasonEndDate || matchDates[matchDates.length - 1] || seasonStartDate;
+  const totalWeeks = Math.max(1, Math.floor(daysBetween(seasonStartDate, effectiveEndDate) / 7) + 1);
+  const counts = Array.from({ length: totalWeeks }, () => 0);
+
+  matches.forEach((match) => {
+    const playedDate = String(match.played_at || "").slice(0, 10);
+    if (!playedDate) {
+      return;
+    }
+    const weekIndex = Math.min(totalWeeks - 1, Math.floor(daysBetween(seasonStartDate, playedDate) / 7));
+    counts[Math.max(0, weekIndex)] += 1;
+  });
+
+  return counts.map((matchesPlayed, index) => ({
+    label: `Week ${index + 1}`,
+    matchesPlayed,
+  }));
+}
+
+function buildMatchTypeSplitBars(matches: SegmentMatchRow[]): SegmentMatchTypeSplitBar[] {
+  const singlesMatches = matches.filter((match) => match.match_type === "singles").length;
+  const doublesMatches = matches.filter((match) => match.match_type === "doubles").length;
+  const totalMatches = singlesMatches + doublesMatches;
+
+  return [
+    {
+      matchType: "singles",
+      label: "Singles",
+      matchesPlayed: singlesMatches,
+      share: totalMatches > 0 ? singlesMatches / totalMatches : 0,
+    },
+    {
+      matchType: "doubles",
+      label: "Doubles",
+      matchesPlayed: doublesMatches,
+      share: totalMatches > 0 ? doublesMatches / totalMatches : 0,
+    },
+  ];
+}
+
 export async function handleGetSegmentLeaderboard(
   request: ApiRequest<"getSegmentLeaderboard", GetSegmentLeaderboardPayload>,
   sessionUser: UserRow,
@@ -381,8 +439,9 @@ export async function handleGetSegmentLeaderboard(
     return errorResponse(request.requestId, "VALIDATION_ERROR", "getSegmentLeaderboard requires segmentType and segmentId.");
   }
 
+  const season = segmentType === "season" ? await getSeasonById(env, segmentId) : null;
+
   if (segmentType === "season") {
-    const season = await getSeasonById(env, segmentId);
     if (!canAccessSeason(season, sessionUser.id)) {
       return errorResponse(request.requestId, "FORBIDDEN", "You do not have access to this season.");
     }
@@ -450,6 +509,7 @@ export async function handleGetSegmentLeaderboard(
   const segmentMatches = await env.DB.prepare(
     `
       SELECT m.match_type, m.points_to_win, m.team_a_player_ids_json, m.team_b_player_ids_json, m.winner_team
+           , m.played_at
       FROM matches m
       LEFT JOIN tournaments t ON t.id = m.tournament_id
       WHERE m.status = 'active'
@@ -734,6 +794,12 @@ export async function handleGetSegmentLeaderboard(
             ),
           )
         : undefined,
+    weeklyActivityBars:
+      segmentType === "season" && includeScoreDistribution && season
+        ? buildWeeklyActivityBars(segmentMatches.results, season.start_date, season.end_date || null)
+        : undefined,
+    matchTypeSplitBars:
+      segmentType === "season" && includeScoreDistribution ? buildMatchTypeSplitBars(segmentMatches.results) : undefined,
     tournamentWinnerPlayer: tournamentWinnerRow
       ? {
           userId: tournamentWinnerRow.user_id,

@@ -70,6 +70,16 @@ export interface DashboardState {
     {
       gameScoreCharts: SegmentGameScoreChart[];
       matchupCharts: SegmentMatchupChart[];
+      weeklyActivityBars: Array<{
+        label: string;
+        matchesPlayed: number;
+      }>;
+      matchTypeSplitBars: Array<{
+        matchType: "singles" | "doubles";
+        label: string;
+        matchesPlayed: number;
+        share: number;
+      }>;
       attendanceBars: Array<{
         label: string;
         attendedWeeks: number;
