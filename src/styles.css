@@ -4144,6 +4144,8 @@ select.text-input {
   z-index: 1800;
   display: grid;
   place-items: center;
+  min-height: var(--app-viewport-height);
+  height: var(--app-viewport-height);
   padding: 16px;
   background: rgba(10, 13, 25, 0.82);
   overflow-y: auto;
@@ -4213,10 +4215,12 @@ select.text-input {
 
 .season-stats-modal {
   width: min(1080px, 100%);
-  max-height: min(88vh, 920px);
+  height: min(calc(var(--app-viewport-height) - 32px), 920px);
+  max-height: min(calc(var(--app-viewport-height) - 32px), 920px);
   grid-template-rows: auto auto minmax(0, 1fr);
   overflow: hidden;
   min-height: 0;
+  box-sizing: border-box;
 }
 
 .season-stats-modal__header {
@@ -4255,7 +4259,8 @@ select.text-input {
 
   .season-stats-modal {
     width: 100%;
-    max-height: 100%;
+    height: calc(var(--app-viewport-height) - 24px);
+    max-height: calc(var(--app-viewport-height) - 24px);
     margin: auto 0;
   }
 }
