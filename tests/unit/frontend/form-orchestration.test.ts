@@ -221,6 +221,8 @@ const createHarness = (overrides?: {
     orchestration,
     dashboardState,
     tournamentPlannerState,
+    seasonSelect,
+    tournamentSelect,
     formSeasonSelect,
     formTournamentSelect,
     matchTypeSelect,
@@ -452,6 +454,162 @@ describe("form orchestration", () => {
       "",
       "tournament_active",
     ]);
+  });
+
+  it("marks completed tournaments in the dashboard dropdown", () => {
+    const harness = createHarness();
+    harness.dashboardState.selectedTournamentId = "tournament_completed";
+    harness.dashboardState.tournaments = [
+      {
+        id: "tournament_active",
+        name: "Active Tournament",
+        date: "2026-05-10",
+        seasonId: null,
+        seasonName: "Open",
+        status: "active",
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+        bracketStatus: "draft",
+      },
+      {
+        id: "tournament_completed",
+        name: "Completed Tournament",
+        date: "2026-05-12",
+        seasonId: null,
+        seasonName: "Open",
+        status: "completed",
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+        bracketStatus: "completed",
+      },
+    ] as unknown as DashboardState["tournaments"];
+
+    harness.orchestration.populateTournamentOptions();
+
+    expect(Array.from(harness.tournamentSelect.options).map((option) => option.textContent)).toEqual([
+      "Active Tournament • Open • 2026-05-10",
+      "Completed Tournament • Open • 2026-05-12 • completedLabel",
+    ]);
+  });
+
+  it("shows season start and end dates in the dashboard dropdown", () => {
+    const harness = createHarness();
+    harness.dashboardState.selectedSeasonId = "season_active";
+    harness.dashboardState.seasons = [
+      {
+        id: "season_active",
+        name: "Active Season",
+        startDate: "2026-05-01",
+        endDate: "2026-05-31",
+        status: "active",
+        isActive: true,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+    ] as unknown as DashboardState["seasons"];
+
+    harness.orchestration.populateSeasonOptions();
+
+    expect(Array.from(harness.seasonSelect.options).map((option) => option.textContent)).toEqual([
+      "Active Season (2026-05-01 - 2026-05-31)",
+    ]);
+    expect(harness.seasonSelect.value).toBe("season_active");
+  });
+
+  it("falls back to the start date when a season has no end date", () => {
+    const harness = createHarness();
+    harness.dashboardState.selectedSeasonId = "season_active";
+    harness.dashboardState.seasons = [
+      {
+        id: "season_active",
+        name: "Active Season",
+        startDate: "2026-05-01",
+        endDate: "",
+        status: "active",
+        isActive: true,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+    ] as unknown as DashboardState["seasons"];
+
+    harness.orchestration.populateSeasonOptions();
+
+    expect(Array.from(harness.seasonSelect.options).map((option) => option.textContent)).toEqual([
+      "Active Season (2026-05-01)",
+    ]);
+  });
+
+  it("applies the selected season id to the actual dropdown value", () => {
+    const harness = createHarness();
+    harness.dashboardState.selectedSeasonId = "season_active";
+    harness.dashboardState.seasons = [
+      {
+        id: "season_completed",
+        name: "Completed Season",
+        startDate: "2026-04-01",
+        endDate: "2026-04-30",
+        status: "completed",
+        isActive: false,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+      {
+        id: "season_active",
+        name: "Active Season",
+        startDate: "2026-05-01",
+        endDate: "",
+        status: "active",
+        isActive: true,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+    ] as unknown as DashboardState["seasons"];
+
+    harness.orchestration.populateSeasonOptions();
+
+    expect(harness.seasonSelect.value).toBe("season_active");
+  });
+
+  it("falls back to the closest visible active season when the first visible option is completed", () => {
+    const harness = createHarness();
+    harness.dashboardState.selectedSeasonId = "";
+    harness.dashboardState.seasons = [
+      {
+        id: "season_completed",
+        name: "Completed Season",
+        startDate: "2026-04-08",
+        endDate: "2026-04-12",
+        status: "completed",
+        isActive: false,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+      {
+        id: "season_active",
+        name: "Active Season",
+        startDate: "2026-04-05",
+        endDate: "",
+        status: "active",
+        isActive: true,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+      {
+        id: "season_completed_2",
+        name: "Older Completed Season",
+        startDate: "2026-04-05",
+        endDate: "2026-04-08",
+        status: "completed",
+        isActive: false,
+        participantIds: ["user_a"],
+        createdByUserId: "user_a",
+      },
+    ] as unknown as DashboardState["seasons"];
+
+    harness.orchestration.populateSeasonOptions();
+
+    expect(harness.seasonSelect.value).toBe("season_active");
+    expect(harness.dashboardState.selectedSeasonId).toBe("season_active");
   });
 
   it("rejects season and tournament payloads when no target is selected", () => {

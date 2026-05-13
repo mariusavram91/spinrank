@@ -165,6 +165,7 @@ const createHarness = (dashboardState: DashboardState, runAuthedAction = vi.fn()
     animateSharePanel: vi.fn(),
     showShareAlert: vi.fn(),
     isAuthenticated: vi.fn(() => true),
+    getCurrentUserId: vi.fn(() => "user_1"),
     t: (key: string) => key,
     getMatchLimitForFilter: vi.fn((filter: string) => (filter === "recent" ? 4 : 20)),
   };
@@ -254,6 +255,256 @@ describe("dashboard actions", () => {
     expect(harness.markLeaderboardDirty).toHaveBeenCalledTimes(2);
     expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(1, true, "loadingDashboard");
     expect(harness.setGlobalLoading).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it("defaults to the active season and tournament closest to today when the current ids are missing", async () => {
+    const dashboardState = createDashboardState();
+    const runAuthedAction = vi
+      .fn()
+      .mockResolvedValueOnce({
+        seasons: [
+          seasonRecord({ id: "season_far", startDate: "2026-01-01", endDate: "2026-12-31", isActive: true }),
+          seasonRecord({ id: "season_near", startDate: "2026-05-01", endDate: "2026-05-31", isActive: true }),
+        ],
+        tournaments: [
+          tournamentRecord({ id: "tournament_far", date: "2026-06-30", bracketStatus: "in_progress" }),
+          tournamentRecord({ id: "tournament_near", date: "2026-05-14", bracketStatus: "draft" }),
+        ],
+        leaderboard: [leaderboardEntry()],
+        players: [leaderboardEntry()],
+        leaderboardUpdatedAt: "2026-05-13T09:00:00.000Z",
+        userProgress: {
+          currentRank: 1,
+          currentElo: 1200,
+          bestRank: 1,
+          bestElo: 1200,
+          currentStreak: 2,
+          bestStreak: 2,
+          wins: 3,
+          losses: 1,
+          singles: { matches: 2, wins: 2, losses: 0 },
+          doubles: { matches: 2, wins: 1, losses: 1 },
+          points: [],
+          activityHeatmap: null,
+        },
+        achievements: createAchievementOverview(),
+        matches: [],
+        nextCursor: null,
+        matchBracketContextByMatchId: {},
+      } satisfies GetDashboardData)
+      .mockResolvedValueOnce({
+        leaderboard: [leaderboardEntry()],
+        updatedAt: "2026-05-13T10:00:00.000Z",
+        stats: {
+          totalMatches: 2,
+          mostMatchesPlayer: null,
+          mostWinsPlayer: null,
+          tournamentWinnerPlayer: null,
+        },
+      })
+      .mockResolvedValueOnce({
+        participants: [],
+        rounds: [],
+      });
+    const harness = createHarness(dashboardState, runAuthedAction);
+
+    await harness.actions.loadDashboard();
+
+    expect(dashboardState.selectedSeasonId).toBe("season_near");
+    expect(dashboardState.selectedTournamentId).toBe("tournament_near");
+  });
+
+  it("replaces a persisted but hidden season selection with the closest visible active season", async () => {
+    const dashboardState = createDashboardState({
+      selectedSeasonId: "season_hidden",
+    });
+    const runAuthedAction = vi
+      .fn()
+      .mockResolvedValueOnce({
+        seasons: [
+          seasonRecord({
+            id: "season_hidden",
+            startDate: "2026-05-10",
+            endDate: "2026-05-20",
+            isActive: true,
+            participantIds: ["user_2"],
+            createdByUserId: "user_2",
+          }),
+          seasonRecord({
+            id: "season_visible",
+            startDate: "2026-05-12",
+            endDate: "2026-05-30",
+            isActive: true,
+            participantIds: ["user_1"],
+            createdByUserId: "user_1",
+          }),
+        ],
+        tournaments: [],
+        leaderboard: [leaderboardEntry()],
+        players: [leaderboardEntry()],
+        leaderboardUpdatedAt: "2026-05-13T09:00:00.000Z",
+        userProgress: {
+          currentRank: 1,
+          currentElo: 1200,
+          bestRank: 1,
+          bestElo: 1200,
+          currentStreak: 2,
+          bestStreak: 2,
+          wins: 3,
+          losses: 1,
+          singles: { matches: 2, wins: 2, losses: 0 },
+          doubles: { matches: 2, wins: 1, losses: 1 },
+          points: [],
+          activityHeatmap: null,
+        },
+        achievements: createAchievementOverview(),
+        matches: [],
+        nextCursor: null,
+        matchBracketContextByMatchId: {},
+      } satisfies GetDashboardData);
+    const harness = createHarness(dashboardState, runAuthedAction);
+
+    await harness.actions.loadDashboard();
+
+    expect(dashboardState.selectedSeasonId).toBe("season_visible");
+  });
+
+  it("replaces a visible completed season selection with the closest visible active season", async () => {
+    const dashboardState = createDashboardState({
+      selectedSeasonId: "season_completed",
+    });
+    const runAuthedAction = vi
+      .fn()
+      .mockResolvedValueOnce({
+        seasons: [
+          seasonRecord({
+            id: "season_completed",
+            startDate: "2026-04-01",
+            endDate: "2026-04-30",
+            isActive: false,
+            status: "completed",
+            participantIds: ["user_1"],
+            createdByUserId: "user_1",
+          }),
+          seasonRecord({
+            id: "season_active",
+            startDate: "2026-05-01",
+            endDate: "2026-05-31",
+            isActive: true,
+            status: "active",
+            participantIds: ["user_1"],
+            createdByUserId: "user_1",
+          }),
+        ],
+        tournaments: [],
+        leaderboard: [leaderboardEntry()],
+        players: [leaderboardEntry()],
+        leaderboardUpdatedAt: "2026-05-13T09:00:00.000Z",
+        userProgress: {
+          currentRank: 1,
+          currentElo: 1200,
+          bestRank: 1,
+          bestElo: 1200,
+          currentStreak: 2,
+          bestStreak: 2,
+          wins: 3,
+          losses: 1,
+          singles: { matches: 2, wins: 2, losses: 0 },
+          doubles: { matches: 2, wins: 1, losses: 1 },
+          points: [],
+          activityHeatmap: null,
+        },
+        achievements: createAchievementOverview(),
+        matches: [],
+        nextCursor: null,
+        matchBracketContextByMatchId: {},
+      } satisfies GetDashboardData);
+    const harness = createHarness(dashboardState, runAuthedAction);
+
+    await harness.actions.loadDashboard();
+
+    expect(dashboardState.selectedSeasonId).toBe("season_active");
+  });
+
+  it("defaults to the most recent completed season and tournament when no active ones are available", async () => {
+    const dashboardState = createDashboardState();
+    const runAuthedAction = vi
+      .fn()
+      .mockResolvedValueOnce({
+        seasons: [
+          seasonRecord({
+            id: "season_older",
+            isActive: false,
+            status: "completed",
+            startDate: "2026-02-01",
+            endDate: "2026-02-28",
+          }),
+          seasonRecord({
+            id: "season_recent",
+            isActive: false,
+            status: "completed",
+            startDate: "2026-04-01",
+            endDate: "2026-04-30",
+          }),
+        ],
+        tournaments: [
+          tournamentRecord({
+            id: "tournament_older",
+            status: "completed",
+            bracketStatus: "completed",
+            date: "2026-03-05",
+            completedAt: "2026-03-05T20:00:00.000Z",
+          }),
+          tournamentRecord({
+            id: "tournament_recent",
+            status: "completed",
+            bracketStatus: "completed",
+            date: "2026-04-20",
+            completedAt: "2026-04-20T20:00:00.000Z",
+          }),
+        ],
+        leaderboard: [leaderboardEntry()],
+        players: [leaderboardEntry()],
+        leaderboardUpdatedAt: "2026-05-13T09:00:00.000Z",
+        userProgress: {
+          currentRank: 1,
+          currentElo: 1200,
+          bestRank: 1,
+          bestElo: 1200,
+          currentStreak: 2,
+          bestStreak: 2,
+          wins: 3,
+          losses: 1,
+          singles: { matches: 2, wins: 2, losses: 0 },
+          doubles: { matches: 2, wins: 1, losses: 1 },
+          points: [],
+          activityHeatmap: null,
+        },
+        achievements: createAchievementOverview(),
+        matches: [],
+        nextCursor: null,
+        matchBracketContextByMatchId: {},
+      } satisfies GetDashboardData)
+      .mockResolvedValueOnce({
+        leaderboard: [leaderboardEntry()],
+        updatedAt: "2026-05-13T10:00:00.000Z",
+        stats: {
+          totalMatches: 2,
+          mostMatchesPlayer: null,
+          mostWinsPlayer: null,
+          tournamentWinnerPlayer: null,
+        },
+      })
+      .mockResolvedValueOnce({
+        participants: [],
+        rounds: [],
+      });
+    const harness = createHarness(dashboardState, runAuthedAction);
+
+    await harness.actions.loadDashboard();
+
+    expect(dashboardState.selectedSeasonId).toBe("season_recent");
+    expect(dashboardState.selectedTournamentId).toBe("tournament_recent");
   });
 
   it("clears segment leaderboard state when the selected season is no longer visible", async () => {

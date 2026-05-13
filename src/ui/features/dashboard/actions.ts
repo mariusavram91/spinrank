@@ -9,8 +9,93 @@ import type {
 import type { DashboardState, SegmentMode, SharePanelElements } from "../../shared/types/app";
 import type { RunAuthedAction } from "../../shared/types/actions";
 import type { TextKey } from "../../shared/i18n/translations";
+import { shouldShowSeasonInDropdown, shouldShowTournamentInDropdown } from "../app/helpers";
+import { getTodayDateValue } from "../../shared/utils/format";
 
 type TranslationFn = (key: TextKey) => string;
+
+const getDateDistance = (left: string, right: string): number => {
+  if (!left || !right) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const leftTime = new Date(`${left}T00:00:00`).getTime();
+  const rightTime = new Date(`${right}T00:00:00`).getTime();
+  return Math.abs(leftTime - rightTime);
+};
+
+const getDateRangeDistance = (start: string, end: string, target: string): number => {
+  if (!start || !end || !target) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  if (target >= start && target <= end) {
+    return 0;
+  }
+  return Math.min(getDateDistance(start, target), getDateDistance(end, target));
+};
+
+const isCompletedSeason = (season: GetDashboardData["seasons"][number], today = getTodayDateValue()): boolean =>
+  Boolean(season.status !== "deleted" && season.endDate && season.endDate < today);
+
+const isCompletedTournament = (tournament: GetDashboardData["tournaments"][number]): boolean =>
+  tournament.status === "completed" || tournament.bracketStatus === "completed";
+
+const pickClosestSeasonId = (seasons: GetDashboardData["seasons"], today = getTodayDateValue()): string => {
+  const activeSeasons = seasons.filter(
+    (season) => season.status !== "deleted" && season.status !== "completed" && season.isActive,
+  );
+  if (activeSeasons.length > 0) {
+    return activeSeasons
+      .slice()
+      .sort((left, right) => {
+        const distanceDelta =
+          getDateRangeDistance(left.startDate, left.endDate, today) -
+          getDateRangeDistance(right.startDate, right.endDate, today);
+        if (distanceDelta !== 0) {
+          return distanceDelta;
+        }
+        return right.startDate.localeCompare(left.startDate);
+      })[0]?.id || "";
+  }
+
+  return seasons
+    .filter((season) => season.status !== "deleted" && isCompletedSeason(season, today))
+    .slice()
+    .sort((left, right) => {
+      if (left.endDate !== right.endDate) {
+        return right.endDate.localeCompare(left.endDate);
+      }
+      return right.startDate.localeCompare(left.startDate);
+    })[0]?.id || "";
+};
+
+const pickClosestTournamentId = (tournaments: GetDashboardData["tournaments"], today = getTodayDateValue()): string => {
+  const activeTournaments = tournaments.filter(
+    (tournament) => tournament.status !== "deleted" && !isCompletedTournament(tournament),
+  );
+  if (activeTournaments.length > 0) {
+    return activeTournaments
+      .slice()
+      .sort((left, right) => {
+        const distanceDelta = getDateDistance(left.date, today) - getDateDistance(right.date, today);
+        if (distanceDelta !== 0) {
+          return distanceDelta;
+        }
+        return right.date.localeCompare(left.date);
+      })[0]?.id || "";
+  }
+
+  return tournaments
+    .filter((tournament) => tournament.status !== "deleted" && isCompletedTournament(tournament))
+    .slice()
+    .sort((left, right) => {
+      const leftCompletedAt = left.completedAt || left.date;
+      const rightCompletedAt = right.completedAt || right.date;
+      if (leftCompletedAt !== rightCompletedAt) {
+        return rightCompletedAt.localeCompare(leftCompletedAt);
+      }
+      return right.date.localeCompare(left.date);
+    })[0]?.id || "";
+};
 
 const daysBetween = (startDate: string, endDate: string): number => {
   const start = new Date(`${startDate}T00:00:00`);
@@ -77,6 +162,7 @@ export const createDashboardActions = (args: {
   animateSharePanel: (panel: SharePanelElements) => void;
   showShareAlert: (message: string) => void;
   isAuthenticated: () => boolean;
+  getCurrentUserId: () => string;
   t: TranslationFn;
   getMatchLimitForFilter: (filter: MatchFeedFilter) => number;
 }) => {
@@ -229,14 +315,13 @@ export const createDashboardActions = (args: {
 
       args.dashboardState.seasons = data.seasons;
       args.dashboardState.tournaments = data.tournaments;
-      const visibleSeasonIds = new Set(data.seasons.map((season) => season.id));
-      const visibleTournamentIds = new Set(data.tournaments.map((tournament) => tournament.id));
-      args.dashboardState.selectedSeasonId = visibleSeasonIds.has(args.dashboardState.selectedSeasonId)
-        ? args.dashboardState.selectedSeasonId
-        : data.seasons.find((season) => season.isActive)?.id || data.seasons[0]?.id || "";
-      args.dashboardState.selectedTournamentId = visibleTournamentIds.has(args.dashboardState.selectedTournamentId)
-        ? args.dashboardState.selectedTournamentId
-        : data.tournaments[0]?.id || "";
+      const currentUserId = args.getCurrentUserId();
+      const visibleSeasons = data.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId));
+      const visibleTournaments = data.tournaments.filter((tournament) =>
+        shouldShowTournamentInDropdown(tournament, currentUserId)
+      );
+      args.dashboardState.selectedSeasonId = pickClosestSeasonId(visibleSeasons);
+      args.dashboardState.selectedTournamentId = pickClosestTournamentId(visibleTournaments);
       // Bracket snapshots can become stale after tournament mutations (match creation/advancement).
       // Clear cached bracket payloads so the match composer refetches up-to-date options.
       args.dashboardState.matchTournamentBracketCache = {};

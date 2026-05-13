@@ -1661,6 +1661,7 @@ export const buildApp = (): HTMLElement => {
     animateSharePanel,
     showShareAlert,
     isAuthenticated: () => isAuthedState(state.current),
+    getCurrentUserId: () => getCurrentUserId(state.current),
     t: (key) => t(key),
     getMatchLimitForFilter,
   });

@@ -20,6 +20,88 @@ type MatchPlayerEntry = {
   rank: number;
 };
 
+const getDateDistance = (left: string, right: string): number => {
+  if (!left || !right) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const leftTime = new Date(`${left}T00:00:00`).getTime();
+  const rightTime = new Date(`${right}T00:00:00`).getTime();
+  return Math.abs(leftTime - rightTime);
+};
+
+const getDateRangeDistance = (start: string, end: string, target: string): number => {
+  if (!start || !target) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  if (!end) {
+    return getDateDistance(start, target);
+  }
+  if (target >= start && target <= end) {
+    return 0;
+  }
+  return Math.min(getDateDistance(start, target), getDateDistance(end, target));
+};
+
+const pickClosestVisibleSeasonId = (
+  seasons: DashboardState["seasons"],
+  today = getTodayDateValue(),
+): string => {
+  const activeSeasons = seasons.filter((season) => season.status !== "deleted" && !isCompletedSeason(season));
+  if (activeSeasons.length > 0) {
+    return activeSeasons
+      .slice()
+      .sort((left, right) => {
+        const distanceDelta =
+          getDateRangeDistance(left.startDate, left.endDate, today) -
+          getDateRangeDistance(right.startDate, right.endDate, today);
+        if (distanceDelta !== 0) {
+          return distanceDelta;
+        }
+        return right.startDate.localeCompare(left.startDate);
+      })[0]?.id || "";
+  }
+
+  return seasons
+    .filter((season) => season.status !== "deleted" && isCompletedSeason(season))
+    .slice()
+    .sort((left, right) => {
+      if (left.endDate !== right.endDate) {
+        return right.endDate.localeCompare(left.endDate);
+      }
+      return right.startDate.localeCompare(left.startDate);
+    })[0]?.id || "";
+};
+
+const pickClosestVisibleTournamentId = (
+  tournaments: DashboardState["tournaments"],
+  today = getTodayDateValue(),
+): string => {
+  const activeTournaments = tournaments.filter((tournament) => tournament.status !== "deleted" && !isCompletedTournament(tournament));
+  if (activeTournaments.length > 0) {
+    return activeTournaments
+      .slice()
+      .sort((left, right) => {
+        const distanceDelta = getDateDistance(left.date, today) - getDateDistance(right.date, today);
+        if (distanceDelta !== 0) {
+          return distanceDelta;
+        }
+        return right.date.localeCompare(left.date);
+      })[0]?.id || "";
+  }
+
+  return tournaments
+    .filter((tournament) => tournament.status !== "deleted" && isCompletedTournament(tournament))
+    .slice()
+    .sort((left, right) => {
+      const leftCompletedAt = left.completedAt || left.date;
+      const rightCompletedAt = right.completedAt || right.date;
+      if (leftCompletedAt !== rightCompletedAt) {
+        return rightCompletedAt.localeCompare(leftCompletedAt);
+      }
+      return right.date.localeCompare(left.date);
+    })[0]?.id || "";
+};
+
 type MatchScreenRefs = {
   teamA2Field: HTMLElement | null;
   teamB2Field: HTMLElement | null;
@@ -198,11 +280,20 @@ export const createFormOrchestration = (args: {
 
   const populateSeasonOptions = (): void => {
     const currentUserId = args.getCurrentUserId();
-    const options = args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => {
+    const visibleSeasons = args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId));
+    const selectedSeasonValue = visibleSeasons.some((season) => season.id === args.dashboardState.selectedSeasonId)
+      ? args.dashboardState.selectedSeasonId
+      : pickClosestVisibleSeasonId(visibleSeasons);
+    const options = visibleSeasons.map((season) => {
       const option = document.createElement("option");
       option.value = season.id;
-      option.textContent = `${season.name} (${args.formatDate(season.startDate)})${isCompletedSeason(season) ? ` • ${args.t("completedLabel")}` : ""}`;
-      option.selected = season.id === args.dashboardState.selectedSeasonId;
+      const rangeLabel = season.endDate
+        ? `${args.formatDate(season.startDate)} - ${args.formatDate(season.endDate)}`
+        : args.formatDate(season.startDate);
+      option.textContent =
+        `${season.name} (${rangeLabel})` +
+        `${isCompletedSeason(season) ? ` • ${args.t("completedLabel")}` : ""}`;
+      option.selected = season.id === selectedSeasonValue;
       return option;
     });
 
@@ -214,19 +305,27 @@ export const createFormOrchestration = (args: {
     }
 
     args.seasonSelect.replaceChildren(...options);
+    args.dashboardState.selectedSeasonId = selectedSeasonValue;
+    args.seasonSelect.value = selectedSeasonValue || options[0]?.value || "";
   };
 
   const populateTournamentOptions = (): void => {
     const currentUserId = args.getCurrentUserId();
-    const options = args.dashboardState.tournaments
-      .filter((tournament) => shouldShowTournamentInDropdown(tournament, currentUserId))
+    const visibleTournaments = args.dashboardState.tournaments
+      .filter((tournament) => shouldShowTournamentInDropdown(tournament, currentUserId));
+    const selectedTournamentValue = visibleTournaments.some((tournament) => tournament.id === args.dashboardState.selectedTournamentId)
+      ? args.dashboardState.selectedTournamentId
+      : pickClosestVisibleTournamentId(visibleTournaments);
+    const options = visibleTournaments
       .map((tournament) => {
-      const option = document.createElement("option");
-      option.value = tournament.id;
-      option.textContent = `${tournament.name} • ${tournament.seasonName || "Open"} • ${args.formatDate(tournament.date)}`;
-      option.selected = tournament.id === args.dashboardState.selectedTournamentId;
-      return option;
-    });
+        const option = document.createElement("option");
+        option.value = tournament.id;
+        option.textContent =
+          `${tournament.name} • ${tournament.seasonName || "Open"} • ${args.formatDate(tournament.date)}` +
+          `${isCompletedTournament(tournament) ? ` • ${args.t("completedLabel")}` : ""}`;
+        option.selected = tournament.id === selectedTournamentValue;
+        return option;
+      });
 
     if (options.length === 0) {
       const option = document.createElement("option");
@@ -236,6 +335,8 @@ export const createFormOrchestration = (args: {
     }
 
     args.tournamentSelect.replaceChildren(...options);
+    args.dashboardState.selectedTournamentId = selectedTournamentValue;
+    args.tournamentSelect.value = selectedTournamentValue || options[0]?.value || "";
   };
 
   const populateTournamentPlannerLoadOptions = (): void => {
