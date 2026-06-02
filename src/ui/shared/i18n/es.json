@@ -436,7 +436,7 @@
   "faqSummaryCarryDetail": "Arrastrar no tiene un valor inicial fijo: puede estar por encima o por debajo de 500 según tu rating global actual. Un reinicio nuevo puede mostrar 500.",
   "faqSummaryAttendanceLabel": "Asistencia de temporada",
   "faqSummaryAttendanceValue": "La primera ausencia no penaliza",
-  "faqSummaryAttendanceDetail": "La penalización de asistencia descuenta puntos del score de temporada por ausencias consecutivas: la primera ausencia no penaliza, luego la 2. ausencia añade -8, la 3. añade otros -16, después -32, -64, -128 y así sucesivamente. Estas penalizaciones se acumulan sin tope. Volver a jugar solo reinicia la racha de ausencias para futuras faltas; la penalización ya acumulada se mantiene.",
+  "faqSummaryAttendanceDetail": "La penalización de asistencia descuenta puntos del score de temporada por ausencias consecutivas: la primera ausencia no penaliza, luego la 2. ausencia añade -8, la 3. añade otros -16, después -32, -64, -128 y así sucesivamente. Estas penalizaciones se acumulan hasta que la puntuaci�n visible de temporada llega a 200. Volver a jugar solo reinicia la racha de ausencias para futuras faltas; la penalización ya acumulada se mantiene.",
   "faqSummaryTournamentLabel": "Resultados de torneo",
   "faqSummaryTournamentValue": "El bracket decide la posición",
   "faqSummaryTournamentDetail": "El orden del torneo viene del resultado del bracket, no de Elo ni de la puntuación de temporada.",

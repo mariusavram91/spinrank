@@ -86,7 +86,7 @@ export const faqEntries: FaqEntry[] = [
         de: "Anders als die globale Elo nutzt **Saison-Glicko-2 nicht dieselben Stufen 0-9 / 10-29 / ab 30**. Das Tempo hängt stärker von **Unsicherheit und Verlässlichkeit** ab: Ergebnisse können sich stärker bewegen, solange das Saisonbild noch unklar ist, und werden ruhiger, sobald es verlässlicher wird.",
       },
       {
-        en: "The **visible season score** is **not** the raw Glicko-2 rating. SpinRank shows a *cautious version*: rating **minus two times uncertainty**, then **minus any attendance penalty**.",
+        en: "The **visible season score** is **not** the raw Glicko-2 rating. SpinRank shows a *cautious version*: rating **minus two times uncertainty**, then **minus any attendance penalty**, but attendance alone cannot push the visible season score below **200**.",
         de: "Der **sichtbare Saison-Score** ist **nicht** das rohe Glicko-2-Rating. SpinRank zeigt eine *vorsichtige Version*: Rating **minus zweimal Unsicherheit**, dann **minus einer möglichen Teilnahme-Strafe**.",
       },
       {
@@ -94,7 +94,7 @@ export const faqEntries: FaqEntry[] = [
         de: "Deshalb kann eine **zurückgesetzte Saison** auf dem Bildschirm bei **500** starten, obwohl das Basis-Rating 1200 ist. Dieses **500-Beispiel** gilt für einen *frischen Reset*, nicht für Übernehmen. *Übernehmen* startet mit deinem aktuellen Rating, daher ist der sichtbare Startwert **nicht fest** und kann über oder unter 500 liegen.",
       },
       {
-        en: "**Attendance matters too.** Penalties apply to **consecutive missed season weeks**: the first miss is free, then the **2nd miss adds -8**, the **3rd adds another -16**, then **-32, -64, -128**, and so on. These stack on top of each other, with **no cap**. If you play again, only the **miss streak** resets for future misses; **already earned penalty stays** in your season score.",
+        en: "**Attendance matters too.** Penalties apply to **consecutive missed season weeks**: the first miss is free, then the **2nd miss adds -8**, the **3rd adds another -16**, then **-32, -64, -128**, and so on. These stack until the **visible season score reaches 200**. If you play again, only the **miss streak** resets for future misses; **already earned penalty stays** in your season score.",
         de: "**Auch die Teilnahme zählt.** Die Strafe gilt für **aufeinanderfolgende verpasste Saisonwochen**: Die erste Fehlwoche ist frei, dann bringt die **2. Fehlwoche -8**, die **3. zusätzlich -16**, danach **-32, -64, -128** und so weiter. Diese Abzüge **stapeln sich**, ohne Obergrenze. Wenn du wieder spielst, wird nur die **Fehlserie** für künftige Fehlwochen zurückgesetzt; die **bereits aufgebaute Strafe bleibt** im Saison-Score.",
       },
       {

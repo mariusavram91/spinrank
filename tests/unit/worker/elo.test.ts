@@ -64,7 +64,15 @@ describe("elo helpers", () => {
         rd: 50,
         consecutiveMissedWeeks: 12,
       }),
-    ).toBe(-14976);
+    ).toBe(200);
+
+    expect(
+      calculateSeasonScore({
+        rating: 300,
+        rd: 100,
+        attendancePenalty: 64,
+      }),
+    ).toBe(100);
 
     expect(
       calculateSeasonScore({
