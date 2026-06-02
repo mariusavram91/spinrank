@@ -213,6 +213,7 @@ export const buildApp = (): HTMLElement => {
     profileLocaleSelect,
     profileSaveButton,
     profileAchievementsTitle,
+    profileAchievementsFaqButton,
     profileAchievementsSubtitle,
     profileAchievementsSummary,
     profileAchievementsPreview,
@@ -222,6 +223,7 @@ export const buildApp = (): HTMLElement => {
     profileActivityHeatmap,
     profileSeasonsList,
     profileTournamentsList,
+    profileMatchesFaqButton,
     profileMatchesSummary,
     profileMatchesFilterAll,
     profileMatchesFilterSingles,
@@ -288,6 +290,7 @@ export const buildApp = (): HTMLElement => {
     progressSummary,
     progressBody,
     leaderboardPanel,
+    leaderboardFaqButton,
     globalButton,
     seasonButton,
     tournamentButton,
@@ -331,6 +334,7 @@ export const buildApp = (): HTMLElement => {
     closeCreateMatchButton,
     composerHeading,
     composerTitle,
+    composerFaqButton,
     composerMeta,
     composerStatus,
     matchOutcome,
@@ -364,11 +368,13 @@ export const buildApp = (): HTMLElement => {
     tournamentTop,
     tournamentHeading,
     tournamentTitle,
+    tournamentFaqButton,
     tournamentMeta,
     closeCreateTournamentButton,
     seasonTop,
     seasonHeading,
     seasonTitle,
+    seasonFaqButton,
     seasonMeta,
     closeCreateSeasonButton,
     seasonStatus,
@@ -2468,6 +2474,17 @@ export const buildApp = (): HTMLElement => {
     },
   });
 
+  [
+    leaderboardFaqButton,
+    composerFaqButton,
+    tournamentFaqButton,
+    seasonFaqButton,
+    profileAchievementsFaqButton,
+    profileMatchesFaqButton,
+  ].forEach((button) => {
+    button.addEventListener("click", topLevelUiHandlers.onOpenFaq);
+  });
+
   bindTopLevelUiHandlers({
     logoutButton,
     footerFeaturesButton,
@@ -2682,6 +2699,7 @@ export const buildApp = (): HTMLElement => {
     composerTop,
     composerHeading,
     composerTitle,
+    composerFaqButton,
     composerMeta,
     closeCreateMatchButton,
     matchQuickBar,
@@ -2708,6 +2726,7 @@ export const buildApp = (): HTMLElement => {
     tournamentTop,
     tournamentHeading,
     tournamentTitle,
+    tournamentFaqButton,
     tournamentMeta,
     closeCreateTournamentButton,
     tournamentQuickBar,
@@ -2732,6 +2751,7 @@ export const buildApp = (): HTMLElement => {
     seasonTop,
     seasonHeading,
     seasonTitle,
+    seasonFaqButton,
     seasonMeta,
     closeCreateSeasonButton,
     seasonQuickBar,

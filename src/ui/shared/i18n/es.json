@@ -625,5 +625,6 @@
   "achievement.days_180.title": "Habitual de medio año",
   "achievement.days_180.description": "Mantén tu cuenta durante 180 días.",
   "achievement.days_365.title": "Temporada de aniversario",
-  "achievement.days_365.description": "Mantén tu cuenta durante 365 días."
+  "achievement.days_365.description": "Mantén tu cuenta durante 365 días.",
+  "faqShortcutLabel": "Abrir FAQ y ayuda"
 }

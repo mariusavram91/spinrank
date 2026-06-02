@@ -94,6 +94,7 @@ export const buildMatchScreen = (args: {
   composerTop: HTMLElement;
   composerHeading: HTMLElement;
   composerTitle: HTMLElement;
+  composerFaqButton: HTMLButtonElement;
   composerMeta: HTMLElement;
   closeCreateMatchButton: HTMLButtonElement;
   matchQuickBar: HTMLElement;
@@ -192,6 +193,11 @@ export const buildMatchScreen = (args: {
   Array.from(pointsToggle.querySelectorAll<HTMLButtonElement>("button[data-value]")).forEach((button) => {
     button.dataset.testid = `match-points-${button.dataset.value}`;
   });
+
+  const composerTitleRow = document.createElement("div");
+  composerTitleRow.className = "title-row";
+  composerTitleRow.append(args.composerTitle, args.composerFaqButton);
+  args.composerHeading.append(composerTitleRow, args.composerMeta);
 
   const seasonField = buildField("matchFieldSeason", args.formSeasonSelect);
   seasonField.classList.add("match-context-field");
@@ -326,7 +332,6 @@ export const buildMatchScreen = (args: {
     matchActionsWrapper,
   );
 
-  args.composerHeading.append(args.composerTitle, args.composerMeta);
   args.composerTop.append(args.composerHeading, args.closeCreateMatchButton);
   args.composerPanel.append(args.composerTop, args.matchForm);
   args.screen.append(args.composerPanel);
@@ -356,6 +361,7 @@ export const buildTournamentScreen = (args: {
   tournamentTop: HTMLElement;
   tournamentHeading: HTMLElement;
   tournamentTitle: HTMLElement;
+  tournamentFaqButton: HTMLButtonElement;
   tournamentMeta: HTMLElement;
   closeCreateTournamentButton: HTMLButtonElement;
   tournamentQuickBar: HTMLElement;
@@ -376,7 +382,11 @@ export const buildTournamentScreen = (args: {
   tournamentDateInput: HTMLInputElement;
   bracketBoard: HTMLElement;
 }): { tournamentActionsWrapper: HTMLDivElement } => {
-  args.tournamentHeading.append(args.tournamentTitle, args.tournamentMeta);
+  const tournamentTitleRow = document.createElement("div");
+  tournamentTitleRow.className = "title-row";
+  tournamentTitleRow.append(args.tournamentTitle, args.tournamentFaqButton);
+
+  args.tournamentHeading.append(tournamentTitleRow, args.tournamentMeta);
   args.tournamentTop.append(args.tournamentHeading, args.closeCreateTournamentButton);
   args.participantSection.append(
     args.participantSearchInput,
@@ -458,6 +468,7 @@ export const buildSeasonScreen = (args: {
   seasonTop: HTMLElement;
   seasonHeading: HTMLElement;
   seasonTitle: HTMLElement;
+  seasonFaqButton: HTMLButtonElement;
   seasonMeta: HTMLElement;
   closeCreateSeasonButton: HTMLButtonElement;
   seasonQuickBar: HTMLElement;
@@ -487,7 +498,11 @@ export const buildSeasonScreen = (args: {
     args.seasonParticipantList,
   );
 
-  args.seasonHeading.append(args.seasonTitle, args.seasonMeta);
+  const seasonTitleRow = document.createElement("div");
+  seasonTitleRow.className = "title-row";
+  seasonTitleRow.append(args.seasonTitle, args.seasonFaqButton);
+
+  args.seasonHeading.append(seasonTitleRow, args.seasonMeta);
   args.seasonTop.append(args.seasonHeading, args.closeCreateSeasonButton);
 
   const seasonActions = document.createElement("div");

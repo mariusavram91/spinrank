@@ -625,5 +625,6 @@
   "achievement.days_180.title": "Halbjahres-Stammgast",
   "achievement.days_180.description": "Behalte dein Konto 180 Tage lang.",
   "achievement.days_365.title": "Jahresjubiläum",
-  "achievement.days_365.description": "Behalte dein Konto 365 Tage lang."
+  "achievement.days_365.description": "Behalte dein Konto 365 Tage lang.",
+  "faqShortcutLabel": "FAQ & Hilfe öffnen"
 }

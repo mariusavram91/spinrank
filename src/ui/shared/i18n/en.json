@@ -625,5 +625,6 @@
   "achievement.days_180.title": "Half-year regular",
   "achievement.days_180.description": "Keep your account for 180 days.",
   "achievement.days_365.title": "Anniversary season",
-  "achievement.days_365.description": "Keep your account for 365 days."
+  "achievement.days_365.description": "Keep your account for 365 days.",
+  "faqShortcutLabel": "Open FAQ & Help"
 }

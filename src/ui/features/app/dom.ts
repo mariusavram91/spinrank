@@ -1,6 +1,7 @@
 import type { LeaderboardEntry, MatchFeedFilter, SeasonRecord } from "../../../api/contract";
 import { buildHelpScreens } from "../help/screens";
 import { buildDashboardOverview } from "../dashboard/overview";
+import { buildFaqInfoButton } from "../../shared/components/faqInfoButton";
 import { buildFooter } from "../../shared/components/footer";
 import { buildLanguageSwitch } from "../../shared/components/languageSwitch";
 import { buildLoginView } from "../../shared/components/loginView";
@@ -263,6 +264,10 @@ export const createAppDom = (args: {
   const profileMatchesTitle = document.createElement("h4");
   profileMatchesTitle.className = "card-title profile-section__title";
   bindLocalizedText(profileMatchesTitle, "profileMatches");
+  const profileMatchesFaqButton = buildFaqInfoButton("profile-matches-faq-button");
+  const profileMatchesTitleRow = document.createElement("div");
+  profileMatchesTitleRow.className = "title-row";
+  profileMatchesTitleRow.append(profileMatchesTitle, profileMatchesFaqButton);
   const profileMatchesSummary = document.createElement("div");
   profileMatchesSummary.className = "profile-match-type-summary";
   const profileMatchesFilter = document.createElement("div");
@@ -287,7 +292,7 @@ export const createAppDom = (args: {
   profileLoadMoreButton.className = "secondary-button matches-load-more-button";
   bindLocalizedText(profileLoadMoreButton, "loadMore");
   profileMatchesSection.append(
-    profileMatchesTitle,
+    profileMatchesTitleRow,
     profileMatchesSummary,
     profileMatchesFilter,
     profileMatchesList,
@@ -303,6 +308,10 @@ export const createAppDom = (args: {
   const profileAchievementsTitle = document.createElement("h4");
   profileAchievementsTitle.className = "card-title profile-section__title";
   bindLocalizedText(profileAchievementsTitle, "achievementsTitle");
+  const profileAchievementsFaqButton = buildFaqInfoButton("profile-achievements-faq-button");
+  const profileAchievementsTitleRow = document.createElement("div");
+  profileAchievementsTitleRow.className = "title-row";
+  profileAchievementsTitleRow.append(profileAchievementsTitle, profileAchievementsFaqButton);
   const profileAchievementsSubtitle = document.createElement("p");
   profileAchievementsSubtitle.className = "profile-section__subtitle";
   const profileAchievementsToggle = document.createElement("button");
@@ -327,7 +336,7 @@ export const createAppDom = (args: {
     profileAchievementsUnread,
     profileAchievementsList,
   );
-  profileAchievementsTitleBlock.append(profileAchievementsTitle, profileAchievementsSubtitle);
+  profileAchievementsTitleBlock.append(profileAchievementsTitleRow, profileAchievementsSubtitle);
   profileAchievementsHeader.append(profileAchievementsTitleBlock, profileAchievementsToggle);
 
   const profileActivityHeatmapSection = document.createElement("section");
@@ -618,6 +627,7 @@ export const createAppDom = (args: {
   const composerTitle = document.createElement("h3");
   composerTitle.className = "card-title";
   bindLocalizedText(composerTitle, "createMatch");
+  const composerFaqButton = buildFaqInfoButton("create-match-faq-button");
 
   const composerMeta = document.createElement("p");
   composerMeta.className = "card-meta";
@@ -763,6 +773,7 @@ export const createAppDom = (args: {
   const tournamentTitle = document.createElement("h3");
   tournamentTitle.className = "card-title";
   bindLocalizedText(tournamentTitle, "tournamentScreenTitle");
+  const tournamentFaqButton = buildFaqInfoButton("create-tournament-faq-button");
 
   const tournamentMeta = document.createElement("p");
   tournamentMeta.className = "card-meta";
@@ -782,6 +793,7 @@ export const createAppDom = (args: {
   const seasonTitle = document.createElement("h3");
   seasonTitle.className = "card-title";
   bindLocalizedText(seasonTitle, "seasonScreenTitle");
+  const seasonFaqButton = buildFaqInfoButton("create-season-faq-button");
 
   const seasonMeta = document.createElement("p");
   seasonMeta.className = "card-meta";
@@ -1056,6 +1068,7 @@ export const createAppDom = (args: {
     profileLocaleSelect,
     profileSaveButton,
     profileAchievementsTitle,
+    profileAchievementsFaqButton,
     profileAchievementsSubtitle,
     profileAchievementsSummary,
     profileAchievementsPreview,
@@ -1065,6 +1078,7 @@ export const createAppDom = (args: {
     profileActivityHeatmap,
     profileSeasonsList,
     profileTournamentsList,
+    profileMatchesFaqButton,
     profileMatchesSummary,
     profileMatchesFilterAll,
     profileMatchesFilterSingles,
@@ -1130,6 +1144,7 @@ export const createAppDom = (args: {
     closeCreateMatchButton,
     composerHeading,
     composerTitle,
+    composerFaqButton,
     composerMeta,
     composerStatus,
     matchOutcome,
@@ -1162,11 +1177,13 @@ export const createAppDom = (args: {
     tournamentTop,
     tournamentHeading,
     tournamentTitle,
+    tournamentFaqButton,
     tournamentMeta,
     closeCreateTournamentButton,
     seasonTop,
     seasonHeading,
     seasonTitle,
+    seasonFaqButton,
     seasonMeta,
     closeCreateSeasonButton,
     seasonStatus,

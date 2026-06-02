@@ -60,6 +60,7 @@ const createMatchScreenArgs = () => {
     composerTop: document.createElement("div"),
     composerHeading: document.createElement("div"),
     composerTitle: document.createElement("h3"),
+    composerFaqButton: document.createElement("button"),
     composerMeta: document.createElement("p"),
     closeCreateMatchButton: document.createElement("button"),
     matchQuickBar: document.createElement("div"),

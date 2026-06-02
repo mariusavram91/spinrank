@@ -501,7 +501,7 @@ h1 {
 
 .faq-card__text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   line-height: 1.55;
 }
@@ -852,6 +852,38 @@ button:disabled,
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+.icon-button.title-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 2px solid #1d6fd6;
+  border-radius: 999px;
+  background: #eaf3ff;
+  color: #1d6fd6;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.title-help-button__glyph {
+  display: block;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+}
+
+.icon-button.title-help-button:hover:enabled {
+  background: #dcecff;
+  color: #0e56af;
+  border-color: #0e56af;
+  transform: none;
 }
 
 .section-title,

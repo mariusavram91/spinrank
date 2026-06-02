@@ -35,6 +35,7 @@ export const assembleAppScreens = (args: {
   composerTop: HTMLElement;
   composerHeading: HTMLElement;
   composerTitle: HTMLHeadingElement;
+  composerFaqButton: HTMLButtonElement;
   composerMeta: HTMLParagraphElement;
   closeCreateMatchButton: HTMLButtonElement;
   matchQuickBar: HTMLElement;
@@ -66,6 +67,7 @@ export const assembleAppScreens = (args: {
   tournamentTop: HTMLElement;
   tournamentHeading: HTMLElement;
   tournamentTitle: HTMLHeadingElement;
+  tournamentFaqButton: HTMLButtonElement;
   tournamentMeta: HTMLParagraphElement;
   closeCreateTournamentButton: HTMLButtonElement;
   tournamentQuickBar: HTMLElement;
@@ -90,6 +92,7 @@ export const assembleAppScreens = (args: {
   seasonTop: HTMLElement;
   seasonHeading: HTMLElement;
   seasonTitle: HTMLHeadingElement;
+  seasonFaqButton: HTMLButtonElement;
   seasonMeta: HTMLParagraphElement;
   closeCreateSeasonButton: HTMLButtonElement;
   seasonQuickBar: HTMLElement;
@@ -148,6 +151,7 @@ export const assembleAppScreens = (args: {
     composerTop: args.composerTop,
     composerHeading: args.composerHeading,
     composerTitle: args.composerTitle,
+    composerFaqButton: args.composerFaqButton,
     composerMeta: args.composerMeta,
     closeCreateMatchButton: args.closeCreateMatchButton,
     matchQuickBar: args.matchQuickBar,
@@ -177,6 +181,7 @@ export const assembleAppScreens = (args: {
     tournamentTop: args.tournamentTop,
     tournamentHeading: args.tournamentHeading,
     tournamentTitle: args.tournamentTitle,
+    tournamentFaqButton: args.tournamentFaqButton,
     tournamentMeta: args.tournamentMeta,
     closeCreateTournamentButton: args.closeCreateTournamentButton,
     tournamentQuickBar: args.tournamentQuickBar,
@@ -204,6 +209,7 @@ export const assembleAppScreens = (args: {
     seasonTop: args.seasonTop,
     seasonHeading: args.seasonHeading,
     seasonTitle: args.seasonTitle,
+    seasonFaqButton: args.seasonFaqButton,
     seasonMeta: args.seasonMeta,
     closeCreateSeasonButton: args.closeCreateSeasonButton,
     seasonQuickBar: args.seasonQuickBar,

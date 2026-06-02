@@ -1,3 +1,4 @@
+import { buildFaqInfoButton } from "../../shared/components/faqInfoButton";
 import { bindLocalizedText } from "../../shared/i18n/runtime";
 
 export interface DashboardOverviewElements {
@@ -13,6 +14,7 @@ export interface DashboardOverviewElements {
   progressSummary: HTMLDivElement;
   progressBody: HTMLDivElement;
   leaderboardPanel: HTMLElement;
+  leaderboardFaqButton: HTMLButtonElement;
   globalButton: HTMLButtonElement;
   seasonButton: HTMLButtonElement;
   tournamentButton: HTMLButtonElement;
@@ -128,6 +130,10 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   const leaderboardTitle = document.createElement("h3");
   leaderboardTitle.className = "card-title";
   bindLocalizedText(leaderboardTitle, "leaderboard");
+  const leaderboardFaqButton = buildFaqInfoButton("leaderboard-faq-button");
+  const leaderboardTitleRow = document.createElement("div");
+  leaderboardTitleRow.className = "title-row";
+  leaderboardTitleRow.append(leaderboardTitle, leaderboardFaqButton);
 
   const segmentToggle = document.createElement("div");
   segmentToggle.className = "segment-toggle";
@@ -387,7 +393,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
   leaderboardLoadMoreButton.hidden = true;
   bindLocalizedText(leaderboardLoadMoreButton, "loadMore");
 
-  leaderboardHeading.append(leaderboardTitle, segmentToggle, seasonSelect, seasonStats, tournamentSelect);
+  leaderboardHeading.append(leaderboardTitleRow, segmentToggle, seasonSelect, seasonStats, tournamentSelect);
   leaderboardTop.append(leaderboardHeading);
   leaderboardPanel.append(leaderboardTop, leaderboardList, leaderboardLoadMoreButton, leaderboardStatsGroup);
 
@@ -404,6 +410,7 @@ export const buildDashboardOverview = (baseUrl: string): DashboardOverviewElemen
     progressSummary,
     progressBody,
     leaderboardPanel,
+    leaderboardFaqButton,
     globalButton,
     seasonButton,
     tournamentButton,
