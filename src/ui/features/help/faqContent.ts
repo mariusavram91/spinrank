@@ -52,8 +52,8 @@ export const faqEntries: FaqEntry[] = [
         de: "Wenn ein geranktes Match später gelöscht wird, **zählt es nicht mehr**. Die globale Rangliste ist **nicht** auf eine Saison oder ein Turnier begrenzt.",
       },
       {
-        en: "To be **fully qualified** in the global ranking, you need **at least 5 matches**. If you have fewer than 5, you still appear in the table, but **below all qualified players**.",
-        de: "Um in der globalen Rangliste **voll qualifiziert** zu sein, brauchst du **mindestens 5 Matches**. Mit weniger als 5 Matches erscheinst du trotzdem in der Tabelle, aber **unter allen qualifizierten Spielern**.",
+        en: "To be **fully qualified** in the global ranking, you need **at least 10 matches**. Global qualification uses your **raw match count**. If you have fewer than 10, you still appear in the table, but **below all qualified players**.",
+        de: "Um in der globalen Rangliste **voll qualifiziert** zu sein, brauchst du **mindestens 10 Matches**. Die globale Qualifikation nutzt deine **reine Anzahl an Matches**. Mit weniger als 10 Matches erscheinst du trotzdem in der Tabelle, aber **unter allen qualifizierten Spielern**.",
       },
       {
         en: "Players with **0 matches** are shown as *inactive*. They still appear in the list, but they have **not started building** a global ranking yet.",
@@ -96,6 +96,10 @@ export const faqEntries: FaqEntry[] = [
       {
         en: "**Attendance matters too.** Penalties apply to **consecutive missed season weeks**: the first 2 misses are free, then the **3rd miss adds -8**, the **4th adds another -16**, then **-32, -64, -128**, and so on. These stack on top of each other, with **no cap**. If you play again, only the **miss streak** resets for future misses; **already earned penalty stays** in your season score.",
         de: "**Auch die Teilnahme zählt.** Die Strafe gilt für **aufeinanderfolgende verpasste Saisonwochen**: Die ersten 2 Fehlwochen sind frei, dann bringt die **3. Fehlwoche -8**, die **4. zusätzlich -16**, danach **-32, -64, -128** und so weiter. Diese Abzüge **stapeln sich**, ohne Obergrenze. Wenn du wieder spielst, wird nur die **Fehlserie** für künftige Fehlwochen zurückgesetzt; die **bereits aufgebaute Strafe bleibt** im Saison-Score.",
+      },
+      {
+        en: "To be **fully qualified** in a season ranking, you also need **at least 10 match equivalents**. Season qualification uses **match equivalents**, so **singles count as 1.0** and **doubles count as 0.7**. Below 10, you still appear in the table, but **below all qualified players**.",
+        de: "Um in einer **Saison-Rangliste** voll qualifiziert zu sein, brauchst du ebenfalls **mindestens 10 Match-Äquivalente**. Die Saison-Qualifikation nutzt **Match-Äquivalente**: **Einzel zählen 1,0** und **Doppel 0,7**. Unter 10 erscheinst du weiter in der Tabelle, aber **unter allen qualifizierten Spielern**.",
       },
     ],
   },
@@ -302,7 +306,7 @@ export const faqEntriesEs: FaqEntryEs[] = [
     details: [
       "La clasificación global mide tu nivel general a largo plazo con Elo e incluye todos los partidos rankeados activos.",
       "Los primeros resultados mueven más rápido el Elo global (0-9 más rápido, 10-29 más estable, 30+ más calmado).",
-      "Necesitas al menos 10 partidos para aparecer por encima de jugadores no cualificados.",
+      "Necesitas al menos 10 partidos para estar plenamente cualificado en la clasificación global. La clasificación global usa tu número bruto de partidos. Si tienes menos de 10, sigues apareciendo en la tabla, pero por debajo de todos los jugadores cualificados.",
     ],
   },
   {
@@ -311,6 +315,7 @@ export const faqEntriesEs: FaqEntryEs[] = [
       "La temporada solo cuenta partidos dentro de esa temporada (y torneos vinculados a ella).",
       "La puntuación de temporada usa Glicko-2 (con incertidumbre), no Elo simple.",
       "La puntuación visible es prudente: rating menos incertidumbre y menos penalización de asistencia si aplica.",
+      "Para estar plenamente cualificado en una clasificación de temporada también necesitas al menos 10 equivalentes de partido. La temporada usa equivalentes de partido: individual cuenta como 1.0 y dobles como 0.7. Por debajo de 10, sigues apareciendo en la tabla, pero por debajo de todos los jugadores cualificados.",
     ],
   },
   {
