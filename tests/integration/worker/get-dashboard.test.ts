@@ -486,4 +486,81 @@ describe("worker integration: getDashboard", () => {
       await context.cleanup();
     }
   });
+  it("preserves completed season segment rows during ranking recomputation", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      if (!alice) {
+        throw new Error("Alice not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_recompute_preserves_completed_create_season",
+          payload: {
+            name: "Preserved Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        alice,
+        context.env,
+      );
+      const seasonId = seasonResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_recompute_preserves_completed_create_match",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 5 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+            seasonId,
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      await context.env.DB.batch([
+        context.env.DB.prepare(
+          "UPDATE seasons SET status = 'completed', is_active = 0, completed_at = '2026-05-01T00:00:00.000Z' WHERE id = ?1",
+        ).bind(seasonId),
+        context.env.DB.prepare(
+          "UPDATE elo_segments SET season_attendance_penalty = 777 WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+        ).bind(seasonId, "user_a"),
+      ]);
+
+      await recomputeAllRankings(context.env);
+
+      const seasonRow = await context.env.DB.prepare(
+        "SELECT season_attendance_penalty FROM elo_segments WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+      )
+        .bind(seasonId, "user_a")
+        .first<{ season_attendance_penalty: number }>();
+      const userRow = await context.env.DB.prepare("SELECT global_elo FROM users WHERE id = ?1")
+        .bind("user_a")
+        .first<{ global_elo: number }>();
+
+      expect(seasonRow?.season_attendance_penalty).toBe(777);
+      expect(userRow?.global_elo).toBe(1220);
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

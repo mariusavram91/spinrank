@@ -1,6 +1,7 @@
 import { handleCreateMatch } from "../../../worker/src/actions/createMatch";
 import { handleCreateSeason } from "../../../worker/src/actions/createSeason";
 import { handleGetMatches } from "../../../worker/src/actions/getMatches";
+import { backfillHistoricalMatchImpactSnapshots, invalidateUserMatchImpactCache } from "../../../worker/src/services/elo";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
 import type { UserRow } from "../../../worker/src/types";
 
@@ -379,4 +380,152 @@ describe("worker integration: getMatches", () => {
       await context.cleanup();
     }
   });
+  it("reads persisted rating impact snapshots when present", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(
+        `
+          SELECT *
+          FROM users
+          WHERE id = ?1
+        `,
+      )
+        .bind("user_a")
+        .first<UserRow>();
+
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      const matchResponse = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_get_matches_persisted_impact_match",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T10:00:00.000Z",
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await context.env.DB.prepare(
+        "UPDATE match_rating_impacts SET global_before = 4321, global_after = 4333 WHERE match_id = ?1 AND user_id = ?2",
+      )
+        .bind(matchResponse.data?.match.id, "user_a")
+        .run();
+
+      const response = await handleGetMatches(
+        {
+          action: "getMatches",
+          requestId: "req_get_matches_persisted_impact",
+          payload: {
+            filter: "recent",
+            limit: 1,
+            includeImpact: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(response.ok).toBe(true);
+      expect(response.data?.matches[0].ratingImpact?.globalBefore).toBe(4321);
+      expect(response.data?.matches[0].ratingImpact?.globalAfter).toBe(4333);
+    } finally {
+      await context.cleanup();
+    }
+  }, 30000);
+  it("backfills legacy season impact snapshots with the pre-change attendance rule", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(
+        `
+          SELECT *
+          FROM users
+          WHERE id = ?1
+        `,
+      )
+        .bind("user_a")
+        .first<UserRow>();
+
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_backfill_legacy_season",
+          payload: {
+            name: "Legacy Attendance Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-15",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const matchResponse = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_backfill_legacy_match",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-22T10:00:00.000Z",
+            seasonId: seasonResponse.data?.season.id,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await context.env.DB.prepare(
+        "DELETE FROM match_rating_impacts WHERE match_id = ?1",
+      )
+        .bind(matchResponse.data?.match.id)
+        .run();
+      invalidateUserMatchImpactCache();
+
+      const processed = await backfillHistoricalMatchImpactSnapshots(context.env, 10);
+      expect(processed).toBeGreaterThan(0);
+
+      const impactRow = await context.env.DB.prepare(
+        "SELECT season_breakdown_json FROM match_rating_impacts WHERE match_id = ?1 AND user_id = ?2",
+      )
+        .bind(matchResponse.data?.match.id, "user_a")
+        .first<{ season_breakdown_json: string }>();
+      const breakdown = impactRow ? JSON.parse(impactRow.season_breakdown_json) : null;
+
+      expect(breakdown).toMatchObject({
+        attendancePenaltyBefore: 24,
+      });
+    } finally {
+      await context.cleanup();
+    }
+  }, 30000);
 });

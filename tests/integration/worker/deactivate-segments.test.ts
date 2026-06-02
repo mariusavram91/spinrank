@@ -520,4 +520,96 @@ describe("worker integration: deactivate segments", () => {
       await context.cleanup();
     }
   });
+  it("rejects deleting completed seasons and linked tournaments", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_owner", displayName: "Owner" });
+      await seedUser(context.env, { id: "user_friend", displayName: "Friend" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_owner").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_completed_season_delete_lock_create",
+          payload: {
+            name: "Frozen Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_friend"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const seasonId = seasonResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      const tournamentResponse = await handleCreateTournament(
+        {
+          action: "createTournament",
+          requestId: "req_completed_season_delete_lock_tournament",
+          payload: {
+            name: "Frozen Cup",
+            participantIds: ["user_owner", "user_friend"],
+            rounds: bracketRounds,
+            seasonId,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const tournamentId = tournamentResponse.data?.tournament.id;
+      expect(tournamentId).toBeTruthy();
+
+      await context.env.DB.prepare(
+        "UPDATE seasons SET status = 'completed', is_active = 0, completed_at = '2026-05-01T00:00:00.000Z' WHERE id = ?1",
+      )
+        .bind(seasonId)
+        .run();
+
+      const seasonDelete = await handleDeactivateSeason(
+        {
+          action: "deactivateSeason",
+          requestId: "req_completed_season_delete_lock_attempt",
+          payload: { id: seasonId! },
+        },
+        owner,
+        context.env,
+      );
+      expect(seasonDelete.ok).toBe(false);
+      expect(seasonDelete.error?.code).toBe("CONFLICT");
+
+      const tournamentDelete = await handleDeactivateTournament(
+        {
+          action: "deactivateTournament",
+          requestId: "req_completed_season_tournament_delete_lock_attempt",
+          payload: { id: tournamentId! },
+        },
+        owner,
+        context.env,
+      );
+      expect(tournamentDelete.ok).toBe(false);
+      expect(tournamentDelete.error?.code).toBe("CONFLICT");
+
+      const seasonRow = await context.env.DB.prepare("SELECT status FROM seasons WHERE id = ?1")
+        .bind(seasonId)
+        .first<{ status: string }>();
+      const tournamentRow = await context.env.DB.prepare("SELECT status FROM tournaments WHERE id = ?1")
+        .bind(tournamentId)
+        .first<{ status: string }>();
+      expect(seasonRow?.status).toBe("completed");
+      expect(tournamentRow?.status).toBe("active");
+    } finally {
+      await context.cleanup();
+    }
+  });
 });

@@ -4,7 +4,7 @@ import { cors, errorResponse, json } from "./responses";
 import { parseApiRequest, routeApiRequest } from "./router";
 import { resolveWorkerRuntime } from "./runtime";
 import { processPendingAchievementJobs } from "./services/achievements";
-import { recomputeAllRankings } from "./services/elo";
+import { backfillHistoricalMatchImpactSnapshots, recomputeAllRankings } from "./services/elo";
 import { handleTestBootstrapRequest, isTestBootstrapRequest } from "./testAuth";
 import {
   handleTestSeedAchievementsRequest,
@@ -170,6 +170,9 @@ export default {
   },
 
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(recomputeAllRankings(env));
+    ctx.waitUntil((async () => {
+      await backfillHistoricalMatchImpactSnapshots(env);
+      await recomputeAllRankings(env);
+    })());
   },
 };

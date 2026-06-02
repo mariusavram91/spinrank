@@ -30,6 +30,9 @@ export async function handleDeactivateSeason(
   if (season.created_by_user_id !== sessionUser.id) {
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can delete this item.");
   }
+  if (season.status === "completed") {
+    return errorResponse(request.requestId, "CONFLICT", "This season is completed and can no longer be changed.");
+  }
 
   const tournamentIds = (
     await env.DB.prepare(

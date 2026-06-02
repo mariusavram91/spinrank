@@ -13,6 +13,7 @@ vi.mock("../../../worker/src/services/elo", () => ({
     globalState: {},
     segmentStates: new Map(),
   })),
+  persistMatchImpactSnapshotsForMatch: vi.fn(async () => undefined),
   invalidateUserMatchImpactCache: vi.fn(),
 }));
 

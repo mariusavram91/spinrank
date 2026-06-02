@@ -50,7 +50,16 @@ export async function handleCreateTournament(
     return errorResponse(request.requestId, "VALIDATION_ERROR", "Tournament participants must all exist.");
   }
 
-  const season = payload.seasonId ? await getSeasonById(env, payload.seasonId) : null;
+  const existing = payload.tournamentId ? await getTournamentById(env, payload.tournamentId) : null;
+  if (existing && existing.created_by_user_id !== sessionUser.id) {
+    return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can edit this tournament.");
+  }
+  if (existing && (existing.status === "deleted" || existing.status === "completed" || (await isTournamentBracketCompleted(env, existing.id)))) {
+    return errorResponse(request.requestId, "CONFLICT", "This tournament can no longer be edited.");
+  }
+
+  const seasonId = payload.seasonId ?? existing?.season_id ?? null;
+  const season = seasonId ? await getSeasonById(env, seasonId) : null;
   if (
     season &&
     (season.status === "deleted" ||
@@ -69,14 +78,6 @@ export async function handleCreateTournament(
         "All selected tournament participants must belong to the selected season.",
       );
     }
-  }
-
-  const existing = payload.tournamentId ? await getTournamentById(env, payload.tournamentId) : null;
-  if (existing && existing.created_by_user_id !== sessionUser.id) {
-    return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can edit this tournament.");
-  }
-  if (existing && (existing.status === "deleted" || existing.status === "completed" || (await isTournamentBracketCompleted(env, existing.id)))) {
-    return errorResponse(request.requestId, "CONFLICT", "This tournament can no longer be edited.");
   }
 
   const nowIso = isoNow(env.runtime);
@@ -104,7 +105,7 @@ export async function handleCreateTournament(
       name,
       date,
       status,
-      payload.seasonId || null,
+      seasonId,
       existing?.created_by_user_id ?? sessionUser.id,
       existing?.created_at ?? nowIso,
       completedAt,
@@ -143,7 +144,7 @@ export async function handleCreateTournament(
       id: tournamentId,
       name,
       date,
-      seasonId: payload.seasonId || null,
+      seasonId,
       seasonName: season?.name ?? null,
       status,
       createdByUserId: existing?.created_by_user_id ?? sessionUser.id,

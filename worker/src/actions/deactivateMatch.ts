@@ -3,6 +3,7 @@ import { errorResponse, successResponse } from "../responses";
 import { rebuildTournamentBracket } from "../services/brackets";
 import { createBlankRatingState, invalidateUserMatchImpactCache, recomputeAllRankings } from "../services/elo";
 import { computeDeleteLockedAt, isMatchDeletionAllowed } from "../services/matchGuards";
+import { getSeasonById, getTournamentById } from "../services/visibility";
 import type { ApiRequest, DeactivateEntityPayload, Env, UserRow } from "../types";
 
 type DeactivateMatchRow = {
@@ -313,6 +314,16 @@ export async function handleDeactivateMatch(
   }
   if (match.created_by_user_id !== sessionUser.id) {
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can delete this item.");
+  }
+  const tournament = match.tournament_id ? await getTournamentById(env, match.tournament_id) : null;
+  const seasonId = match.season_id ?? tournament?.season_id ?? null;
+  const season = seasonId ? await getSeasonById(env, seasonId) : null;
+  if (season?.status === "completed") {
+    return errorResponse(
+      request.requestId,
+      "CONFLICT",
+      "This season is completed and its matches can no longer be deleted.",
+    );
   }
   if (match.tournament_id && !match.season_id && (await hasLaterDependentTournamentMatches(env, match.id))) {
     return errorResponse(request.requestId, "CONFLICT", "Only the latest tournament match can be deleted.");

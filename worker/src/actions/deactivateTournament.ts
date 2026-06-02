@@ -2,6 +2,7 @@ import { isoNow, randomId } from "../db";
 import { errorResponse, successResponse } from "../responses";
 import { applyIncrementalGlobalRollbackForDeletedMatches } from "../services/incrementalRankingRollback";
 import { invalidateUserMatchImpactCache, recomputeAllRankings } from "../services/elo";
+import { getSeasonById } from "../services/visibility";
 import type { ApiRequest, DeactivateEntityPayload, Env, UserRow } from "../types";
 
 export async function handleDeactivateTournament(
@@ -30,6 +31,11 @@ export async function handleDeactivateTournament(
   }
   if (tournament.created_by_user_id !== sessionUser.id) {
     return errorResponse(request.requestId, "FORBIDDEN", "Only the creator can delete this item.");
+  }
+
+  const season = tournament.season_id ? await getSeasonById(env, tournament.season_id) : null;
+  if (season?.status === "completed") {
+    return errorResponse(request.requestId, "CONFLICT", "This season is completed and can no longer be changed.");
   }
 
   const activeMatches = (

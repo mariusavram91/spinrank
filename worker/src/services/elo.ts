@@ -1,6 +1,6 @@
 import { dateOnly, isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
 import type { WorkerRuntimeDeps } from "../runtime";
-import type { Env, MatchType, SeasonRow, UserRow, WinnerTeam } from "../types";
+import type { Env, MatchSeasonImpactBreakdown, MatchType, SeasonRow, UserRow, WinnerTeam } from "../types";
 
 const STARTING_ELO = 1200;
 const SINGLES_WEIGHT = 1;
@@ -14,7 +14,9 @@ const GLICKO_DEFAULT_VOLATILITY = 0.06;
 const GLICKO_TAU = 0.5;
 const GLICKO_SCALE = 173.7178;
 
-const ATTENDANCE_FREE_MISSES = 2;
+const ATTENDANCE_FREE_MISSES = 1;
+const LEGACY_ATTENDANCE_FREE_MISSES = 2;
+const ATTENDANCE_RULE_CHANGE_CUTOFF_ISO = "2026-06-02T00:00:00.000Z";
 const ATTENDANCE_PENALTY_BASE = 8;
 const WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
 
@@ -108,19 +110,22 @@ export interface UserMatchImpactDetail {
   expectedWinProbability: number;
   effectiveKFactor: number;
   outcome: "win" | "loss";
-  seasonBreakdown: {
-    expectedWinProbability: number;
-    ratingBefore: number;
-    ratingAfter: number;
-    rdBefore: number;
-    rdAfter: number;
-    conservativeBefore: number;
-    conservativeAfter: number;
-    attendancePenaltyBefore: number;
-    attendancePenaltyAfter: number;
-    scoreBefore: number;
-    scoreAfter: number;
-  } | null;
+  seasonBreakdown: MatchSeasonImpactBreakdown | null;
+}
+
+interface PersistedMatchImpactRow {
+  match_id: string;
+  user_id: string;
+  global_delta: number;
+  global_before: number;
+  global_after: number;
+  global_gap: number;
+  season_score_delta: number | null;
+  season_gap: number | null;
+  expected_win_probability: number;
+  effective_k_factor: number;
+  outcome: "win" | "loss";
+  season_breakdown_json: string | null;
 }
 
 const USER_MATCH_IMPACT_CACHE_LIMIT = 64;
@@ -162,6 +167,147 @@ function buildInClausePlaceholders(count: number): string {
   return Array.from({ length: count }, (_, index) => `?${index + 1}`).join(", ");
 }
 
+function parsePersistedMatchImpactRow(row: PersistedMatchImpactRow): UserMatchImpactDetail {
+  return {
+    globalDelta: Number(row.global_delta),
+    globalBefore: Number(row.global_before),
+    globalAfter: Number(row.global_after),
+    globalGap: Number(row.global_gap),
+    seasonScoreDelta: row.season_score_delta === null ? null : Number(row.season_score_delta),
+    seasonGap: row.season_gap === null ? null : Number(row.season_gap),
+    expectedWinProbability: Number(row.expected_win_probability),
+    effectiveKFactor: Number(row.effective_k_factor),
+    outcome: row.outcome,
+    seasonBreakdown: parseJsonObject<MatchSeasonImpactBreakdown | null>(row.season_breakdown_json, null),
+  };
+}
+
+async function loadPersistedUserMatchImpactDetails(
+  env: Env,
+  userId: string,
+  matchIds: string[],
+): Promise<Record<string, UserMatchImpactDetail>> {
+  if (matchIds.length === 0) {
+    return {};
+  }
+
+  const result = await env.DB.prepare(
+    `
+      SELECT
+        match_id,
+        user_id,
+        global_delta,
+        global_before,
+        global_after,
+        global_gap,
+        season_score_delta,
+        season_gap,
+        expected_win_probability,
+        effective_k_factor,
+        outcome,
+        season_breakdown_json
+      FROM match_rating_impacts
+      WHERE user_id = ?1
+        AND match_id IN (${buildInClausePlaceholders(matchIds.length).replace(/\?(\d+)/g, (_match, indexText) => `?${Number(indexText) + 1}`)})
+    `,
+  )
+    .bind(userId, ...matchIds)
+    .all<PersistedMatchImpactRow>();
+
+  return Object.fromEntries(
+    result.results.map((row) => [row.match_id, parsePersistedMatchImpactRow(row)]),
+  );
+}
+
+async function persistUserMatchImpactDetails(
+  env: Env,
+  userId: string,
+  detailsByMatchId: Record<string, UserMatchImpactDetail>,
+): Promise<void> {
+  const entries = Object.entries(detailsByMatchId);
+  if (entries.length === 0) {
+    return;
+  }
+
+  await env.DB.batch(
+    entries.map(([matchId, detail]) =>
+      env.DB.prepare(
+        `
+          INSERT INTO match_rating_impacts (
+            match_id, user_id, global_delta, global_before, global_after, global_gap,
+            season_score_delta, season_gap, expected_win_probability, effective_k_factor,
+            outcome, season_breakdown_json
+          ) VALUES (
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12
+          )
+          ON CONFLICT(match_id, user_id) DO NOTHING
+        `,
+      ).bind(
+        matchId,
+        userId,
+        detail.globalDelta,
+        detail.globalBefore,
+        detail.globalAfter,
+        detail.globalGap,
+        detail.seasonScoreDelta,
+        detail.seasonGap,
+        detail.expectedWinProbability,
+        detail.effectiveKFactor,
+        detail.outcome,
+        detail.seasonBreakdown ? JSON.stringify(detail.seasonBreakdown) : null,
+      ),
+    ),
+  );
+}
+
+export async function persistMatchImpactSnapshotsForMatch(env: Env, matchId: string, userIds: string[]): Promise<void> {
+  const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
+  for (const userId of uniqueUserIds) {
+    await deriveUserMatchImpactDetails(env, userId, [matchId]);
+  }
+}
+
+export async function backfillHistoricalMatchImpactSnapshots(env: Env, batchSize = 25): Promise<number> {
+  invalidateUserMatchImpactCache();
+  const rows = await env.DB.prepare(
+    `
+      SELECT
+        m.id,
+        m.team_a_player_ids_json,
+        m.team_b_player_ids_json
+      FROM matches m
+      WHERE m.status = 'active'
+        AND m.played_at < ?1
+        AND EXISTS (
+          SELECT 1
+          FROM match_players mp
+          LEFT JOIN match_rating_impacts mri
+            ON mri.match_id = mp.match_id
+           AND mri.user_id = mp.user_id
+          WHERE mp.match_id = m.id
+            AND mri.match_id IS NULL
+        )
+      ORDER BY m.created_at ASC, m.id ASC
+      LIMIT ?2
+    `,
+  ).bind(ATTENDANCE_RULE_CHANGE_CUTOFF_ISO, batchSize).all<{
+    id: string;
+    team_a_player_ids_json: string;
+    team_b_player_ids_json: string;
+  }>();
+
+  for (const row of rows.results) {
+    const userIds = [
+      ...parseJsonArray<string>(row.team_a_player_ids_json),
+      ...parseJsonArray<string>(row.team_b_player_ids_json),
+    ];
+    await persistMatchImpactSnapshotsForMatch(env, row.id, userIds);
+  }
+
+  invalidateUserMatchImpactCache();
+  return rows.results.length;
+}
+
 function createSeasonInitializer(
   orderedSeasons: SeasonSeedState[],
   globalState: Record<string, RatingState>,
@@ -184,6 +330,19 @@ function getMatchEquivalent(matchType: MatchType): number {
   return matchType === "singles" ? SINGLES_WEIGHT : DOUBLES_WEIGHT;
 }
 
+function getAttendanceFreeMissesForMatchTimestamp(
+  playedAtIso: string | null | undefined,
+  createdAtIso: string | null | undefined,
+): number {
+  const effectiveIso = playedAtIso || createdAtIso;
+  if (!effectiveIso) {
+    return ATTENDANCE_FREE_MISSES;
+  }
+  return effectiveIso < ATTENDANCE_RULE_CHANGE_CUTOFF_ISO
+    ? LEGACY_ATTENDANCE_FREE_MISSES
+    : ATTENDANCE_FREE_MISSES;
+}
+
 function getKFactor(matchEquivalentPlayed: number): number {
   if (matchEquivalentPlayed < 10) return 40;
   if (matchEquivalentPlayed < 30) return 24;
@@ -194,8 +353,8 @@ function calculateSeasonConservativeRating(rating: number, rd: number): number {
   return Math.round(rating - 2 * rd);
 }
 
-function calculateAttendancePenaltyForMissedWeeks(missedWeeks: number): number {
-  const penalizedMisses = Math.max(0, missedWeeks - ATTENDANCE_FREE_MISSES);
+function calculateAttendancePenaltyForMissedWeeks(missedWeeks: number, attendanceFreeMisses = ATTENDANCE_FREE_MISSES): number {
+  const penalizedMisses = Math.max(0, missedWeeks - attendanceFreeMisses);
   if (penalizedMisses <= 0) {
     return 0;
   }
@@ -203,8 +362,8 @@ function calculateAttendancePenaltyForMissedWeeks(missedWeeks: number): number {
   return ATTENDANCE_PENALTY_BASE * (2 ** penalizedMisses - 1);
 }
 
-function calculateAttendancePenaltyIncrementForMissedWeek(missedWeeksInCurrentStreak: number): number {
-  const penalizedMisses = Math.max(0, missedWeeksInCurrentStreak - ATTENDANCE_FREE_MISSES);
+function calculateAttendancePenaltyIncrementForMissedWeek(missedWeeksInCurrentStreak: number, attendanceFreeMisses = ATTENDANCE_FREE_MISSES): number {
+  const penalizedMisses = Math.max(0, missedWeeksInCurrentStreak - attendanceFreeMisses);
   if (penalizedMisses <= 0) {
     return 0;
   }
@@ -216,6 +375,7 @@ export function calculateSeasonScore(args: {
   rating: number;
   rd: number;
   attendancePenalty?: number;
+  attendanceFreeMisses?: number;
   attendedWeekKeys?: Iterable<number>;
   consecutiveMissedWeeks?: number;
   attendedWeeks?: number;
@@ -223,14 +383,15 @@ export function calculateSeasonScore(args: {
 }): number {
   const attendedWeeks = Number(args.attendedWeeks ?? 0);
   const totalWeeks = Number(args.totalWeeks ?? 0);
+  const attendanceFreeMisses = Number(args.attendanceFreeMisses ?? ATTENDANCE_FREE_MISSES);
   const attendancePenalty =
     args.attendancePenalty ??
     (args.attendedWeekKeys !== undefined
-      ? calculateAttendancePenalty(new Set(args.attendedWeekKeys), totalWeeks)
+      ? calculateAttendancePenalty(new Set(args.attendedWeekKeys), totalWeeks, attendanceFreeMisses)
       :
     (args.consecutiveMissedWeeks !== undefined
-      ? calculateAttendancePenaltyForMissedWeeks(Math.max(0, Number(args.consecutiveMissedWeeks)))
-      : calculateAttendancePenaltyForMissedWeeks(Math.max(0, totalWeeks - attendedWeeks))));
+      ? calculateAttendancePenaltyForMissedWeeks(Math.max(0, Number(args.consecutiveMissedWeeks)), attendanceFreeMisses)
+      : calculateAttendancePenaltyForMissedWeeks(Math.max(0, totalWeeks - attendedWeeks), attendanceFreeMisses)));
   return calculateSeasonConservativeRating(args.rating, args.rd) - attendancePenalty;
 }
 
@@ -250,7 +411,7 @@ function calculateConsecutiveMissedWeeks(attendedWeekKeys: Set<number>, totalWee
   return missedWeeks;
 }
 
-function calculateAttendancePenalty(attendedWeekKeys: Set<number>, totalWeeks: number): number {
+function calculateAttendancePenalty(attendedWeekKeys: Set<number>, totalWeeks: number, attendanceFreeMisses = ATTENDANCE_FREE_MISSES): number {
   let missedWeeksInCurrentStreak = 0;
   let totalPenalty = 0;
 
@@ -261,17 +422,17 @@ function calculateAttendancePenalty(attendedWeekKeys: Set<number>, totalWeeks: n
     }
 
     missedWeeksInCurrentStreak += 1;
-    totalPenalty += calculateAttendancePenaltyIncrementForMissedWeek(missedWeeksInCurrentStreak);
+    totalPenalty += calculateAttendancePenaltyIncrementForMissedWeek(missedWeeksInCurrentStreak, attendanceFreeMisses);
   }
 
   return totalPenalty;
 }
 
-function getSeasonScoreAtWeek(state: SeasonRatingState, totalWeeks: number): number {
+function getSeasonScoreAtWeek(state: SeasonRatingState, totalWeeks: number, attendanceFreeMisses = ATTENDANCE_FREE_MISSES): number {
   return calculateSeasonScore({
     rating: state.glickoRating,
     rd: state.glickoRd,
-    attendancePenalty: calculateAttendancePenalty(state.attendedWeekKeys, totalWeeks),
+    attendancePenalty: calculateAttendancePenalty(state.attendedWeekKeys, totalWeeks, attendanceFreeMisses),
   });
 }
 
@@ -883,15 +1044,22 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
       SELECT id, start_date, end_date, status, base_elo_mode, participant_ids_json
       FROM seasons
       WHERE status != 'deleted'
+        AND status != 'completed'
       ORDER BY start_date ASC, id ASC
     `,
   ).all<SeasonSeedRow>();
 
   const tournaments = await env.DB.prepare(
     `
-      SELECT id, season_id
-      FROM tournaments
-      WHERE status != 'deleted'
+      SELECT t.id, t.season_id
+      FROM tournaments t
+      WHERE t.status != 'deleted'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM seasons s
+          WHERE s.id = t.season_id
+            AND s.status = 'completed'
+        )
     `,
   ).all<TournamentSeasonRow>();
 
@@ -911,8 +1079,14 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
     ).all<SegmentParticipantRow>()).results,
     ...(await env.DB.prepare(
       `
-        SELECT 'tournament' AS segment_type, tournament_id AS segment_id, user_id
-        FROM tournament_participants
+        SELECT 'tournament' AS segment_type, tp.tournament_id AS segment_id, tp.user_id
+        FROM tournament_participants tp
+        INNER JOIN tournaments t
+          ON t.id = tp.tournament_id
+        LEFT JOIN seasons s
+          ON s.id = t.season_id
+        WHERE t.status != 'deleted'
+          AND (s.id IS NULL OR s.status != 'completed')
       `,
     ).all<SegmentParticipantRow>()).results,
   ];
@@ -976,7 +1150,30 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
         snapshots.globalState[user.id]?.updatedAt ?? nowIso,
       ),
     ),
-    env.DB.prepare(`DELETE FROM elo_segments`),
+    env.DB.prepare(
+      `
+        DELETE FROM elo_segments
+        WHERE (
+          segment_type = 'season'
+          AND segment_id IN (
+            SELECT s.id
+            FROM seasons s
+            WHERE s.status != 'deleted'
+              AND s.status != 'completed'
+          )
+        ) OR (
+          segment_type = 'tournament'
+          AND segment_id IN (
+            SELECT t.id
+            FROM tournaments t
+            LEFT JOIN seasons s
+              ON s.id = t.season_id
+            WHERE t.status != 'deleted'
+              AND (s.id IS NULL OR s.status != 'completed')
+          )
+        )
+      `,
+    ),
     ...[...snapshots.segmentStates.entries()].flatMap(([segmentKey, state]) => {
       const [segmentType, segmentId] = segmentKey.split(":") as ["season" | "tournament", string];
       const seasonMetadata = segmentType === "season" ? seasonMetadataById.get(segmentId) : null;
@@ -1030,6 +1227,245 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
   return snapshots;
 }
 
+async function deriveMissingUserMatchImpactDetails(
+  env: Env,
+  userId: string,
+  pendingTargetIds: string[],
+  attendanceFreeMisses: number,
+): Promise<Record<string, UserMatchImpactDetail>> {
+  if (pendingTargetIds.length === 0) {
+    return {};
+  }
+
+  const nowIso = isoNow(env.runtime);
+  const latestTarget = await env.DB.prepare(
+    `
+      SELECT id, played_at, created_at
+      FROM matches
+      WHERE status = 'active'
+        AND id IN (${buildInClausePlaceholders(pendingTargetIds.length)})
+      ORDER BY played_at DESC, created_at DESC, id DESC
+      LIMIT 1
+    `,
+  )
+    .bind(...pendingTargetIds)
+    .first<{ id: string; played_at: string; created_at: string }>();
+  if (!latestTarget) {
+    return {};
+  }
+
+  const matches = await env.DB.prepare(
+    `
+      SELECT id, match_type, team_a_player_ids_json, team_b_player_ids_json, winner_team, global_elo_delta_json,
+             segment_elo_delta_json, season_id, tournament_id, played_at, created_at, status
+      FROM matches
+      WHERE status = 'active'
+        AND (
+          played_at < ?1
+          OR (played_at = ?1 AND created_at < ?2)
+          OR (played_at = ?1 AND created_at = ?2 AND id <= ?3)
+        )
+      ORDER BY played_at ASC, created_at ASC, id ASC
+    `,
+  )
+    .bind(latestTarget.played_at, latestTarget.created_at, latestTarget.id)
+    .all<MatchImpactReplayRow>();
+
+  const replayTournamentIds = [
+    ...new Set(matches.results.map((match) => match.tournament_id).filter((value): value is string => Boolean(value))),
+  ];
+  const tournaments =
+    replayTournamentIds.length > 0
+      ? await env.DB.prepare(
+          `
+            SELECT id, season_id
+            FROM tournaments
+            WHERE status != 'deleted'
+              AND id IN (${buildInClausePlaceholders(replayTournamentIds.length)})
+          `,
+        ).bind(...replayTournamentIds).all<TournamentSeasonRow>()
+      : { results: [] as TournamentSeasonRow[] };
+  const replaySeasonIds = [
+    ...new Set(
+      [
+        ...matches.results.map((match) => match.season_id),
+        ...tournaments.results.map((tournament) => tournament.season_id),
+      ].filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const seasons =
+    replaySeasonIds.length > 0
+      ? await env.DB.prepare(
+          `
+            SELECT id, start_date, end_date, status, base_elo_mode, participant_ids_json
+            FROM seasons
+            WHERE status != 'deleted'
+              AND id IN (${buildInClausePlaceholders(replaySeasonIds.length)})
+            ORDER BY start_date ASC, id ASC
+          `,
+        ).bind(...replaySeasonIds).all<SeasonSeedRow>()
+      : { results: [] as SeasonSeedRow[] };
+
+  const globalState = {} as Record<string, RatingState>;
+  const segmentStates = new Map<string, Record<string, AnyRatingState>>();
+  const seasonStateById = new Map<string, SeasonSeedState>(
+    seasons.results.map((season) => [
+      season.id,
+      {
+        id: season.id,
+        startDate: season.start_date,
+        endDate: season.end_date,
+        status: season.status,
+        baseEloMode: season.base_elo_mode,
+        participantIds: parseJsonArray<string>(season.participant_ids_json),
+        initialized: false,
+      },
+    ]),
+  );
+  const orderedSeasons = [...seasonStateById.values()].sort((left, right) =>
+    left.startDate === right.startDate ? left.id.localeCompare(right.id) : left.startDate.localeCompare(right.startDate),
+  );
+  const tournamentSeasonIdByTournamentId = new Map<string, string | null>(
+    tournaments.results.map((tournament) => [tournament.id, tournament.season_id]),
+  );
+
+  const initializeSeasonsUpTo = createSeasonInitializer(orderedSeasons, globalState, segmentStates, nowIso);
+
+  const pending = new Set(pendingTargetIds);
+  const details: Record<string, UserMatchImpactDetail> = {};
+  const derivedDetailsToPersist: Record<string, UserMatchImpactDetail> = {};
+
+  for (const match of matches.results) {
+    if (pending.size === 0) {
+      break;
+    }
+
+    initializeSeasonsUpTo(dateOnly(match.played_at || match.created_at || nowIso));
+
+    const teamA = parseJsonArray<string>(match.team_a_player_ids_json);
+    const teamB = parseJsonArray<string>(match.team_b_player_ids_json);
+    const playedAt = match.played_at || match.created_at || nowIso;
+    const updatedAt = match.created_at || match.played_at || nowIso;
+    const inTeamA = teamA.includes(userId);
+    const inTeamB = teamB.includes(userId);
+    const userInMatch = inTeamA || inTeamB;
+    const needsDetail = userInMatch && pending.has(match.id);
+    const matchEquivalentPlayed = getMatchEquivalent(match.match_type);
+
+    seedRatingStates(globalState, [...teamA, ...teamB], nowIso);
+    const globalDelta = parseJsonObject<Record<string, number>>(match.global_elo_delta_json, {});
+    const beforeGlobalElo = needsDetail ? Math.round(globalState[userId]?.elo ?? STARTING_ELO) : STARTING_ELO;
+    let effectiveKFactor = 0;
+    let expectedWinProbability = 0;
+    let globalGap = 0;
+    let outcome: 'win' | 'loss' = 'loss';
+    if (needsDetail) {
+      const teamARating = computeAverageRating(teamA, globalState);
+      const teamBRating = computeAverageRating(teamB, globalState);
+      const expectedA = 1 / (1 + 10 ** ((teamBRating - teamARating) / 400));
+      const teamAK = computeTeamKFactor(teamA, globalState);
+      const teamBK = computeTeamKFactor(teamB, globalState);
+      effectiveKFactor = ((teamAK + teamBK) / 2) * matchEquivalentPlayed;
+      expectedWinProbability = inTeamA ? expectedA : (inTeamB ? 1 - expectedA : 0);
+      globalGap = inTeamA ? (teamARating - teamBRating) : (teamBRating - teamARating);
+      outcome = (match.winner_team === 'A' && inTeamA) || (match.winner_team === 'B' && inTeamB) ? 'win' : 'loss';
+    }
+
+    let seasonScoreDelta: number | null = null;
+    let seasonGap: number | null = null;
+    let seasonBreakdown: UserMatchImpactDetail['seasonBreakdown'] = null;
+    const targetSeasonId = match.season_id ?? tournamentSeasonIdByTournamentId.get(match.tournament_id ?? '') ?? null;
+    if (targetSeasonId) {
+      const season = seasonStateById.get(targetSeasonId);
+      if (season) {
+        initializeSeasonRatingState(season, globalState, segmentStates, nowIso);
+        const segmentKey = getSegmentKey('season', targetSeasonId);
+        const seasonState = (segmentStates.get(segmentKey) ?? {}) as Record<string, SeasonRatingState>;
+        seedSeasonRatingStates(seasonState, [...teamA, ...teamB], nowIso);
+        const totalWeeks = needsDetail ? getSeasonWeekIndex(season.startDate, playedAt) + 1 : 0;
+        const currentTeamA = needsDetail ? buildTeamGlickoState(teamA, seasonState) : null;
+        const currentTeamB = needsDetail ? buildTeamGlickoState(teamB, seasonState) : null;
+        const beforeUserState = needsDetail ? seasonState[userId] : null;
+        const beforeRating = beforeUserState ? beforeUserState.glickoRating : null;
+        const beforeRd = beforeUserState ? beforeUserState.glickoRd : null;
+        const beforeScore = beforeUserState ? getSeasonScoreAtWeek(beforeUserState, totalWeeks, attendanceFreeMisses) : 0;
+        const beforeConservative =
+          beforeRating !== null && beforeRd !== null ? calculateSeasonConservativeRating(beforeRating, beforeRd) : 0;
+        const beforePenalty = beforeUserState
+          ? calculateAttendancePenalty(beforeUserState.attendedWeekKeys, totalWeeks, attendanceFreeMisses)
+          : 0;
+        let seasonExpectedWinProbability = 0;
+        if (currentTeamA && currentTeamB) {
+          const seasonExpectedA = expectedScore(
+            toGlickoScale(currentTeamA.rating),
+            toGlickoScale(currentTeamB.rating),
+            toGlickoDeviation(currentTeamB.rd),
+          );
+          seasonExpectedWinProbability = inTeamA ? seasonExpectedA : (inTeamB ? 1 - seasonExpectedA : 0);
+          seasonGap = inTeamA
+            ? currentTeamA.rating - currentTeamB.rating
+            : currentTeamB.rating - currentTeamA.rating;
+        }
+        updateSeasonGlickoMatch({
+          teamAPlayerIds: teamA,
+          teamBPlayerIds: teamB,
+          seasonState,
+          seasonStartDate: season.startDate,
+          winnerTeam: match.winner_team,
+          matchType: match.match_type,
+          playedAt,
+          updatedAt,
+        });
+        if (beforeUserState && beforeRating !== null && beforeRd !== null) {
+          const afterUserState = seasonState[userId];
+          const afterScore = getSeasonScoreAtWeek(afterUserState, totalWeeks, attendanceFreeMisses);
+          const afterConservative = calculateSeasonConservativeRating(afterUserState.glickoRating, afterUserState.glickoRd);
+          const afterPenalty = calculateAttendancePenalty(afterUserState.attendedWeekKeys, totalWeeks, attendanceFreeMisses);
+          seasonScoreDelta = afterScore - beforeScore;
+          seasonBreakdown = {
+            expectedWinProbability: seasonExpectedWinProbability,
+            ratingBefore: beforeRating,
+            ratingAfter: afterUserState.glickoRating,
+            rdBefore: beforeRd,
+            rdAfter: afterUserState.glickoRd,
+            conservativeBefore: beforeConservative,
+            conservativeAfter: afterConservative,
+            attendancePenaltyBefore: beforePenalty,
+            attendancePenaltyAfter: afterPenalty,
+            scoreBefore: beforeScore,
+            scoreAfter: afterScore,
+          };
+        }
+        segmentStates.set(segmentKey, seasonState);
+      }
+    }
+
+    updateTeamState(teamA, globalState, globalDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === 'A');
+    updateTeamState(teamB, globalState, globalDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === 'B');
+    const afterGlobalElo = needsDetail ? Math.round(globalState[userId]?.elo ?? beforeGlobalElo) : beforeGlobalElo;
+
+    if (needsDetail) {
+      details[match.id] = {
+        globalDelta: Number(globalDelta[userId] ?? 0),
+        globalBefore: beforeGlobalElo,
+        globalAfter: afterGlobalElo,
+        globalGap: Math.round(globalGap),
+        seasonScoreDelta,
+        seasonGap: seasonGap === null ? null : Math.round(seasonGap),
+        expectedWinProbability,
+        effectiveKFactor: Math.round(effectiveKFactor * 100) / 100,
+        outcome,
+        seasonBreakdown,
+      };
+      derivedDetailsToPersist[match.id] = details[match.id];
+      pending.delete(match.id);
+    }
+  }
+
+  await persistUserMatchImpactDetails(env, userId, derivedDetailsToPersist);
+  return details;
+}
+
 export async function deriveUserMatchImpactDetails(
   env: Env,
   userId: string,
@@ -1047,230 +1483,43 @@ export async function deriveUserMatchImpactDetails(
   }
 
   const computation = (async () => {
-    const nowIso = isoNow(env.runtime);
-    const latestTarget = await env.DB.prepare(
+    const persistedDetails = await loadPersistedUserMatchImpactDetails(env, userId, targetIds);
+    const pendingTargetIds = targetIds.filter((matchId) => !persistedDetails[matchId]);
+    if (pendingTargetIds.length === 0) {
+      return persistedDetails;
+    }
+
+    const pendingMatchRows = await env.DB.prepare(
       `
         SELECT id, played_at, created_at
         FROM matches
-        WHERE status = 'active'
-          AND id IN (${buildInClausePlaceholders(targetIds.length)})
-        ORDER BY played_at DESC, created_at DESC, id DESC
-        LIMIT 1
+        WHERE id IN (${buildInClausePlaceholders(pendingTargetIds.length)})
       `,
-    )
-      .bind(...targetIds)
-      .first<{ id: string; played_at: string; created_at: string }>();
-    if (!latestTarget) {
-      return {};
-    }
+    ).bind(...pendingTargetIds).all<{ id: string; played_at: string; created_at: string }>();
 
-    const matches = await env.DB.prepare(
-      `
-        SELECT id, match_type, team_a_player_ids_json, team_b_player_ids_json, winner_team, global_elo_delta_json,
-               segment_elo_delta_json, season_id, tournament_id, played_at, created_at, status
-        FROM matches
-        WHERE status = 'active'
-          AND (
-            played_at < ?1
-            OR (played_at = ?1 AND created_at < ?2)
-            OR (played_at = ?1 AND created_at = ?2 AND id <= ?3)
-          )
-        ORDER BY played_at ASC, created_at ASC, id ASC
-      `,
-    )
-      .bind(latestTarget.played_at, latestTarget.created_at, latestTarget.id)
-      .all<MatchImpactReplayRow>();
+    const legacyTargetIds = pendingMatchRows.results
+      .filter((row) => getAttendanceFreeMissesForMatchTimestamp(row.played_at, row.created_at) === LEGACY_ATTENDANCE_FREE_MISSES)
+      .map((row) => row.id);
+    const currentTargetIds = pendingTargetIds.filter((matchId) => !legacyTargetIds.includes(matchId));
 
-    const replayTournamentIds = [
-      ...new Set(matches.results.map((match) => match.tournament_id).filter((value): value is string => Boolean(value))),
-    ];
-    const tournaments =
-      replayTournamentIds.length > 0
-        ? await env.DB.prepare(
-            `
-              SELECT id, season_id
-              FROM tournaments
-              WHERE status != 'deleted'
-                AND id IN (${buildInClausePlaceholders(replayTournamentIds.length)})
-            `,
-          ).bind(...replayTournamentIds).all<TournamentSeasonRow>()
-        : { results: [] as TournamentSeasonRow[] };
-    const replaySeasonIds = [
-      ...new Set(
-        [
-          ...matches.results.map((match) => match.season_id),
-          ...tournaments.results.map((tournament) => tournament.season_id),
-        ].filter((value): value is string => Boolean(value)),
-      ),
-    ];
-    const seasons =
-      replaySeasonIds.length > 0
-        ? await env.DB.prepare(
-            `
-              SELECT id, start_date, end_date, status, base_elo_mode, participant_ids_json
-              FROM seasons
-              WHERE status != 'deleted'
-                AND id IN (${buildInClausePlaceholders(replaySeasonIds.length)})
-              ORDER BY start_date ASC, id ASC
-            `,
-          ).bind(...replaySeasonIds).all<SeasonSeedRow>()
-        : { results: [] as SeasonSeedRow[] };
-
-    const globalState = {} as Record<string, RatingState>;
-    const segmentStates = new Map<string, Record<string, AnyRatingState>>();
-    const seasonStateById = new Map<string, SeasonSeedState>(
-      seasons.results.map((season) => [
-        season.id,
-        {
-          id: season.id,
-          startDate: season.start_date,
-          endDate: season.end_date,
-          status: season.status,
-          baseEloMode: season.base_elo_mode,
-          participantIds: parseJsonArray<string>(season.participant_ids_json),
-          initialized: false,
-        },
-      ]),
+    const derivedLegacy = await deriveMissingUserMatchImpactDetails(
+      env,
+      userId,
+      legacyTargetIds,
+      LEGACY_ATTENDANCE_FREE_MISSES,
     );
-    const orderedSeasons = [...seasonStateById.values()].sort((left, right) =>
-      left.startDate === right.startDate ? left.id.localeCompare(right.id) : left.startDate.localeCompare(right.startDate),
-    );
-    const tournamentSeasonIdByTournamentId = new Map<string, string | null>(
-      tournaments.results.map((tournament) => [tournament.id, tournament.season_id]),
+    const derivedCurrent = await deriveMissingUserMatchImpactDetails(
+      env,
+      userId,
+      currentTargetIds,
+      ATTENDANCE_FREE_MISSES,
     );
 
-    const initializeSeasonsUpTo = createSeasonInitializer(orderedSeasons, globalState, segmentStates, nowIso);
-
-    const pending = new Set(targetIds);
-    const details: Record<string, UserMatchImpactDetail> = {};
-
-    for (const match of matches.results) {
-      if (pending.size === 0) {
-        break;
-      }
-
-      initializeSeasonsUpTo(dateOnly(match.played_at || match.created_at || nowIso));
-
-      const teamA = parseJsonArray<string>(match.team_a_player_ids_json);
-      const teamB = parseJsonArray<string>(match.team_b_player_ids_json);
-      const playedAt = match.played_at || match.created_at || nowIso;
-      const updatedAt = match.created_at || match.played_at || nowIso;
-      const inTeamA = teamA.includes(userId);
-      const inTeamB = teamB.includes(userId);
-      const userInMatch = inTeamA || inTeamB;
-      const needsDetail = userInMatch && pending.has(match.id);
-      const matchEquivalentPlayed = getMatchEquivalent(match.match_type);
-
-      seedRatingStates(globalState, [...teamA, ...teamB], nowIso);
-      const globalDelta = parseJsonObject<Record<string, number>>(match.global_elo_delta_json, {});
-      const beforeGlobalElo = needsDetail ? Math.round(globalState[userId]?.elo ?? STARTING_ELO) : STARTING_ELO;
-      let effectiveKFactor = 0;
-      let expectedWinProbability = 0;
-      let globalGap = 0;
-      let outcome: "win" | "loss" = "loss";
-      if (needsDetail) {
-        const teamARating = computeAverageRating(teamA, globalState);
-        const teamBRating = computeAverageRating(teamB, globalState);
-        const expectedA = 1 / (1 + 10 ** ((teamBRating - teamARating) / 400));
-        const teamAK = computeTeamKFactor(teamA, globalState);
-        const teamBK = computeTeamKFactor(teamB, globalState);
-        effectiveKFactor = ((teamAK + teamBK) / 2) * matchEquivalentPlayed;
-        expectedWinProbability = inTeamA ? expectedA : (inTeamB ? 1 - expectedA : 0);
-        globalGap = inTeamA ? (teamARating - teamBRating) : (teamBRating - teamARating);
-        outcome = (match.winner_team === "A" && inTeamA) || (match.winner_team === "B" && inTeamB) ? "win" : "loss";
-      }
-
-      let seasonScoreDelta: number | null = null;
-      let seasonGap: number | null = null;
-      let seasonBreakdown: UserMatchImpactDetail["seasonBreakdown"] = null;
-      const targetSeasonId = match.season_id ?? tournamentSeasonIdByTournamentId.get(match.tournament_id ?? "") ?? null;
-      if (targetSeasonId) {
-        const season = seasonStateById.get(targetSeasonId);
-        if (season) {
-          initializeSeasonRatingState(season, globalState, segmentStates, nowIso);
-          const segmentKey = getSegmentKey("season", targetSeasonId);
-          const seasonState = (segmentStates.get(segmentKey) ?? {}) as Record<string, SeasonRatingState>;
-          seedSeasonRatingStates(seasonState, [...teamA, ...teamB], nowIso);
-          const totalWeeks = needsDetail ? getSeasonWeekIndex(season.startDate, playedAt) + 1 : 0;
-          const currentTeamA = needsDetail ? buildTeamGlickoState(teamA, seasonState) : null;
-          const currentTeamB = needsDetail ? buildTeamGlickoState(teamB, seasonState) : null;
-          const beforeUserState = needsDetail ? seasonState[userId] : null;
-          const beforeRating = beforeUserState ? beforeUserState.glickoRating : null;
-          const beforeRd = beforeUserState ? beforeUserState.glickoRd : null;
-          const beforeScore = beforeUserState ? getSeasonScoreAtWeek(beforeUserState, totalWeeks) : 0;
-          const beforeConservative =
-            beforeRating !== null && beforeRd !== null ? calculateSeasonConservativeRating(beforeRating, beforeRd) : 0;
-          const beforePenalty = beforeUserState
-            ? calculateAttendancePenalty(beforeUserState.attendedWeekKeys, totalWeeks)
-            : 0;
-          let seasonExpectedWinProbability = 0;
-          if (currentTeamA && currentTeamB) {
-            const seasonExpectedA = expectedScore(
-              toGlickoScale(currentTeamA.rating),
-              toGlickoScale(currentTeamB.rating),
-              toGlickoDeviation(currentTeamB.rd),
-            );
-            seasonExpectedWinProbability = inTeamA ? seasonExpectedA : (inTeamB ? 1 - seasonExpectedA : 0);
-            seasonGap = inTeamA
-              ? (currentTeamA.rating - currentTeamB.rating)
-              : (currentTeamB.rating - currentTeamA.rating);
-          }
-          updateSeasonGlickoMatch({
-            teamAPlayerIds: teamA,
-            teamBPlayerIds: teamB,
-            seasonState,
-            seasonStartDate: season.startDate,
-            winnerTeam: match.winner_team,
-            matchType: match.match_type,
-            playedAt,
-            updatedAt,
-          });
-          if (beforeUserState && beforeRating !== null && beforeRd !== null) {
-            const afterUserState = seasonState[userId];
-            const afterScore = getSeasonScoreAtWeek(afterUserState, totalWeeks);
-            const afterConservative = calculateSeasonConservativeRating(afterUserState.glickoRating, afterUserState.glickoRd);
-            const afterPenalty = calculateAttendancePenalty(afterUserState.attendedWeekKeys, totalWeeks);
-            seasonScoreDelta = afterScore - beforeScore;
-            seasonBreakdown = {
-              expectedWinProbability: seasonExpectedWinProbability,
-              ratingBefore: beforeRating,
-              ratingAfter: afterUserState.glickoRating,
-              rdBefore: beforeRd,
-              rdAfter: afterUserState.glickoRd,
-              conservativeBefore: beforeConservative,
-              conservativeAfter: afterConservative,
-              attendancePenaltyBefore: beforePenalty,
-              attendancePenaltyAfter: afterPenalty,
-              scoreBefore: beforeScore,
-              scoreAfter: afterScore,
-            };
-          }
-          segmentStates.set(segmentKey, seasonState);
-        }
-      }
-
-      updateTeamState(teamA, globalState, globalDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "A");
-      updateTeamState(teamB, globalState, globalDelta, updatedAt, playedAt, matchEquivalentPlayed, match.winner_team === "B");
-      const afterGlobalElo = needsDetail ? Math.round(globalState[userId]?.elo ?? beforeGlobalElo) : beforeGlobalElo;
-
-      if (needsDetail) {
-        details[match.id] = {
-          globalDelta: Number(globalDelta[userId] ?? 0),
-          globalBefore: beforeGlobalElo,
-          globalAfter: afterGlobalElo,
-          globalGap: Math.round(globalGap),
-          seasonScoreDelta,
-          seasonGap: seasonGap === null ? null : Math.round(seasonGap),
-          expectedWinProbability,
-          effectiveKFactor: Math.round(effectiveKFactor * 100) / 100,
-          outcome,
-          seasonBreakdown,
-        };
-        pending.delete(match.id);
-      }
-    }
-
-    return details;
+    return {
+      ...persistedDetails,
+      ...derivedLegacy,
+      ...derivedCurrent,
+    };
   })();
 
   rememberUserMatchImpactCacheEntry(

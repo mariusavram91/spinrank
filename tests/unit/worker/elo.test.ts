@@ -24,7 +24,7 @@ describe("elo helpers", () => {
         rd: 50,
         consecutiveMissedWeeks: 2,
       }),
-    ).toBe(1400);
+    ).toBe(1392);
 
     expect(
       calculateSeasonScore({
@@ -32,7 +32,7 @@ describe("elo helpers", () => {
         rd: 50,
         consecutiveMissedWeeks: 3,
       }),
-    ).toBe(1392);
+    ).toBe(1376);
 
     expect(
       calculateSeasonScore({
@@ -40,7 +40,7 @@ describe("elo helpers", () => {
         rd: 50,
         consecutiveMissedWeeks: 4,
       }),
-    ).toBe(1376);
+    ).toBe(1344);
 
     expect(
       calculateSeasonScore({
@@ -48,7 +48,7 @@ describe("elo helpers", () => {
         rd: 50,
         consecutiveMissedWeeks: 5,
       }),
-    ).toBe(1344);
+    ).toBe(1280);
 
     expect(
       calculateSeasonScore({
@@ -56,7 +56,7 @@ describe("elo helpers", () => {
         rd: 50,
         consecutiveMissedWeeks: 8,
       }),
-    ).toBe(896);
+    ).toBe(384);
 
     expect(
       calculateSeasonScore({
@@ -64,7 +64,7 @@ describe("elo helpers", () => {
         rd: 50,
         consecutiveMissedWeeks: 12,
       }),
-    ).toBe(-6784);
+    ).toBe(-14976);
 
     expect(
       calculateSeasonScore({
@@ -83,7 +83,7 @@ describe("elo helpers", () => {
       totalWeeks: 7,
     });
 
-    expect(score).toBe(1376);
+    expect(score).toBe(1336);
   });
 
   it("orders leaderboard rows by elo, wins, losses, and name", () => {

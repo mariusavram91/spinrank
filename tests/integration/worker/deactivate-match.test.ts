@@ -438,4 +438,83 @@ describe("worker integration: deactivateMatch", () => {
       await context.cleanup();
     }
   });
+  it("rejects deleting matches that belong to completed seasons", async () => {
+    const context = await createWorkerTestContext();
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const owner = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<UserRow>();
+      if (!owner) {
+        throw new Error("Owner not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_completed_season_delete_lock_season",
+          payload: {
+            name: "Locked Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-01",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      const seasonId = seasonResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      const matchResponse = await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_completed_season_delete_lock_match",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-05T12:00:00.000Z",
+            seasonId,
+          },
+        },
+        owner,
+        context.env,
+      );
+
+      await context.env.DB.prepare(
+        "UPDATE seasons SET status = 'completed', is_active = 0, completed_at = '2026-05-01T00:00:00.000Z' WHERE id = ?1",
+      )
+        .bind(seasonId)
+        .run();
+
+      const response = await handleDeactivateMatch(
+        {
+          action: "deactivateMatch",
+          requestId: "req_completed_season_delete_lock_attempt",
+          payload: { id: matchResponse.data!.match.id },
+        },
+        owner,
+        context.env,
+      );
+
+      expect(response.ok).toBe(false);
+      expect(response.error?.code).toBe("CONFLICT");
+
+      const matchRow = await context.env.DB.prepare("SELECT status FROM matches WHERE id = ?1")
+        .bind(matchResponse.data!.match.id)
+        .first<{ status: string }>();
+      expect(matchRow?.status).toBe("active");
+    } finally {
+      await context.cleanup();
+    }
+  });
 });
