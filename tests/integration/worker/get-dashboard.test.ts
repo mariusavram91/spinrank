@@ -1,9 +1,9 @@
 import { handleCreateMatch } from "../../../worker/src/actions/createMatch";
 import { handleCreateSeason } from "../../../worker/src/actions/createSeason";
 import { handleGetDashboard } from "../../../worker/src/actions/getDashboard";
-import { computeEloDeltaForTeams, recomputeAllRankings } from "../../../worker/src/services/elo";
+import { computeEloDeltaForTeams, finalizeEndedSeasons, recomputeAllRankings } from "../../../worker/src/services/elo";
 import { createWorkerTestContext, seedUser } from "../../helpers/worker/test-context";
-import type { TestWorkerEnv } from "../../helpers/worker/make-test-env";
+import { createFixedRuntime, type TestWorkerEnv } from "../../helpers/worker/make-test-env";
 
 const getUserById = async (env: TestWorkerEnv, id: string) => {
   const user = await env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind(id).first<any>();
@@ -559,6 +559,293 @@ describe("worker integration: getDashboard", () => {
 
       expect(seasonRow?.season_attendance_penalty).toBe(777);
       expect(userRow?.global_elo).toBe(1220);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+
+  it("counts only completed weeks for active-season attendance penalties", async () => {
+    const context = await createWorkerTestContext({
+      runtime: createFixedRuntime("2026-06-09T12:00:00.000Z"),
+    });
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      if (!alice) {
+        throw new Error("Alice not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_completed_weeks_only_create",
+          payload: {
+            name: "Completed Weeks Only",
+            startDate: "2026-06-01",
+            endDate: "2026-08-31",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        alice,
+        context.env,
+      );
+      const seasonId = seasonResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      await recomputeAllRankings(context.env);
+
+      const seasonRow = await context.env.DB.prepare(
+        "SELECT season_total_weeks, season_attendance_penalty FROM elo_segments WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+      )
+        .bind(seasonId, "user_b")
+        .first<{ season_total_weeks: number; season_attendance_penalty: number }>();
+
+      expect(seasonRow).toEqual(expect.objectContaining({ season_total_weeks: 1, season_attendance_penalty: 0 }));
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("excludes current incomplete-week attendance from completed season week totals", async () => {
+    const context = await createWorkerTestContext({
+      runtime: createFixedRuntime("2026-06-09T12:00:00.000Z"),
+    });
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      if (!alice) {
+        throw new Error("Alice not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_incomplete_week_attendance_create",
+          payload: {
+            name: "Incomplete Week Attendance",
+            startDate: "2026-06-01",
+            endDate: "2026-08-31",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        alice,
+        context.env,
+      );
+      const seasonId = seasonResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_incomplete_week_attendance_match",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-06-09T18:00:00.000Z",
+            seasonId,
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      await recomputeAllRankings(context.env);
+
+      const seasonRow = await context.env.DB.prepare(
+        "SELECT season_attended_weeks, season_total_weeks, season_attendance_penalty FROM elo_segments WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+      )
+        .bind(seasonId, "user_b")
+        .first<{ season_attended_weeks: number; season_total_weeks: number; season_attendance_penalty: number }>();
+
+      expect(seasonRow).toEqual(
+        expect.objectContaining({
+          season_attended_weeks: 0,
+          season_total_weeks: 1,
+          season_attendance_penalty: 0,
+        }),
+      );
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it("counts a short final week once the season has ended", async () => {
+    const context = await createWorkerTestContext({
+      runtime: createFixedRuntime("2026-06-11T12:00:00.000Z"),
+    });
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      if (!alice) {
+        throw new Error("Alice not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_partial_final_week_create",
+          payload: {
+            name: "Partial Final Week",
+            startDate: "2026-06-01",
+            endDate: "2026-06-10",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        alice,
+        context.env,
+      );
+      const seasonId = seasonResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      await recomputeAllRankings(context.env);
+
+      const seasonRow = await context.env.DB.prepare(
+        "SELECT season_total_weeks, season_attendance_penalty FROM elo_segments WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+      )
+        .bind(seasonId, "user_b")
+        .first<{ season_total_weeks: number; season_attendance_penalty: number }>();
+
+      expect(seasonRow).toEqual(expect.objectContaining({ season_total_weeks: 2, season_attendance_penalty: 8 }));
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+
+  it("finalizes ended seasons using the frozen end-date attendance snapshot", async () => {
+    const context = await createWorkerTestContext({
+      runtime: createFixedRuntime("2026-05-31T12:00:00.000Z"),
+    });
+    try {
+      await seedUser(context.env, { id: "user_a", displayName: "Alice" });
+      await seedUser(context.env, { id: "user_b", displayName: "Bob" });
+
+      const alice = await context.env.DB.prepare(`SELECT * FROM users WHERE id = ?1`).bind("user_a").first<any>();
+      if (!alice) {
+        throw new Error("Alice not seeded");
+      }
+
+      const seasonResponse = await handleCreateSeason(
+        {
+          action: "createSeason",
+          requestId: "req_finalize_ended_season_create",
+          payload: {
+            name: "Frozen Season",
+            startDate: "2026-04-01",
+            endDate: "2026-05-31",
+            isActive: true,
+            baseEloMode: "carry_over",
+            participantIds: ["user_b"],
+            isPublic: true,
+          },
+        },
+        alice,
+        context.env,
+      );
+      const seasonId = seasonResponse.data?.season.id;
+      expect(seasonId).toBeTruthy();
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_finalize_ended_season_match_week0",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 7 }],
+            winnerTeam: "A",
+            playedAt: "2026-04-01T10:00:00.000Z",
+            seasonId,
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      await handleCreateMatch(
+        {
+          action: "createMatch",
+          requestId: "req_finalize_ended_season_match_week6",
+          payload: {
+            matchType: "singles",
+            formatType: "single_game",
+            pointsToWin: 11,
+            teamAPlayerIds: ["user_a"],
+            teamBPlayerIds: ["user_b"],
+            score: [{ teamA: 11, teamB: 8 }],
+            winnerTeam: "A",
+            playedAt: "2026-05-13T10:00:00.000Z",
+            seasonId,
+          },
+        },
+        alice,
+        context.env,
+      );
+
+      context.env.runtime = createFixedRuntime("2026-06-10T12:00:00.000Z");
+      await recomputeAllRankings(context.env);
+
+      const driftedRow = await context.env.DB.prepare(
+        "SELECT season_total_weeks, season_attendance_penalty FROM elo_segments WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+      )
+        .bind(seasonId, "user_a")
+        .first<{ season_total_weeks: number; season_attendance_penalty: number }>();
+      expect(driftedRow).toEqual(expect.objectContaining({ season_total_weeks: 9, season_attendance_penalty: 128 }));
+
+      const finalizedSeasonIds = await finalizeEndedSeasons(context.env);
+      expect(finalizedSeasonIds).toEqual([seasonId]);
+
+      const finalizedSeason = await context.env.DB.prepare(
+        "SELECT status, is_active, completed_at FROM seasons WHERE id = ?1",
+      )
+        .bind(seasonId)
+        .first<{ status: string; is_active: number; completed_at: string | null }>();
+      const finalizedRow = await context.env.DB.prepare(
+        "SELECT season_total_weeks, season_attendance_penalty FROM elo_segments WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+      )
+        .bind(seasonId, "user_a")
+        .first<{ season_total_weeks: number; season_attendance_penalty: number }>();
+
+      expect(finalizedSeason).toEqual(
+        expect.objectContaining({
+          status: "completed",
+          is_active: 0,
+          completed_at: "2026-05-31T23:59:59.000Z",
+        }),
+      );
+      expect(finalizedRow).toEqual(expect.objectContaining({ season_total_weeks: 9, season_attendance_penalty: 128 }));
+
+      await recomputeAllRankings(context.env);
+      const preservedRow = await context.env.DB.prepare(
+        "SELECT season_total_weeks, season_attendance_penalty FROM elo_segments WHERE segment_type = 'season' AND segment_id = ?1 AND user_id = ?2",
+      )
+        .bind(seasonId, "user_a")
+        .first<{ season_total_weeks: number; season_attendance_penalty: number }>();
+      expect(preservedRow).toEqual(expect.objectContaining({ season_total_weeks: 9, season_attendance_penalty: 128 }));
     } finally {
       await context.cleanup();
     }

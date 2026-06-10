@@ -4,7 +4,7 @@ import { cors, errorResponse, json } from "./responses";
 import { parseApiRequest, routeApiRequest } from "./router";
 import { resolveWorkerRuntime } from "./runtime";
 import { processPendingAchievementJobs } from "./services/achievements";
-import { backfillHistoricalMatchImpactSnapshots, recomputeAllRankings } from "./services/elo";
+import { backfillHistoricalMatchImpactSnapshots, finalizeEndedSeasons, recomputeAllRankings } from "./services/elo";
 import { handleTestBootstrapRequest, isTestBootstrapRequest } from "./testAuth";
 import {
   handleTestSeedAchievementsRequest,
@@ -151,6 +151,10 @@ export default {
           requestOrigin,
         );
       }
+      const finalizedSeasonIds = await finalizeEndedSeasons(env);
+      if (finalizedSeasonIds.length > 0) {
+        await recomputeAllRankings(env);
+      }
       const response = await routeApiRequest(apiRequest, env);
       if (
         response.ok &&
@@ -169,10 +173,13 @@ export default {
     }
   },
 
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(_controller: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil((async () => {
       await backfillHistoricalMatchImpactSnapshots(env);
       await recomputeAllRankings(env);
+      if ((await finalizeEndedSeasons(env)).length > 0) {
+        await recomputeAllRankings(env);
+      }
     })());
   },
 };

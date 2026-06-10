@@ -83,6 +83,22 @@ interface SeasonSeedState {
   initialized: boolean;
 }
 
+type ExpiredSeasonRow = {
+  id: string;
+  start_date: string;
+  end_date: string;
+};
+
+type SeasonAttendanceRow = {
+  user_id: string;
+  played_at: string;
+};
+
+type SeasonSegmentSnapshotRow = {
+  user_id: string;
+  season_conservative_rating: number | null;
+};
+
 type SeasonSeedRow = Pick<
   SeasonRow,
   "id" | "start_date" | "end_date" | "status" | "base_elo_mode" | "participant_ids_json"
@@ -830,15 +846,150 @@ function getSeasonWeekIndex(seasonStartDate: string, playedAtIso: string): numbe
   return Math.max(0, Math.floor((playedMs - startMs) / WEEK_IN_MS));
 }
 
-function calculateSeasonTotalWeeks(season: SeasonSeedState, nowIso: string): number {
-  const seasonStartMs = Date.parse(`${season.startDate}T00:00:00.000Z`);
-  const seasonEndDate = season.status === "completed" && season.endDate ? season.endDate : "";
-  const cutoffDate = seasonEndDate || dateOnly(nowIso);
+function calculateSeasonScheduledWeeksBetween(startDate: string, cutoffDate: string): number {
+  const seasonStartMs = Date.parse(`${startDate}T00:00:00.000Z`);
   const cutoffMs = Date.parse(`${cutoffDate}T00:00:00.000Z`);
   if (!Number.isFinite(seasonStartMs) || !Number.isFinite(cutoffMs) || cutoffMs < seasonStartMs) {
     return 0;
   }
   return Math.floor((cutoffMs - seasonStartMs) / WEEK_IN_MS) + 1;
+}
+
+function hasSeasonReachedEndDate(season: SeasonSeedState, nowIso: string): boolean {
+  return Boolean(season.endDate) && (season.status === "completed" || dateOnly(nowIso) > season.endDate);
+}
+
+function calculateSeasonScheduledWeeks(season: SeasonSeedState, nowIso: string): number {
+  const cutoffDate = hasSeasonReachedEndDate(season, nowIso) ? season.endDate : dateOnly(nowIso);
+  return calculateSeasonScheduledWeeksBetween(season.startDate, cutoffDate);
+}
+
+function calculateSeasonCompletedWeeks(season: SeasonSeedState, nowIso: string): number {
+  if (hasSeasonReachedEndDate(season, nowIso)) {
+    return calculateSeasonScheduledWeeksBetween(season.startDate, season.endDate);
+  }
+
+  const seasonStartMs = Date.parse(`${season.startDate}T00:00:00.000Z`);
+  const todayMs = Date.parse(`${dateOnly(nowIso)}T00:00:00.000Z`);
+  if (!Number.isFinite(seasonStartMs) || !Number.isFinite(todayMs) || todayMs < seasonStartMs) {
+    return 0;
+  }
+
+  return Math.floor((todayMs - seasonStartMs) / WEEK_IN_MS);
+}
+
+function buildSeasonCompletionTimestamp(endDate: string): string {
+  return `${endDate}T23:59:59.000Z`;
+}
+
+export async function finalizeEndedSeasons(env: Env): Promise<string[]> {
+  const nowIso = isoNow(env.runtime);
+  const todayDate = dateOnly(nowIso);
+  const expiredSeasons = await env.DB.prepare(
+    `
+      SELECT id, start_date, end_date
+      FROM seasons
+      WHERE status != 'deleted'
+        AND status != 'completed'
+        AND is_active = 1
+        AND end_date != ''
+        AND date(end_date) < ?1
+      ORDER BY end_date ASC, id ASC
+    `,
+  )
+    .bind(todayDate)
+    .all<ExpiredSeasonRow>();
+
+  if (expiredSeasons.results.length === 0) {
+    return [];
+  }
+
+  const finalizedSeasonIds: string[] = [];
+  for (const season of expiredSeasons.results) {
+    const totalWeeks = calculateSeasonScheduledWeeks(
+      {
+        id: season.id,
+        startDate: season.start_date,
+        endDate: season.end_date,
+        status: "completed",
+        baseEloMode: "carry_over",
+        participantIds: [],
+        initialized: true,
+      },
+      nowIso,
+    );
+    const attendanceRows = await env.DB.prepare(
+      `
+        SELECT mp.user_id, m.played_at
+        FROM matches m
+        INNER JOIN match_players mp
+          ON mp.match_id = m.id
+        WHERE m.status = 'active'
+          AND m.season_id = ?1
+        ORDER BY m.played_at ASC, m.created_at ASC, m.id ASC
+      `,
+    )
+      .bind(season.id)
+      .all<SeasonAttendanceRow>();
+    const attendedWeekKeysByUserId = new Map<string, Set<number>>();
+    attendanceRows.results.forEach((row) => {
+      const weekKeys = attendedWeekKeysByUserId.get(row.user_id) ?? new Set<number>();
+      weekKeys.add(getSeasonWeekIndex(season.start_date, row.played_at));
+      attendedWeekKeysByUserId.set(row.user_id, weekKeys);
+    });
+
+    const segmentRows = await env.DB.prepare(
+      `
+        SELECT user_id, season_conservative_rating
+        FROM elo_segments
+        WHERE segment_type = 'season'
+          AND segment_id = ?1
+      `,
+    )
+      .bind(season.id)
+      .all<SeasonSegmentSnapshotRow>();
+
+    const completionTimestamp = buildSeasonCompletionTimestamp(season.end_date);
+    await env.DB.batch([
+      env.DB.prepare(
+        `
+          UPDATE seasons
+          SET status = 'completed',
+              is_active = 0,
+              completed_at = COALESCE(NULLIF(completed_at, ''), ?2)
+          WHERE id = ?1
+        `,
+      ).bind(season.id, completionTimestamp),
+      ...segmentRows.results.map((row) => {
+        const conservativeRating = Number(row.season_conservative_rating ?? 0);
+        const attendedWeekKeys = attendedWeekKeysByUserId.get(row.user_id) ?? new Set<number>();
+        const attendancePenalty = calculateAppliedAttendancePenalty(
+          conservativeRating,
+          calculateAttendancePenalty(attendedWeekKeys, totalWeeks),
+        );
+        return env.DB.prepare(
+          `
+            UPDATE elo_segments
+            SET season_attended_weeks = ?3,
+                season_total_weeks = ?4,
+                season_attendance_penalty = ?5
+            WHERE segment_type = 'season'
+              AND segment_id = ?1
+              AND user_id = ?2
+          `,
+        ).bind(
+          season.id,
+          row.user_id,
+          attendedWeekKeys.size,
+          totalWeeks,
+          attendancePenalty,
+        );
+      }),
+    ]);
+    finalizedSeasonIds.push(season.id);
+  }
+
+  return finalizedSeasonIds;
 }
 
 function updateSeasonGlickoMatch(args: {
@@ -1185,13 +1336,15 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
     ...[...snapshots.segmentStates.entries()].flatMap(([segmentKey, state]) => {
       const [segmentType, segmentId] = segmentKey.split(":") as ["season" | "tournament", string];
       const seasonMetadata = segmentType === "season" ? seasonMetadataById.get(segmentId) : null;
-      const totalWeeks = seasonMetadata ? calculateSeasonTotalWeeks(seasonMetadata, nowIso) : 0;
+      const totalWeeks = seasonMetadata ? calculateSeasonCompletedWeeks(seasonMetadata, nowIso) : 0;
       return Object.entries(state).map(([userId, value]) => {
         const seasonState = segmentType === "season" && isSeasonRatingState(value) ? value : null;
         const conservativeRating = seasonState
           ? calculateSeasonConservativeRating(seasonState.glickoRating, seasonState.glickoRd)
           : null;
-        const attendedWeeks = seasonState ? seasonState.attendedWeekKeys.size : 0;
+        const attendedWeeks = seasonState
+          ? [...seasonState.attendedWeekKeys].filter((weekIndex) => weekIndex < totalWeeks).length
+          : 0;
         const attendancePenalty =
           seasonState && conservativeRating !== null
             ? calculateAppliedAttendancePenalty(
