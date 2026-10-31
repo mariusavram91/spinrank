@@ -241,10 +241,9 @@ const buildAttendancePenaltyEventCard = (
 
   const penaltyLine = document.createElement("p");
   penaltyLine.className = "profile-attendance-card__line";
-  penaltyLine.textContent = t("profileAttendancePenaltyCardPenalty").replace(
-    "{penalty}",
-    String(breakdown.attendancePenaltyAfter),
-  );
+  penaltyLine.textContent = t("profileAttendancePenaltyCardPenalty")
+    .replace("{penalty}", String(breakdown.attendancePenaltyAfter))
+    .replace("{added}", String(breakdown.attendancePenaltyAfter - breakdown.attendancePenaltyBefore));
 
   const scoreLine = document.createElement("p");
   scoreLine.className = "profile-attendance-card__line profile-attendance-card__line--lead";

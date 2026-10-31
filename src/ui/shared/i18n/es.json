@@ -313,7 +313,7 @@
   "profileAttendancePenaltyCardTitle": "Penalización por asistencia",
   "profileAttendancePenaltyCardSeason": "Temporada",
   "profileAttendancePenaltyCardMissedWeeks": "Perdiste {count} semana(s) seguidas, así que tu puntuación de temporada ahora está reducida.",
-  "profileAttendancePenaltyCardPenalty": "Penalización por asistencia: -{penalty} puntos",
+  "profileAttendancePenaltyCardPenalty": "Penalización total por asistencia esta temporada: -{penalty} puntos (-{added} por esta racha de ausencias)",
   "profileAttendancePenaltyCardScore": "Puntuación de temporada: {before} -> {after} ({delta})",
   "profileAttendancePenaltyCardFromPlay": "{play} por cómo jugaste",
   "profileAttendancePenaltyCardFromPenalty": "{delta} por la penalización por asistencia",

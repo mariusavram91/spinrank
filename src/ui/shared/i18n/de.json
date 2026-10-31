@@ -313,7 +313,7 @@
   "profileAttendancePenaltyCardTitle": "Anwesenheitsabzug",
   "profileAttendancePenaltyCardSeason": "Saison",
   "profileAttendancePenaltyCardMissedWeeks": "Du hast {count} Woche(n) in Folge verpasst, daher ist dein Saison-Score jetzt reduziert.",
-  "profileAttendancePenaltyCardPenalty": "Anwesenheitsabzug: -{penalty} Punkte",
+  "profileAttendancePenaltyCardPenalty": "Gesamter Anwesenheitsabzug in dieser Saison: -{penalty} Punkte (-{added} durch diese Fehlserie)",
   "profileAttendancePenaltyCardScore": "Saison-Score: {before} -> {after} ({delta})",
   "profileAttendancePenaltyCardFromPlay": "{play} durch dein Spiel",
   "profileAttendancePenaltyCardFromPenalty": "{delta} durch den Anwesenheitsabzug",

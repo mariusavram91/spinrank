@@ -313,7 +313,7 @@
   "profileAttendancePenaltyCardTitle": "Attendance penalty",
   "profileAttendancePenaltyCardSeason": "Season",
   "profileAttendancePenaltyCardMissedWeeks": "You missed {count} week(s) in a row, so your season score is now reduced.",
-  "profileAttendancePenaltyCardPenalty": "Attendance penalty: -{penalty} points",
+  "profileAttendancePenaltyCardPenalty": "Total attendance penalty this season: -{penalty} points (-{added} from this miss streak)",
   "profileAttendancePenaltyCardScore": "Season score: {before} -> {after} ({delta})",
   "profileAttendancePenaltyCardFromPlay": "{play} from how you played",
   "profileAttendancePenaltyCardFromPenalty": "{delta} from the attendance penalty",
