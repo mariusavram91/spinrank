@@ -206,6 +206,10 @@ export async function handleCreateMatch(
         teamAPlayerIds,
         teamBPlayerIds,
         playedAt,
+        score,
+        matchType,
+        formatType,
+        pointsToWin,
       });
       if (duplicateMatches.length > 0) {
         return errorResponse(

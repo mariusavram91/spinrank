@@ -6,10 +6,12 @@ import type {
   LeaderboardEntry,
   MatchDisputeRecord,
   MatchRecord,
+  MatchScoreGame,
 } from "../types";
 
 const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
 const DELETE_GRACE_PERIOD_MS = 45 * 60 * 1000;
+const DUPLICATE_CANDIDATE_LIMIT = 10;
 
 type DuplicateMatchRow = {
   id: string;
@@ -45,6 +47,31 @@ export function computeDeleteLockedAt(createdAt: string): string {
   const date = new Date(createdAt);
   date.setTime(date.getTime() + DELETE_GRACE_PERIOD_MS);
   return date.toISOString();
+}
+
+const scoresAreEqual = (left: MatchScoreGame[], right: MatchScoreGame[]): boolean =>
+  left.length === right.length &&
+  left.every((game, index) => game.teamA === right[index]?.teamA && game.teamB === right[index]?.teamB);
+
+const mirrorScore = (score: MatchScoreGame[]): MatchScoreGame[] =>
+  score.map((game) => ({ teamA: game.teamB, teamB: game.teamA }));
+
+/**
+ * The matchup key is orientation-free, so a candidate may hold the same teams
+ * with sides swapped. Accept either ordering of an otherwise identical score.
+ */
+export function isDuplicateScore(
+  proposedScore: MatchScoreGame[],
+  candidateScore: MatchScoreGame[],
+): boolean {
+  if (proposedScore.length === 0 || candidateScore.length === 0) {
+    return false;
+  }
+
+  return (
+    scoresAreEqual(proposedScore, candidateScore) ||
+    scoresAreEqual(proposedScore, mirrorScore(candidateScore))
+  );
 }
 
 export function isMatchDeletionAllowed(match: Pick<MatchRecord, "createdByUserId" | "deleteLockedAt" | "hasActiveDispute">, sessionUserId: string, nowIso: string): boolean {
@@ -146,7 +173,10 @@ export function mapMatchRecordRow(
 
 export async function findDuplicateMatches(
   env: Env,
-  payload: Pick<CreateMatchPayload, "teamAPlayerIds" | "teamBPlayerIds" | "playedAt">,
+  payload: Pick<
+    CreateMatchPayload,
+    "teamAPlayerIds" | "teamBPlayerIds" | "playedAt" | "score" | "formatType" | "pointsToWin" | "matchType"
+  >,
 ): Promise<DuplicateMatchCandidate[]> {
   const matchupKey = buildMatchupKey(payload.teamAPlayerIds, payload.teamBPlayerIds);
   const playedAtMs = new Date(payload.playedAt).getTime();
@@ -181,16 +211,39 @@ export async function findDuplicateMatches(
         AND m.played_at >= ?2
         AND m.played_at <= ?3
       ORDER BY ABS(unixepoch(m.played_at) - unixepoch(?4)) ASC, m.created_at DESC, m.id DESC
-      LIMIT 5
+      LIMIT ${DUPLICATE_CANDIDATE_LIMIT}
     `,
   )
     .bind(matchupKey, lowerBound, upperBound, payload.playedAt)
     .all<DuplicateMatchRow>();
 
-  return result.results.map((row) => ({
-    ...mapMatchRecordRow(row),
-    createdByDisplayName: row.created_by_display_name,
-  }));
+  return result.results
+    .filter((row) => isSameMatchShape(row, payload))
+    .map((row) => ({
+      ...mapMatchRecordRow(row),
+      createdByDisplayName: row.created_by_display_name,
+    }));
+}
+
+/**
+ * Same players within the window is only a hint. A real repeat has the same
+ * format and an equivalent score; anything else is a distinct match that
+ * happens to share the pairing, which is the main source of false positives.
+ */
+function isSameMatchShape(
+  row: DuplicateMatchRow,
+  payload: Pick<CreateMatchPayload, "score" | "formatType" | "pointsToWin" | "matchType">,
+): boolean {
+  if (
+    row.match_type !== payload.matchType ||
+    row.format_type !== payload.formatType ||
+    Number(row.points_to_win) !== payload.pointsToWin
+  ) {
+    return false;
+  }
+
+  const candidateScore = parseJsonObject<MatchScoreGame[]>(row.score_json, []);
+  return isDuplicateScore(payload.score, candidateScore);
 }
 
 export async function loadPlayersForDuplicateMatches(
