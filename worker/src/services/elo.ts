@@ -1,6 +1,8 @@
 import { dateOnly, isoNow, parseJsonArray, parseJsonObject, randomId } from "../db";
 import type { WorkerRuntimeDeps } from "../runtime";
 import type { Env, MatchSeasonImpactBreakdown, MatchType, SeasonRow, UserRow, WinnerTeam } from "../types";
+import { calculateAppliedAttendancePenalty, calculateSeasonConservativeRating } from "./season-rules";
+import { computeSeasonEffectiveState } from "./season-decay";
 
 const STARTING_ELO = 1200;
 const SINGLES_WEIGHT = 1;
@@ -13,7 +15,6 @@ const GLICKO_DEFAULT_RD = 350;
 const GLICKO_DEFAULT_VOLATILITY = 0.06;
 const GLICKO_TAU = 0.8;
 const GLICKO_SCALE = 173.7178;
-const MINIMUM_SEASON_SCORE = 200;
 
 const ATTENDANCE_FREE_MISSES = 1;
 const LEGACY_ATTENDANCE_FREE_MISSES = 2;
@@ -366,10 +367,6 @@ function getKFactor(matchEquivalentPlayed: number): number {
   return 16;
 }
 
-function calculateSeasonConservativeRating(rating: number, rd: number): number {
-  return Math.round(rating - 2 * rd);
-}
-
 function calculateAttendancePenaltyForMissedWeeks(missedWeeks: number, attendanceFreeMisses = ATTENDANCE_FREE_MISSES): number {
   const penalizedMisses = Math.max(0, missedWeeks - attendanceFreeMisses);
   if (penalizedMisses <= 0) {
@@ -386,11 +383,6 @@ function calculateAttendancePenaltyIncrementForMissedWeek(missedWeeksInCurrentSt
   }
 
   return ATTENDANCE_PENALTY_BASE * 2 ** (penalizedMisses - 1);
-}
-
-function calculateAppliedAttendancePenalty(conservativeRating: number, attendancePenalty: number): number {
-  const maxPenalty = Math.max(0, conservativeRating - MINIMUM_SEASON_SCORE);
-  return Math.min(Math.max(0, attendancePenalty), maxPenalty);
 }
 
 export function calculateSeasonScore(args: {
@@ -1615,19 +1607,31 @@ async function deriveMissingUserMatchImpactDetails(
         });
         if (beforeUserState && beforeRating !== null && beforeRd !== null) {
           const afterUserState = seasonState[userId];
-          const afterConservative = calculateSeasonConservativeRating(afterUserState.glickoRating, afterUserState.glickoRd);
-          const afterPenalty = calculateAppliedAttendancePenalty(
-            afterConservative,
-            calculateAttendancePenalty(afterUserState.attendedWeekKeys, totalWeeks, attendanceFreeMisses),
-          );
-          const afterScore = afterConservative - afterPenalty;
+          const afterEffectiveState = computeSeasonEffectiveState({
+            rating: afterUserState.glickoRating,
+            rd: afterUserState.glickoRd,
+            lastMatchAt: afterUserState.lastMatchAt || null,
+            storedAttendancePenalty: calculateAttendancePenalty(
+              afterUserState.attendedWeekKeys,
+              totalWeeks,
+              attendanceFreeMisses,
+            ),
+            // This result is persisted, so it is anchored at the match's own
+            // play time rather than wall clock: a snapshot of one match must not
+            // change because it was recomputed on a later day.
+            nowIso: playedAt,
+            seasonEndDate: season.endDate || null,
+          });
+          const afterConservative = afterEffectiveState.conservativeRating;
+          const afterPenalty = afterEffectiveState.appliedAttendancePenalty;
+          const afterScore = afterEffectiveState.score;
           seasonScoreDelta = afterScore - beforeScore;
           seasonBreakdown = {
             expectedWinProbability: seasonExpectedWinProbability,
             ratingBefore: beforeRating,
             ratingAfter: afterUserState.glickoRating,
             rdBefore: beforeRd,
-            rdAfter: afterUserState.glickoRd,
+            rdAfter: afterEffectiveState.rd,
             conservativeBefore: beforeConservative,
             conservativeAfter: afterConservative,
             attendancePenaltyBefore: beforePenalty,

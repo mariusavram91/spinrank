@@ -1,6 +1,7 @@
 import { isoNow, parseJsonArray } from "../db";
 import { errorResponse, successResponse } from "../responses";
-import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { computeSeasonEffectiveState } from "../services/season-decay";
 import { getBracketRounds } from "../services/brackets";
 import { canAccessSeason, canAccessTournament, getSeasonById, getTournamentById } from "../services/visibility";
 import type {
@@ -562,17 +563,18 @@ export async function handleGetSegmentLeaderboard(
       const seasonGlickoRd = row.season_glicko_rd === null ? undefined : Number(row.season_glicko_rd);
       const seasonAttendedWeeks = Number(row.season_attended_weeks ?? 0);
       const seasonTotalWeeks = Number(row.season_total_weeks ?? 0);
-      const seasonAttendancePenalty = Number(row.season_attendance_penalty ?? 0);
-      const seasonConservativeRating =
-        row.season_conservative_rating === null ? undefined : Number(row.season_conservative_rating);
-      const currentSeasonScore =
+      const seasonEffectiveState =
         segmentType === "season"
-          ? calculateSeasonScore({
+          ? computeSeasonEffectiveState({
               rating: seasonGlickoRating ?? Number(row.elo),
               rd: seasonGlickoRd ?? 0,
-              attendancePenalty: seasonAttendancePenalty,
+              lastMatchAt: row.last_match_at || null,
+              storedAttendancePenalty: Number(row.season_attendance_penalty ?? 0),
+              nowIso,
+              seasonEndDate: season?.end_date || null,
             })
-          : undefined;
+          : null;
+      const currentSeasonScore = seasonEffectiveState?.score;
       return {
         userId: row.user_id,
         displayName: row.display_name,
@@ -589,9 +591,13 @@ export async function handleGetSegmentLeaderboard(
         matchEquivalentPlayed,
         lastMatchAt: row.last_match_at || null,
         seasonGlickoRating,
-        seasonGlickoRd,
-        seasonConservativeRating,
-        seasonAttendancePenalty: segmentType === "season" ? seasonAttendancePenalty : undefined,
+        seasonGlickoRd: seasonEffectiveState ? seasonEffectiveState.rd : seasonGlickoRd,
+        seasonConservativeRating: seasonEffectiveState
+          ? seasonEffectiveState.conservativeRating
+          : row.season_conservative_rating === null
+            ? undefined
+            : Number(row.season_conservative_rating),
+        seasonAttendancePenalty: seasonEffectiveState ? seasonEffectiveState.appliedAttendancePenalty : undefined,
         seasonAttendedWeeks: segmentType === "season" ? seasonAttendedWeeks : undefined,
         seasonTotalWeeks: segmentType === "season" ? seasonTotalWeeks : undefined,
         seasonScore: currentSeasonScore,

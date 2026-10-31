@@ -2,7 +2,8 @@ import { isoNow, parseJsonArray, parseJsonObject } from "../db";
 import type { AchievementOverview, AchievementSummaryItem, Env } from "../types";
 import { ACHIEVEMENTS, type AchievementDefinition } from "./achievementCatalog";
 import { buildAchievementState } from "./achievementRebuildShared.js";
-import { calculateSeasonScore, MINIMUM_MATCHES_TO_QUALIFY } from "./elo";
+import { MINIMUM_MATCHES_TO_QUALIFY } from "./elo";
+import { computeSeasonEffectiveState } from "./season-decay";
 
 export type AchievementTrigger =
   | { type: "bootstrap"; userId: string; nowIso: string }
@@ -669,6 +670,8 @@ async function loadCompletedSeasonOutcomeCounts(
         es.season_attended_weeks,
         es.season_total_weeks,
         es.season_attendance_penalty,
+        es.last_match_at,
+        s.end_date,
         u.display_name
       FROM elo_segments es
       JOIN seasons s
@@ -699,6 +702,8 @@ async function loadCompletedSeasonOutcomeCounts(
       season_attended_weeks: number;
       season_total_weeks: number;
       season_attendance_penalty: number;
+      last_match_at: string | null;
+      end_date: string;
       display_name: string;
     }>();
 
@@ -716,35 +721,39 @@ async function loadCompletedSeasonOutcomeCounts(
   }
 
   for (const seasonRows of rowsBySeasonId.values()) {
+    const seasonEndDate = seasonRows[0]?.end_date || null;
     const qualified = seasonRows
       .filter((row) => Number(row.matches_played_equivalent ?? row.matches_played ?? 0) >= MINIMUM_MATCHES_TO_QUALIFY)
-      .map((row) => ({
-        userId: row.user_id,
-        displayName: row.display_name,
-        elo: Number(row.elo),
-        wins: Number(row.wins),
-        losses: Number(row.losses),
-        seasonConservativeRating:
-          row.season_conservative_rating === null ? 0 : Number(row.season_conservative_rating),
-        seasonGlickoRating: row.season_glicko_rating === null ? 0 : Number(row.season_glicko_rating),
-        seasonGlickoRd: row.season_glicko_rd === null ? 0 : Number(row.season_glicko_rd),
-        seasonAttendedWeeks: Number(row.season_attended_weeks ?? 0),
-        seasonTotalWeeks: Number(row.season_total_weeks ?? 0),
-        seasonAttendancePenalty: Number(row.season_attendance_penalty ?? 0),
-      }))
+      .map((row) => {
+        const rawRating = row.season_glicko_rating === null ? 0 : Number(row.season_glicko_rating);
+        const rawRd = row.season_glicko_rd === null ? 0 : Number(row.season_glicko_rd);
+        const rating = rawRating || Number(row.elo);
+        const effectiveState = computeSeasonEffectiveState({
+          rating,
+          rd: rawRd,
+          lastMatchAt: row.last_match_at || null,
+          storedAttendancePenalty: Number(row.season_attendance_penalty ?? 0),
+          nowIso,
+          seasonEndDate,
+        });
+        return {
+          userId: row.user_id,
+          displayName: row.display_name,
+          elo: Number(row.elo),
+          wins: Number(row.wins),
+          losses: Number(row.losses),
+          seasonScore: effectiveState.score,
+          seasonConservativeRating: effectiveState.conservativeRating,
+          seasonGlickoRating: rating,
+          seasonGlickoRd: effectiveState.rd,
+          seasonAttendedWeeks: Number(row.season_attended_weeks ?? 0),
+          seasonTotalWeeks: Number(row.season_total_weeks ?? 0),
+          seasonAttendancePenalty: effectiveState.appliedAttendancePenalty,
+        };
+      })
       .sort((left, right) => {
-        const leftSeasonScore = calculateSeasonScore({
-          rating: left.seasonGlickoRating || left.elo,
-          rd: left.seasonGlickoRd,
-          attendancePenalty: left.seasonAttendancePenalty,
-        });
-        const rightSeasonScore = calculateSeasonScore({
-          rating: right.seasonGlickoRating || right.elo,
-          rd: right.seasonGlickoRd,
-          attendancePenalty: right.seasonAttendancePenalty,
-        });
-        if (rightSeasonScore !== leftSeasonScore) {
-          return rightSeasonScore - leftSeasonScore;
+        if (right.seasonScore !== left.seasonScore) {
+          return right.seasonScore - left.seasonScore;
         }
         if (right.seasonConservativeRating !== left.seasonConservativeRating) {
           return right.seasonConservativeRating - left.seasonConservativeRating;

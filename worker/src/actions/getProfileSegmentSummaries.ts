@@ -1,6 +1,7 @@
-import { parseJsonArray } from "../db";
+import { isoNow, parseJsonArray } from "../db";
 import { successResponse } from "../responses";
-import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
+import { computeSeasonEffectiveState } from "../services/season-decay";
 import {
   buildAssociatedSeasonsSql,
   buildVisibleTournamentsSql,
@@ -39,7 +40,7 @@ type SegmentRatingRow = {
   display_name: string;
 };
 
-type VisibleSeasonRow = Pick<SeasonRow, "id" | "participant_ids_json">;
+type VisibleSeasonRow = Pick<SeasonRow, "id" | "participant_ids_json" | "end_date">;
 
 type VisibleTournamentRow = Pick<TournamentRow, "id"> & {
   participant_count: number;
@@ -138,17 +139,20 @@ function getTournamentPlacementLabel(
   };
 }
 
-function mapSeasonEntries(rows: SegmentRatingRow[]): LeaderboardEntry[] {
+function mapSeasonEntries(rows: SegmentRatingRow[], args: { nowIso: string; seasonEndDate: string | null }): LeaderboardEntry[] {
   return rows.map<LeaderboardEntry>((row) => {
     const matchEquivalentPlayed = Number(row.matches_played_equivalent ?? row.matches_played ?? 0);
     const seasonGlickoRating = row.season_glicko_rating === null ? undefined : Number(row.season_glicko_rating);
     const seasonGlickoRd = row.season_glicko_rd === null ? undefined : Number(row.season_glicko_rd);
-    const seasonAttendancePenalty = Number(row.season_attendance_penalty ?? 0);
-    const currentSeasonScore = calculateSeasonScore({
+    const seasonEffectiveState = computeSeasonEffectiveState({
       rating: seasonGlickoRating ?? Number(row.elo),
       rd: seasonGlickoRd ?? 0,
-      attendancePenalty: seasonAttendancePenalty,
+      lastMatchAt: row.last_match_at || null,
+      storedAttendancePenalty: Number(row.season_attendance_penalty ?? 0),
+      nowIso: args.nowIso,
+      seasonEndDate: args.seasonEndDate,
     });
+    const currentSeasonScore = seasonEffectiveState.score;
 
     return {
       userId: row.user_id,
@@ -163,10 +167,9 @@ function mapSeasonEntries(rows: SegmentRatingRow[]): LeaderboardEntry[] {
       matchEquivalentPlayed,
       lastMatchAt: row.last_match_at || null,
       seasonGlickoRating,
-      seasonGlickoRd,
-      seasonConservativeRating:
-        row.season_conservative_rating === null ? undefined : Number(row.season_conservative_rating),
-      seasonAttendancePenalty,
+      seasonGlickoRd: seasonEffectiveState.rd,
+      seasonConservativeRating: seasonEffectiveState.conservativeRating,
+      seasonAttendancePenalty: seasonEffectiveState.appliedAttendancePenalty,
       seasonAttendedWeeks: Number(row.season_attended_weeks ?? 0),
       seasonTotalWeeks: Number(row.season_total_weeks ?? 0),
       seasonScore: currentSeasonScore,
@@ -326,7 +329,7 @@ async function loadVisibleSeasons(env: Env, sessionUserId: string, seasonIds: st
       WITH visible AS (
         ${buildAssociatedSeasonsSql()}
       )
-      SELECT id, participant_ids_json
+      SELECT id, participant_ids_json, end_date
       FROM visible
       WHERE id IN (${placeholders})
     `,
@@ -417,9 +420,15 @@ export async function loadProfileSegmentSummariesForUser(args: {
   ]);
 
   const summaries: ProfileSegmentSummaryRecord[] = [];
+  const nowIso = isoNow(args.env.runtime);
 
   visibleSeasons.forEach((season) => {
-    const ranked = sortSeasonEntries(mapSeasonEntries(seasonRatings.get(season.id) ?? []));
+    const ranked = sortSeasonEntries(
+      mapSeasonEntries(seasonRatings.get(season.id) ?? [], {
+        nowIso,
+        seasonEndDate: season.end_date || null,
+      }),
+    );
     const currentEntry = ranked.find((entry) => entry.userId === args.targetUserId);
     summaries.push({
       segmentType: "season",
