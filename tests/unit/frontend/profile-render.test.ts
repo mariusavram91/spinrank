@@ -560,6 +560,7 @@ describe("profile render", () => {
         conservativeAfter: 595,
         attendancePenaltyBefore: 80,
         attendancePenaltyAfter: 120,
+        attendanceMissedWeeks: 3,
         scoreBefore: 500,
         scoreAfter: 475,
       },
@@ -631,10 +632,142 @@ describe("profile render", () => {
     });
 
     const details = matchesList.querySelector("details.profile-match-impact");
-    expect(details?.textContent).toContain("profileMatchImpactSeasonPenaltySimple");
-    expect(details?.textContent).toContain("profileMatchImpactSeasonFormulaSimple");
-    expect(details?.textContent).not.toContain("profileMatchImpactSeasonSkillSimple");
-    expect(details?.textContent).not.toContain("profileMatchImpactSeasonNoPenaltySimple");
+    expect(details?.textContent).not.toContain("profileMatchImpactSeasonPenaltySimple");
+    expect(details?.textContent).not.toContain("profileMatchImpactSeasonFormulaSimple");
+
+    const attendanceCard = matchesList.querySelector(".profile-attendance-card");
+    expect(attendanceCard).not.toBeNull();
+    expect(attendanceCard?.textContent).toContain("profileAttendancePenaltyCardTitle");
+    expect(attendanceCard?.textContent).toContain("profileAttendancePenaltyCardMissedWeeks");
+    expect(attendanceCard?.textContent).toContain("profileAttendancePenaltyCardPenalty");
+    expect(attendanceCard?.textContent).toContain("profileAttendancePenaltyCardScore");
+    expect(attendanceCard?.textContent).toContain("profileAttendancePenaltyCardFromPlay");
+    expect(attendanceCard?.textContent).toContain("profileAttendancePenaltyCardFromPenalty");
+    expect(attendanceCard?.textContent).toContain("Spring");
+
+    // The event card appears directly after the match card that carried the penalty.
+    const matchCard = matchesList.querySelector(".profile-match-card");
+    expect(matchCard?.nextElementSibling).toBe(attendanceCard);
+  });
+
+  it("omits attendance penalty rows when the match did not change the penalty", () => {
+    const achievementsTitle = document.createElement("h4");
+    const achievementsSubtitle = document.createElement("p");
+    const achievementsSummary = document.createElement("div");
+    const achievementsPreview = document.createElement("div");
+    const achievementsUnread = document.createElement("div");
+    const achievementsToggle = document.createElement("button");
+    const achievementsList = document.createElement("div");
+    const activityHeatmap = document.createElement("div");
+    const seasonsList = document.createElement("div");
+    const tournamentsList = document.createElement("div");
+    const matchesSummary = document.createElement("div");
+    const matchFilterAllButton = document.createElement("button");
+    const matchFilterSinglesButton = document.createElement("button");
+    const matchFilterDoublesButton = document.createElement("button");
+    const matchesList = document.createElement("div");
+    const status = document.createElement("p");
+    const loadMoreButton = document.createElement("button");
+
+    const match = createMatch("match_with_unchanged_penalty");
+    match.seasonId = "season_1";
+    match.ratingImpact = {
+      userId: "user_1",
+      globalDelta: 6,
+      globalBefore: 1280,
+      globalAfter: 1286,
+      globalGap: -12,
+      seasonScoreDelta: 14,
+      seasonGap: -9,
+      expectedWinProbability: 0.69,
+      effectiveKFactor: 24,
+      outcome: "win",
+      seasonBreakdown: {
+        expectedWinProbability: 0.61,
+        ratingBefore: 1220,
+        ratingAfter: 1234.2,
+        rdBefore: 320,
+        rdAfter: 306.1,
+        conservativeBefore: 580,
+        conservativeAfter: 594,
+        attendancePenaltyBefore: 8,
+        attendancePenaltyAfter: 8,
+        scoreBefore: 572,
+        scoreAfter: 586,
+      },
+    };
+
+    const dashboardState = {
+      achievements: null,
+      profileAchievementsExpanded: false,
+      profileSelectedAchievementKey: "",
+      profileRecentlySeenAchievementKeys: [],
+      seasons: [
+        {
+          id: "season_1",
+          name: "Spring",
+          startDate: "2026-04-01",
+          endDate: null,
+          isActive: true,
+          status: "active",
+          baseEloMode: "carry_over",
+          participantIds: ["user_1", "user_2"],
+          createdByUserId: "user_1",
+          createdAt: "2026-04-01T00:00:00.000Z",
+          completedAt: null,
+          isPublic: false,
+        },
+      ],
+      tournaments: [],
+      profileMatches: [match],
+      profileMatchesCursor: null,
+      profileMatchesLoading: false,
+      profileLoading: false,
+      profileSegmentSummaries: {},
+      profileSegmentSummaryLoadingKeys: [],
+      players: [],
+      matchBracketContextByMatchId: {},
+    } as unknown as DashboardState;
+
+    renderProfileScreen({
+      dashboardState,
+      currentUserDisplayName: "user_1",
+      achievementsTitle,
+      achievementsSubtitle,
+      achievementsSummary,
+      achievementsPreview,
+      achievementsUnread,
+      achievementsToggle,
+      achievementsList,
+      activityHeatmap,
+      currentUserId: "user_1",
+      seasonsList,
+      tournamentsList,
+      matchesSummary,
+      matchFilterAllButton,
+      matchFilterSinglesButton,
+      matchFilterDoublesButton,
+      matchesList,
+      status,
+      loadMoreButton,
+      t: (key) => key,
+      renderMatchScore: () => "11-7",
+      renderPlayerNames: (playerIds) => playerIds.join(", "),
+      renderMatchContext: () => "context",
+      formatDateTime: (value) => value,
+      onOpenSeason: () => undefined,
+      onOpenTournament: () => undefined,
+      onLoadMoreMatches: () => undefined,
+      onProfileMatchFilterChange: () => undefined,
+      locale: "en",
+    });
+
+    const details = matchesList.querySelector("details.profile-match-impact");
+    expect(details?.textContent).toContain("profileMatchImpactSeasonScoreSimple 572 -> 586 (+14)");
+    expect(details?.textContent).not.toContain("profileMatchImpactSeasonPenaltySimple");
+    expect(details?.textContent).not.toContain("profileMatchImpactSeasonFormulaSimple");
+    // A match that does not change the penalty gets no attendance event card.
+    expect(matchesList.querySelector(".profile-attendance-card")).toBeNull();
   });
 
   it("shows appended profile matches after loading more", () => {

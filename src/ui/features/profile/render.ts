@@ -3,6 +3,7 @@ import type {
   LeaderboardEntry,
   MatchBracketContext,
   MatchRecord,
+  MatchSeasonImpactBreakdown,
   SeasonRecord,
   TournamentRecord,
 } from "../../../api/contract";
@@ -208,6 +209,71 @@ const renderMatchContextLabel = (
     includeRound: false,
     includeTournamentTrophy: false,
   });
+
+const buildAttendancePenaltyEventCard = (
+  match: MatchRecord,
+  breakdown: MatchSeasonImpactBreakdown,
+  seasons: SeasonRecord[],
+  t: TranslationFn,
+): HTMLElement => {
+  const card = document.createElement("aside");
+  card.className = "profile-attendance-card";
+  card.setAttribute("role", "note");
+
+  const header = document.createElement("div");
+  header.className = "profile-attendance-card__header";
+  const icon = document.createElement("span");
+  icon.className = "profile-attendance-card__icon";
+  icon.textContent = "⏳";
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("span");
+  title.className = "profile-attendance-card__title";
+  title.textContent = t("profileAttendancePenaltyCardTitle");
+  header.append(icon, title);
+
+  const season = seasons.find((candidate) => candidate.id === match.seasonId) ?? null;
+  const seasonName = season?.name ?? t("profileAttendancePenaltyCardSeason");
+
+  const missedWeeks = breakdown.attendanceMissedWeeks ?? 0;
+  const missedLine = document.createElement("p");
+  missedLine.className = "profile-attendance-card__line profile-attendance-card__line--lead";
+  missedLine.textContent = t("profileAttendancePenaltyCardMissedWeeks").replace("{count}", String(missedWeeks));
+
+  const penaltyLine = document.createElement("p");
+  penaltyLine.className = "profile-attendance-card__line";
+  penaltyLine.textContent = t("profileAttendancePenaltyCardPenalty").replace(
+    "{penalty}",
+    String(breakdown.attendancePenaltyAfter),
+  );
+
+  const scoreLine = document.createElement("p");
+  scoreLine.className = "profile-attendance-card__line profile-attendance-card__line--lead";
+  scoreLine.textContent = t("profileAttendancePenaltyCardScore")
+    .replace("{before}", String(breakdown.scoreBefore))
+    .replace("{after}", String(breakdown.scoreAfter))
+    .replace("{delta}", formatSignedDelta(breakdown.scoreAfter - breakdown.scoreBefore));
+
+  const playDelta = breakdown.conservativeAfter - breakdown.conservativeBefore;
+  const penaltyDelta = breakdown.attendancePenaltyAfter - breakdown.attendancePenaltyBefore;
+  const breakdownList = document.createElement("ul");
+  breakdownList.className = "profile-attendance-card__breakdown";
+  const playItem = document.createElement("li");
+  playItem.textContent = t("profileAttendancePenaltyCardFromPlay").replace("{play}", formatSignedDelta(playDelta));
+  const penaltyItem = document.createElement("li");
+  penaltyItem.textContent = t("profileAttendancePenaltyCardFromPenalty").replace("{delta}", `-${penaltyDelta}`);
+  breakdownList.append(playItem, penaltyItem);
+
+  const meta = document.createElement("p");
+  meta.className = "profile-attendance-card__meta";
+  meta.textContent = `${t("profileAttendancePenaltyCardSeason")}: ${seasonName}`;
+
+  const hint = document.createElement("p");
+  hint.className = "profile-attendance-card__hint";
+  hint.textContent = t("profileAttendancePenaltyCardHint");
+
+  card.append(header, meta, missedLine, penaltyLine, scoreLine, breakdownList, hint);
+  return card;
+};
 
 const buildVisibilityIcon = (
   record: SeasonRecord | TournamentRecord,
@@ -581,7 +647,7 @@ export const renderProfileScreen = (args: {
     return;
   }
 
-  const matchNodes = filteredMatches.map((match) => {
+  const matchNodes = filteredMatches.flatMap((match) => {
     const card = document.createElement("article");
     const userWon =
       (match.winnerTeam === "A" && match.teamAPlayerIds.includes(args.currentUserId)) ||
@@ -733,20 +799,6 @@ export const renderProfileScreen = (args: {
         seasonReason.textContent = args.t("profileMatchImpactReasonFallback");
       }
 
-      const hasAttendancePenalty = seasonBreakdown.attendancePenaltyBefore > 0 || seasonBreakdown.attendancePenaltyAfter > 0;
-      if (hasAttendancePenalty) {
-        const penaltyDelta = seasonBreakdown.attendancePenaltyAfter - seasonBreakdown.attendancePenaltyBefore;
-        const penaltyRow = document.createElement("p");
-        penaltyRow.className = "profile-match-impact__line";
-        penaltyRow.textContent = `${args.t("profileMatchImpactSeasonPenaltySimple")} ${seasonBreakdown.attendancePenaltyBefore} -> ${seasonBreakdown.attendancePenaltyAfter} (${formatSignedDelta(penaltyDelta)})`;
-        const formulaRow = document.createElement("p");
-        formulaRow.className = "profile-match-impact__line";
-        formulaRow.textContent =
-          `${args.t("profileMatchImpactSeasonFormulaSimple")} ${seasonBreakdown.conservativeBefore} - ${seasonBreakdown.attendancePenaltyBefore} = ${seasonBreakdown.scoreBefore} -> ` +
-          `${seasonBreakdown.conservativeAfter} - ${seasonBreakdown.attendancePenaltyAfter} = ${seasonBreakdown.scoreAfter}`;
-        seasonGroup.append(penaltyRow, formulaRow);
-      }
-
       seasonGroup.append(
         seasonTitle,
         seasonRow,
@@ -762,7 +814,13 @@ export const renderProfileScreen = (args: {
 
     header.append(players, score);
     card.append(header, meta, date, impact);
-    return card;
+    const breakdown = match.ratingImpact?.seasonBreakdown;
+    const penaltyAccrued =
+      breakdown && breakdown.attendancePenaltyAfter > breakdown.attendancePenaltyBefore
+        ? buildAttendancePenaltyEventCard(match, breakdown, args.dashboardState.seasons, args.t)
+        : null;
+    // Matches are newest-first, so the gap event sits visually after the first match back.
+    return penaltyAccrued ? [card, penaltyAccrued] : [card];
   });
 
   args.matchesList.replaceChildren(...matchNodes);

@@ -396,6 +396,44 @@ The existing [.github/workflows/pages.yml](.github/workflows/pages.yml) shows th
 2. Confirm `APP_ORIGIN` (worker secret + Pages env var) matches the Pages domain.
 3. Rebuild the frontend (either via Pages rebuild or rerun the workflow) whenever you change environment-dependent code.
 
+### 7. Backfill match impact snapshots (required after the attendance penalty fix)
+
+`getMatches` returns a **stored** snapshot from `match_rating_impacts` whenever one exists, and only derives it on demand otherwise. Snapshots written before the attendance-penalty fix used the old before/after semantics (a missed-week gap was charged to the wrong match, so penalties appeared to shrink, e.g. `24 -> 8`) and do not contain `attendanceMissedWeeks`. Those rows stay wrong until they are rebuilt, so run this backfill **once, after deploying the worker**.
+
+The tool only operates on a SQLite file. There is deliberately no `--remote` path: export the production database, rebuild the copy, then import it back.
+
+```bash
+# 1. Export production (read-only, from worker/)
+cd worker
+npx wrangler d1 export spinrank-prod --remote --output=../backups/prod-backfill.sql
+cd ..
+
+# 2. Load the export into a local SQLite file
+sqlite3 /tmp/prod-backfill.sqlite < backups/prod-backfill.sql
+
+# 3. Dry run first: lists how many stale snapshots each user has, writes nothing
+npx vite-node scripts/recompute-match-impacts.ts -- --db /tmp/prod-backfill.sqlite --all
+
+# 4. Apply to the copy
+npx vite-node scripts/recompute-match-impacts.ts -- --db /tmp/prod-backfill.sqlite --all --apply
+
+# 5. Import the repaired data back into production
+#    (schema already exists, so import data only, and confirm the row counts first)
+sqlite3 /tmp/prod-backfill.sqlite ".dump match_rating_impacts" | \
+  npx wrangler d1 execute spinrank-prod --remote --command="DELETE FROM match_rating_impacts;"
+sqlite3 /tmp/prod-backfill.sqlite ".dump match_rating_impacts" > /tmp/match_rating_impacts.sql
+npx wrangler d1 execute spinrank-prod --remote --file=/tmp/match_rating_impacts.sql
+```
+
+Notes:
+
+- The script is idempotent: re-running it after a successful backfill reports "already current" and writes nothing.
+- It re-derives each snapshot before deleting the old row, so a failure cannot lose data.
+- Expect two categories of rows to keep a "shrinking" penalty afterwards; both are correct:
+  - the **200-point season-score floor**: when a player's conservative rating drops below the raw penalty, the applied (capped) penalty follows the rating;
+  - snapshots attached to **deleted matches**, which are never rendered in the UI.
+- If a user's season matches are numerous, the run takes a few minutes (roughly 3-4 minutes for ~1000 snapshots locally).
+
 ## Notes
 
 - The frontend uses a single action-envelope API instead of multiple REST routes.

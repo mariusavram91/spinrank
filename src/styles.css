@@ -2037,6 +2037,50 @@ select.text-input {
   color: rgba(15, 23, 42, 0.82);
 }
 
+.profile-attendance-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  border: 1px dashed rgba(180, 83, 9, 0.35);
+  background: linear-gradient(180deg, rgba(255, 251, 235, 0.95), rgba(254, 243, 199, 0.9));
+}
+
+.profile-attendance-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.profile-attendance-card__icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.profile-attendance-card__title {
+  font-weight: 700;
+  color: rgba(120, 53, 15, 0.92);
+}
+
+.profile-attendance-card__meta {
+  font-size: 0.84rem;
+  color: rgba(120, 53, 15, 0.75);
+}
+
+.profile-attendance-card__line {
+  font-size: 0.9rem;
+  color: rgba(15, 23, 42, 0.82);
+}
+
+.profile-attendance-card__line--lead {
+  font-weight: 600;
+}
+
+.profile-attendance-card__hint {
+  font-size: 0.8rem;
+  color: rgba(120, 53, 15, 0.7);
+}
+
 @media (max-width: 640px) {
   .profile-match-type-summary {
     grid-template-columns: 1fr;

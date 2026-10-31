@@ -177,6 +177,7 @@ function mapMatchRow(
         conservativeAfter: number;
         attendancePenaltyBefore: number;
         attendancePenaltyAfter: number;
+        attendanceMissedWeeks?: number;
         scoreBefore: number;
         scoreAfter: number;
       } | null;

@@ -521,8 +521,11 @@ describe("worker integration: getMatches", () => {
         .first<{ season_breakdown_json: string }>();
       const breakdown = impactRow ? JSON.parse(impactRow.season_breakdown_json) : null;
 
+      // Legacy matches get two free misses, so three missed weeks before this first decisive week cost 8.
+      // Under the current one-free-miss rule the same shape would cost 24, which is what this proves is not applied.
       expect(breakdown).toMatchObject({
-        attendancePenaltyBefore: 24,
+        attendancePenaltyBefore: 0,
+        attendancePenaltyAfter: 8,
       });
     } finally {
       await context.cleanup();

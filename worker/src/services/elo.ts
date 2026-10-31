@@ -435,6 +435,16 @@ function calculateConsecutiveMissedWeeks(attendedWeekKeys: Set<number>, totalWee
   return missedWeeks;
 }
 
+function getLastAttendedWeekKey(attendedWeekKeys: Set<number>): number {
+  let lastWeekKey = -1;
+  attendedWeekKeys.forEach((weekKey) => {
+    if (weekKey > lastWeekKey) {
+      lastWeekKey = weekKey;
+    }
+  });
+  return lastWeekKey;
+}
+
 function calculateAttendancePenalty(attendedWeekKeys: Set<number>, totalWeeks: number, attendanceFreeMisses = ATTENDANCE_FREE_MISSES): number {
   let missedWeeksInCurrentStreak = 0;
   let totalPenalty = 0;
@@ -450,14 +460,6 @@ function calculateAttendancePenalty(attendedWeekKeys: Set<number>, totalWeeks: n
   }
 
   return totalPenalty;
-}
-
-function getSeasonScoreAtWeek(state: SeasonRatingState, totalWeeks: number, attendanceFreeMisses = ATTENDANCE_FREE_MISSES): number {
-  return calculateSeasonScore({
-    rating: state.glickoRating,
-    rd: state.glickoRd,
-    attendancePenalty: calculateAttendancePenalty(state.attendedWeekKeys, totalWeeks, attendanceFreeMisses),
-  });
 }
 
 function getPlayerElo(state: RatingState | UserRow | undefined): number {
@@ -1555,14 +1557,21 @@ async function deriveMissingUserMatchImpactDetails(
         const beforeUserState = needsDetail ? seasonState[userId] : null;
         const beforeRating = beforeUserState ? beforeUserState.glickoRating : null;
         const beforeRd = beforeUserState ? beforeUserState.glickoRd : null;
-        const beforeScore = beforeUserState ? getSeasonScoreAtWeek(beforeUserState, totalWeeks, attendanceFreeMisses) : 0;
         const beforeConservative =
           beforeRating !== null && beforeRd !== null ? calculateSeasonConservativeRating(beforeRating, beforeRd) : 0;
+        // "Before" is the penalty the player last saw, so its window ends at their previous attended week. This keeps a
+        // gap of missed weeks from being charged ahead of time and never counts the week being played as missed.
+        const beforeLastAttendedWeekKey = beforeUserState ? getLastAttendedWeekKey(beforeUserState.attendedWeekKeys) : -1;
+        const beforeTotalWeeks = beforeUserState ? beforeLastAttendedWeekKey + 1 : 0;
         const beforePenalty = beforeUserState
           ? calculateAppliedAttendancePenalty(
               beforeConservative,
-              calculateAttendancePenalty(beforeUserState.attendedWeekKeys, totalWeeks, attendanceFreeMisses),
+              calculateAttendancePenalty(beforeUserState.attendedWeekKeys, beforeTotalWeeks, attendanceFreeMisses),
             )
+          : 0;
+        const beforeScore = beforeConservative - beforePenalty;
+        const attendanceMissedWeeks = beforeUserState
+          ? Math.max(0, getSeasonWeekIndex(season.startDate, playedAt) - beforeLastAttendedWeekKey - 1)
           : 0;
         let seasonExpectedWinProbability = 0;
         if (currentTeamA && currentTeamB) {
@@ -1588,12 +1597,12 @@ async function deriveMissingUserMatchImpactDetails(
         });
         if (beforeUserState && beforeRating !== null && beforeRd !== null) {
           const afterUserState = seasonState[userId];
-          const afterScore = getSeasonScoreAtWeek(afterUserState, totalWeeks, attendanceFreeMisses);
           const afterConservative = calculateSeasonConservativeRating(afterUserState.glickoRating, afterUserState.glickoRd);
           const afterPenalty = calculateAppliedAttendancePenalty(
             afterConservative,
             calculateAttendancePenalty(afterUserState.attendedWeekKeys, totalWeeks, attendanceFreeMisses),
           );
+          const afterScore = afterConservative - afterPenalty;
           seasonScoreDelta = afterScore - beforeScore;
           seasonBreakdown = {
             expectedWinProbability: seasonExpectedWinProbability,
@@ -1605,6 +1614,7 @@ async function deriveMissingUserMatchImpactDetails(
             conservativeAfter: afterConservative,
             attendancePenaltyBefore: beforePenalty,
             attendancePenaltyAfter: afterPenalty,
+            attendanceMissedWeeks,
             scoreBefore: beforeScore,
             scoreAfter: afterScore,
           };
