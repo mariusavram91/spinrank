@@ -42,6 +42,34 @@ export const buildVisibleSeasonsSql = (): string => `
     )
 `;
 
+/**
+ * Every non-deleted season the viewer created or joined, regardless of age.
+ * The profile page needs the full history; dropdowns narrow this down again.
+ */
+export const buildAssociatedSeasonsSql = (): string => `
+  SELECT
+    s.id,
+    s.name,
+    s.start_date,
+    s.end_date,
+    s.is_active,
+    s.status,
+    s.base_elo_mode,
+    s.participant_ids_json,
+    s.created_by_user_id,
+    s.created_at,
+    s.completed_at,
+    s.is_public
+  FROM seasons s
+  LEFT JOIN season_participants sp
+    ON sp.season_id = s.id AND sp.user_id = ?1
+  WHERE s.status != 'deleted'
+    AND (
+      s.created_by_user_id = ?1
+      OR sp.user_id IS NOT NULL
+    )
+`;
+
 export const buildVisibleTournamentsSql = (): string => `
   SELECT
     t.id,

@@ -1,7 +1,11 @@
 import { parseJsonArray } from "../db";
 import { successResponse } from "../responses";
 import { calculateSeasonScore, MINIMUM_LEADERBOARD_MATCHES } from "../services/elo";
-import { buildVisibleSeasonsSql, buildVisibleTournamentsSql, getRecentCompletionCutoffDate } from "../services/visibility";
+import {
+  buildAssociatedSeasonsSql,
+  buildVisibleTournamentsSql,
+  getRecentCompletionCutoffDate,
+} from "../services/visibility";
 import type {
   ApiRequest,
   Env,
@@ -316,18 +320,18 @@ async function loadVisibleSeasons(env: Env, sessionUserId: string, seasonIds: st
     return [];
   }
 
-  const placeholders = buildInClausePlaceholders(seasonIds.length, 3);
+  const placeholders = buildInClausePlaceholders(seasonIds.length, 2);
   const result = await env.DB.prepare(
     `
       WITH visible AS (
-        ${buildVisibleSeasonsSql()}
+        ${buildAssociatedSeasonsSql()}
       )
       SELECT id, participant_ids_json
       FROM visible
       WHERE id IN (${placeholders})
     `,
   )
-    .bind(sessionUserId, getRecentCompletionCutoffDate(env.runtime), ...seasonIds)
+    .bind(sessionUserId, ...seasonIds)
     .all<VisibleSeasonRow>();
 
   return result.results;

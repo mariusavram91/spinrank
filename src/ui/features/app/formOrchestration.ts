@@ -2,7 +2,7 @@ import type { CreateMatchPayload, CreateSeasonPayload } from "../../../api/contr
 import type { TextKey } from "../../shared/i18n/translations";
 import type { DashboardState, MatchDraft, TournamentPlannerState, ViewState } from "../../shared/types/app";
 import {
-  shouldShowSeasonInDropdown,
+  getSeasonIdsForDropdown,
   shouldShowTournamentInDropdown,
   isCompletedSeason,
   isCompletedTournament,
@@ -280,7 +280,8 @@ export const createFormOrchestration = (args: {
 
   const populateSeasonOptions = (): void => {
     const currentUserId = args.getCurrentUserId();
-    const visibleSeasons = args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId));
+    const dropdownSeasonIds = getSeasonIdsForDropdown(args.dashboardState.seasons, currentUserId);
+    const visibleSeasons = args.dashboardState.seasons.filter((season) => dropdownSeasonIds.has(season.id));
     const selectedSeasonValue = visibleSeasons.some((season) => season.id === args.dashboardState.selectedSeasonId)
       ? args.dashboardState.selectedSeasonId
       : pickClosestVisibleSeasonId(visibleSeasons);
@@ -360,11 +361,12 @@ export const createFormOrchestration = (args: {
 
   const populateSeasonManagerLoadOptions = (): void => {
     const currentUserId = args.getCurrentUserId();
+    const dropdownSeasonIds = getSeasonIdsForDropdown(args.dashboardState.seasons, currentUserId);
     replaceOptions(
       args.loadSeasonSelect,
       [
         { value: "", label: args.t("savedSeasons") },
-        ...args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId)).map((season) => ({
+        ...args.dashboardState.seasons.filter((season) => dropdownSeasonIds.has(season.id)).map((season) => ({
           value: season.id,
           label: `${season.name}${isCompletedSeason(season) ? ` • ${args.t("completedLabel")}` : ""}`,
         })),
@@ -399,9 +401,8 @@ export const createFormOrchestration = (args: {
       tournamentField,
       bracketField,
     } = args.getMatchScreenRefs();
-    const visibleSeasons = args.dashboardState.seasons.filter((season) =>
-      shouldShowSeasonInDropdown(season, sessionUserId),
-    );
+    const dropdownSeasonIds = getSeasonIdsForDropdown(args.dashboardState.seasons, sessionUserId);
+    const visibleSeasons = args.dashboardState.seasons.filter((season) => dropdownSeasonIds.has(season.id));
     const visibleTournaments = args.dashboardState.tournaments.filter((tournament) =>
       shouldShowTournamentInDropdown(tournament, sessionUserId),
     );
@@ -623,7 +624,7 @@ export const createFormOrchestration = (args: {
       args.tournamentSeasonSelect,
       [
         { value: "", label: "No season" },
-        ...args.dashboardState.seasons.filter((season) => shouldShowSeasonInDropdown(season, sessionUserId)).map((season) => ({
+        ...args.dashboardState.seasons.filter((season) => dropdownSeasonIds.has(season.id)).map((season) => ({
           value: season.id,
           label: season.name,
         })),

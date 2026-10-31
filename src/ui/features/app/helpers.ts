@@ -77,30 +77,45 @@ export const isLockedTournament = (tournament: TournamentRecord | undefined): bo
       (tournament.status === "deleted" || tournament.status === "completed" || isCompletedTournament(tournament)),
   );
 
-const getRecentCompletionCutoff = (): string => getDateValueMonthsAgo(2);
+const RECENT_COMPLETED_SEASON_LIMIT = 3;
+const RECENT_COMPLETION_WINDOW_MONTHS = 2;
 
 const isWithinRecentCompletionWindow = (dateValue: string | null | undefined): boolean =>
-  Boolean(dateValue && dateValue >= getRecentCompletionCutoff());
+  Boolean(dateValue && dateValue >= getDateValueMonthsAgo(RECENT_COMPLETION_WINDOW_MONTHS));
 
-export const shouldShowSeasonInDropdown = (
-  season: SeasonRecord | undefined,
+const getSeasonCompletionDate = (season: SeasonRecord): string => season.endDate || season.startDate;
+
+const compareSeasonsByRecency = (left: SeasonRecord, right: SeasonRecord): number => {
+  const leftCompletion = getSeasonCompletionDate(left);
+  const rightCompletion = getSeasonCompletionDate(right);
+  if (leftCompletion !== rightCompletion) {
+    return rightCompletion.localeCompare(leftCompletion);
+  }
+  return right.startDate.localeCompare(left.startDate);
+};
+
+/**
+ * Season dropdowns list every current season the user belongs to plus only the
+ * most recently finished ones; the profile page keeps the full history instead.
+ */
+export const getSeasonIdsForDropdown = (
+  seasons: SeasonRecord[],
   currentUserId: string,
-): boolean => {
-  if (!season || season.status === "deleted") {
-    return false;
-  }
+): Set<string> => {
+  const associated = seasons.filter(
+    (season) =>
+      season.status !== "deleted" &&
+      (season.createdByUserId === currentUserId || season.participantIds.includes(currentUserId)),
+  );
+  const completedSeasons = associated
+    .filter((season) => isCompletedSeason(season))
+    .sort(compareSeasonsByRecency)
+    .slice(0, RECENT_COMPLETED_SEASON_LIMIT);
 
-  const isAssociated =
-    season.createdByUserId === currentUserId || season.participantIds.includes(currentUserId);
-  if (!isAssociated) {
-    return false;
-  }
-
-  if (isCompletedSeason(season)) {
-    return isWithinRecentCompletionWindow(season.endDate);
-  }
-
-  return season.isActive;
+  return new Set([
+    ...associated.filter((season) => !isCompletedSeason(season) && season.isActive).map((season) => season.id),
+    ...completedSeasons.map((season) => season.id),
+  ]);
 };
 
 export const shouldShowTournamentInDropdown = (

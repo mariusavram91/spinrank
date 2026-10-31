@@ -9,7 +9,7 @@ import type {
 import type { DashboardState, SegmentMode, SharePanelElements } from "../../shared/types/app";
 import type { RunAuthedAction } from "../../shared/types/actions";
 import type { TextKey } from "../../shared/i18n/translations";
-import { shouldShowSeasonInDropdown, shouldShowTournamentInDropdown } from "../app/helpers";
+import { getSeasonIdsForDropdown, shouldShowTournamentInDropdown } from "../app/helpers";
 import { getTodayDateValue } from "../../shared/utils/format";
 
 type TranslationFn = (key: TextKey) => string;
@@ -295,7 +295,8 @@ export const createDashboardActions = (args: {
       args.dashboardState.seasons = data.seasons;
       args.dashboardState.tournaments = data.tournaments;
       const currentUserId = args.getCurrentUserId();
-      const visibleSeasons = data.seasons.filter((season) => shouldShowSeasonInDropdown(season, currentUserId));
+      const dropdownSeasonIds = getSeasonIdsForDropdown(data.seasons, currentUserId);
+      const visibleSeasons = data.seasons.filter((season) => dropdownSeasonIds.has(season.id));
       const visibleTournaments = data.tournaments.filter((tournament) =>
         shouldShowTournamentInDropdown(tournament, currentUserId)
       );

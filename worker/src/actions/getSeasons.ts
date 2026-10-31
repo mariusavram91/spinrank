@@ -1,6 +1,6 @@
 import { parseJsonArray } from "../db";
 import { successResponse } from "../responses";
-import { buildVisibleSeasonsSql, getRecentCompletionCutoffDate } from "../services/visibility";
+import { buildAssociatedSeasonsSql } from "../services/visibility";
 import type { ApiRequest, Env, SeasonRecord, SeasonRow, UserRow } from "../types";
 
 export async function handleGetSeasons(
@@ -10,11 +10,11 @@ export async function handleGetSeasons(
 ) {
   const result = await env.DB.prepare(
     `
-      ${buildVisibleSeasonsSql()}
+      ${buildAssociatedSeasonsSql()}
       ORDER BY s.is_active DESC, s.start_date DESC, s.id DESC
     `,
   )
-    .bind(sessionUser.id, getRecentCompletionCutoffDate(env.runtime))
+    .bind(sessionUser.id)
     .all<SeasonRow>();
 
   const seasons = result.results.map<SeasonRecord>((row) => ({

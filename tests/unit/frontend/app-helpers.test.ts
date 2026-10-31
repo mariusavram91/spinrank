@@ -1,7 +1,7 @@
 import type { MatchRecord, SeasonRecord, TournamentBracketRound, TournamentRecord } from "../../../src/api/contract";
 import {
   renderMatchContext,
-  shouldShowSeasonInDropdown,
+  getSeasonIdsForDropdown,
   shouldShowTournamentInDropdown,
   getWinnerLabel,
   isTournamentBracketMatchReadyForCreation,
@@ -154,35 +154,51 @@ describe("app helpers", () => {
     expect(isTournamentBracketMatchReadyForCreation(rounds, 1, 0)).toBe(true);
   });
 
-  it("considers active or associated seasons visible", () => {
-    const season = buildSeason({ status: "active", isActive: true, participantIds: [currentUserId] });
-    expect(shouldShowSeasonInDropdown(season, currentUserId)).toBe(true);
+  it("lists every current season the user is associated with", () => {
+    const seasons = [
+      buildSeason({ id: "season_current", startDate: "2026-04-01", endDate: "", status: "active", isActive: true }),
+      buildSeason({ id: "season_created", startDate: "2026-04-02", endDate: "", status: "active", isActive: true, participantIds: [] }),
+    ];
+
+    expect([...getSeasonIdsForDropdown(seasons, currentUserId)].sort()).toEqual(["season_created", "season_current"]);
   });
 
-  it("hides completed seasons that finished before the recent window", () => {
-    const season = buildSeason({
-      status: "completed",
-      endDate: "2025-11-01",
-      isActive: false,
-    });
-    expect(shouldShowSeasonInDropdown(season, currentUserId)).toBe(false);
+  it("caps finished seasons to the three most recently completed", () => {
+    const seasons = [
+      buildSeason({ id: "season_oldest", startDate: "2025-01-01", endDate: "2025-02-01", status: "completed", isActive: false }),
+      buildSeason({ id: "season_second", startDate: "2025-03-01", endDate: "2025-04-01", status: "completed", isActive: false }),
+      buildSeason({ id: "season_third", startDate: "2025-05-01", endDate: "2025-06-01", status: "completed", isActive: false }),
+      buildSeason({ id: "season_latest", startDate: "2026-03-01", endDate: "2026-03-20", status: "completed", isActive: false }),
+    ];
+
+    expect([...getSeasonIdsForDropdown(seasons, currentUserId)].sort()).toEqual([
+      "season_latest",
+      "season_second",
+      "season_third",
+    ]);
   });
 
-  it("shows completed seasons within the recent window if associated", () => {
-    const season = buildSeason({
-      status: "completed",
-      endDate: "2026-03-10",
-      isActive: false,
-    });
-    expect(shouldShowSeasonInDropdown(season, currentUserId)).toBe(true);
+  it("combines all current seasons with the three latest finished ones", () => {
+    const seasons = [
+      buildSeason({ id: "season_current", startDate: "2026-04-01", endDate: "", status: "active", isActive: true }),
+      buildSeason({ id: "season_oldest", startDate: "2025-01-01", endDate: "2025-02-01", status: "completed", isActive: false }),
+      buildSeason({ id: "season_latest", startDate: "2026-03-01", endDate: "2026-03-20", status: "completed", isActive: false }),
+    ];
+
+    expect([...getSeasonIdsForDropdown(seasons, currentUserId)].sort()).toEqual([
+      "season_current",
+      "season_latest",
+      "season_oldest",
+    ]);
   });
 
-  it("hides seasons the user is not associated with", () => {
-    const season = buildSeason({
-      participantIds: ["other"],
-      createdByUserId: "other",
-    });
-    expect(shouldShowSeasonInDropdown(season, currentUserId)).toBe(false);
+  it("hides deleted and unassociated seasons", () => {
+    const seasons = [
+      buildSeason({ id: "season_deleted", status: "deleted" }),
+      buildSeason({ id: "season_foreign", participantIds: ["other"], createdByUserId: "other" }),
+    ];
+
+    expect([...getSeasonIdsForDropdown(seasons, currentUserId)]).toEqual([]);
   });
 
   it("shows active tournaments the user created", () => {
