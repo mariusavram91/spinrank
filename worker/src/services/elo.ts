@@ -1365,6 +1365,24 @@ export async function recomputeAllRankings(env: Env): Promise<RatingSnapshot> {
             ) VALUES (
               ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21
             )
+            ON CONFLICT(segment_type, segment_id, user_id) DO UPDATE SET
+              elo = excluded.elo,
+              matches_played = excluded.matches_played,
+              matches_played_equivalent = excluded.matches_played_equivalent,
+              wins = excluded.wins,
+              losses = excluded.losses,
+              streak = excluded.streak,
+              best_win_streak = excluded.best_win_streak,
+              highest_score = excluded.highest_score,
+              last_match_at = excluded.last_match_at,
+              updated_at = excluded.updated_at,
+              season_glicko_rating = excluded.season_glicko_rating,
+              season_glicko_rd = excluded.season_glicko_rd,
+              season_glicko_volatility = excluded.season_glicko_volatility,
+              season_conservative_rating = excluded.season_conservative_rating,
+              season_attended_weeks = excluded.season_attended_weeks,
+              season_total_weeks = excluded.season_total_weeks,
+              season_attendance_penalty = excluded.season_attendance_penalty
           `,
         ).bind(
           randomId("seg", env.runtime),

@@ -445,10 +445,7 @@ export const createDashboardActions = (args: {
       matchupCharts: data.stats.matchupCharts ?? [],
       weeklyActivityBars: data.stats.weeklyActivityBars ?? [],
       matchTypeSplitBars: data.stats.matchTypeSplitBars ?? [],
-      attendanceBars: buildSeasonAttendanceBars(
-        data.leaderboard,
-        args.dashboardState.seasons.find((entry) => entry.id === seasonId),
-      ),
+      attendanceBars: buildSeasonAttendanceBars(data.leaderboard),
     };
     args.dashboardState.seasonStatsBySeasonId[seasonId] = nextStats;
     return nextStats;
