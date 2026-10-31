@@ -4329,8 +4329,12 @@ select.text-input {
 
 @media (max-width: 700px) {
   .delete-warning-overlay {
-    place-items: stretch;
+    place-items: start stretch;
     padding: 12px;
+  }
+
+  .delete-warning-overlay > .delete-warning-modal {
+    margin-block: auto;
   }
 
   .season-stats-modal {
